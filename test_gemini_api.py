@@ -61,7 +61,7 @@ def test_gemini_api():
     
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents="Hello! This is a test message to verify the Gemini API is working. Please respond with 'API TEST SUCCESSFUL' and the current date."
         )
         
