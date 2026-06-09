@@ -23,6 +23,11 @@ import os
 import json
 from typing import Dict, Optional, Any
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in the project root
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 try:
