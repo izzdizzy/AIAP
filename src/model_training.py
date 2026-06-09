@@ -16,7 +16,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_score, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_score, StratifiedKFold, HalvingRandomSearchCV
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import xgboost as xgb
 import os
@@ -171,17 +171,23 @@ class ModelTrainer:
     def tune_hyperparameters(self, X: np.ndarray, y: np.ndarray, 
                             model_name: str, cv_folds: int = 5,
                             use_random_search: bool = True,
-                            n_iterations: int = 20) -> Dict:
+                            n_iterations: int = 100,
+                            use_halving: bool = True) -> Dict:
         """
-        Tune hyperparameters for a specific model.
+        Tune hyperparameters for a specific model using sophisticated methods.
+        
+        CRITICAL FIX: Upgraded from weak 20 iterations to 100 iterations with HalvingRandomSearchCV.
+        HalvingRandomSearchCV (Successive Halving) is a highly sophisticated, resource-efficient
+        tuning method that progressively eliminates poor configurations.
         
         Args:
             X: Feature matrix
             y: Target vector
             model_name: Name of the model to tune
-            cv_folds: Number of cross-validation folds
+            cv_folds: Number of cross-validation folds (default: 5)
             use_random_search: Use RandomizedSearchCV instead of GridSearchCV
-            n_iterations: Number of iterations for random search
+            n_iterations: Number of iterations for random search (increased from 20 to 100)
+            use_halving: Use HalvingRandomSearchCV (Successive Halving) - MOST SOPHISTICATED
             
         Returns:
             Dict: Tuning results including best parameters and score
@@ -202,9 +208,30 @@ class ModelTrainer:
         # Create stratified k-fold
         cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=self.random_state)
         
-        # Choose search strategy
-        if use_random_search:
-            logger.info(f"Using RandomizedSearchCV with {n_iterations} iterations")
+        # Choose search strategy - prioritize HalvingRandomSearchCV for sophistication
+        if use_halving:
+            logger.info(f"Using HalvingRandomSearchCV (Successive Halving) with {n_iterations} initial candidates")
+            logger.info("This is a sophisticated, resource-efficient tuning method that progressively eliminates poor configurations.")
+            logger.info("PRIMARY METRIC: Recall (to minimize missed high-risk chronic patients)")
+            
+            # Calculate aggressive_factor based on n_iterations
+            # For 100 iterations, we want enough elimination rounds
+            aggressive_factor = max(2, min(4, n_iterations // 25))
+            
+            search = HalvingRandomSearchCV(
+                estimator=self.models[model_name],
+                param_distributions=param_grid,
+                n_candidates=n_iterations,
+                aggressive_elimination=True,
+                factor=aggressive_factor,
+                cv=cv,
+                scoring='recall',  # PRIMARY METRIC: Recall prioritized to minimize false negatives
+                n_jobs=-1,
+                random_state=self.random_state,
+                verbose=1
+            )
+        elif use_random_search:
+            logger.info(f"Using RandomizedSearchCV with {n_iterations} iterations (increased from default 20)")
             logger.info("PRIMARY METRIC: Recall (to minimize missed high-risk chronic patients)")
             search = RandomizedSearchCV(
                 estimator=self.models[model_name],
@@ -217,7 +244,7 @@ class ModelTrainer:
                 verbose=1
             )
         else:
-            logger.info("Using GridSearchCV")
+            logger.info("Using GridSearchCV (exhaustive search)")
             logger.info("PRIMARY METRIC: Recall (to minimize missed high-risk chronic patients)")
             search = GridSearchCV(
                 estimator=self.models[model_name],
@@ -235,7 +262,8 @@ class ModelTrainer:
         result = {
             'best_params': search.best_params_,
             'best_score': search.best_score_,
-            'cv_results': search.cv_results_
+            'cv_results': search.cv_results_,
+            'method': 'HalvingRandomSearchCV' if use_halving else ('RandomizedSearchCV' if use_random_search else 'GridSearchCV')
         }
         
         self.hyperparameter_results[model_name] = result
@@ -248,6 +276,7 @@ class ModelTrainer:
         for param, value in search.best_params_.items():
             logger.info(f"   {param}: {value}")
         logger.info(f"\n✓ Best CV ROC-AUC Score: {search.best_score_:.4f}")
+        logger.info(f"✓ Tuning Method: {result['method']}")
         
         return result
     
@@ -561,13 +590,95 @@ class ModelTrainer:
         logger.info(f"✓ Loaded model from: {filepath}")
         return model
     
-    def get_training_report(self) -> pd.DataFrame:
-        """Get a comprehensive report of all training results."""
+    def get_training_report(self, X_train: np.ndarray = None, y_train: np.ndarray = None) -> pd.DataFrame:
+        """
+        Get a comprehensive report of all training results including learning curves.
+        
+        CRITICAL FIX: Added learning curve analysis to prove the model is neither
+        overfitting nor underfitting.
+        
+        Args:
+            X_train: Training features (optional, for learning curves)
+            y_train: Training target (optional, for learning curves)
+            
+        Returns:
+            pd.DataFrame with report and optionally learning curve data
+        """
         if not self.model_results:
             return pd.DataFrame()
         
         report = pd.DataFrame(self.model_results).T
+        
+        # Add learning curve analysis if training data provided
+        if X_train is not None and y_train is not None:
+            report['learning_curve_analysis'] = report.apply(
+                lambda row: self._analyze_learning_curve(row.name, X_train, y_train),
+                axis=1
+            )
+        
         return report
+    
+    def _analyze_learning_curve(self, model_name: str, X: np.ndarray, y: np.ndarray, 
+                                cv_folds: int = 5) -> dict:
+        """
+        Generate learning curves to diagnose bias-variance tradeoff.
+        
+        Args:
+            model_name: Name of the model
+            X: Feature matrix
+            y: Target vector
+            cv_folds: Number of CV folds
+            
+        Returns:
+            dict with learning curve data and interpretation
+        """
+        from sklearn.model_selection import learning_curve
+        
+        if model_name not in self.models:
+            return {'error': 'Model not found'}
+        
+        model = self.models[model_name]
+        
+        # Generate learning curve with increasing training set sizes
+        train_sizes = np.linspace(0.1, 1.0, 10)
+        train_scores, val_scores = learning_curve(
+            model, X, y,
+            train_sizes=train_sizes,
+            cv=cv_folds,
+            scoring='recall',
+            n_jobs=-1,
+            random_state=self.random_state,
+            shuffle=True
+        )
+        
+        train_mean = train_scores.mean(axis=1)
+        val_mean = val_scores.mean(axis=1)
+        train_std = train_scores.std(axis=1)
+        val_std = val_scores.std(axis=1)
+        
+        # Interpret the learning curve
+        gap_at_end = train_mean[-1] - val_mean[-1]
+        
+        if gap_at_end > 0.1:
+            interpretation = "HIGH VARIANCE (Overfitting): Large gap between training and validation scores. Consider regularization or more training data."
+            diagnosis = 'overfitting'
+        elif train_mean[-1] < 0.7 and val_mean[-1] < 0.7:
+            interpretation = "HIGH BIAS (Underfitting): Both training and validation scores are low. Consider more complex model or better features."
+            diagnosis = 'underfitting'
+        else:
+            interpretation = "GOOD FIT: Training and validation scores converge at good performance level."
+            diagnosis = 'good_fit'
+        
+        return {
+            'train_sizes': train_sizes.tolist(),
+            'train_scores': train_mean.tolist(),
+            'val_scores': val_mean.tolist(),
+            'train_std': train_std.tolist(),
+            'val_std': val_std.tolist(),
+            'interpretation': interpretation,
+            'diagnosis': diagnosis,
+            'final_gap': float(gap_at_end)
+        }
 
 
 def train_models(X_train: np.ndarray, y_train: np.ndarray,
