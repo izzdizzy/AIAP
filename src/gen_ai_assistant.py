@@ -438,65 +438,90 @@ Consider:
         else:
             risk_level = "LOW"
         
-        # If API not available, use rule-based fallback
+        # If API not available, report LLM not configured (no automatic fallback)
         if not self._api_available:
-            recommendation = self._rule_based_recommendation(
-                readmission_score,
-                health_profile
-            )
             return {
-                "recommendation": recommendation,
+                "recommendation": "",
                 "risk_level": risk_level,
-                "success": True,
-                "note": "Generated using rule-based system (LLM API not configured)"
+                "success": False,
+                "error": "LLM API not configured",
+                "note": "Set GROQ_API_KEY environment variable to enable LLM"
             }
-        
+
         # Use Groq API if client is initialized
         if self.client is not None:
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    max_tokens=max_tokens,
-                    temperature=0.7
-                )
-                
-                recommendation = response.choices[0].message.content.strip()
-                
-                return {
-                    "recommendation": recommendation,
-                    "risk_level": risk_level,
-                    "success": True,
-                    "model_used": self.model_name
-                }
-                
+                # Use the higher-level chat.create if available to match SDK schemas
+                if hasattr(self.client.chat, 'create'):
+                    params = {
+                        'messages': [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        'max_tokens': max_tokens,
+                        'temperature': 0.7
+                    }
+                    if self.model_name:
+                        params['model'] = self.model_name
+                    response = self.client.chat.create(**params)
+                    # response may be APIResponse-like or have .choices
+                    recommendation = ''
+                    if hasattr(response, 'choices') and response.choices:
+                        # older-style response
+                        try:
+                            recommendation = response.choices[0].message.content.strip()
+                        except Exception:
+                            recommendation = str(response.choices[0])
+                    else:
+                        # newer SDKs return content in .output_text or similar
+                        recommendation = getattr(response, 'output_text', None) or str(response)
+
+                    return {
+                        "recommendation": recommendation,
+                        "risk_level": risk_level,
+                        "success": True,
+                        "model_used": self.model_name
+                    }
+                else:
+                    # Fall back to completions resource if chat.create is not available
+                    params = {
+                        'messages': [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        'max_tokens': max_tokens,
+                        'temperature': 0.7
+                    }
+                    if self.model_name:
+                        params['model'] = self.model_name
+                    else:
+                        params['model'] = 'llama-3.1-8b-instant'
+                    response = self.client.chat.completions.create(**params)
+                    recommendation = response.choices[0].message.content.strip()
+                    return {
+                        "recommendation": recommendation,
+                        "risk_level": risk_level,
+                        "success": True,
+                        "model_used": self.model_name
+                    }
+
             except Exception as e:
-                # Fallback to rule-based if API call fails
-                print(f"Groq API call failed: {e}. Using rule-based fallback.")
-                recommendation = self._rule_based_recommendation(
-                    readmission_score,
-                    health_profile
-                )
+                # LLM API call failed - report error and debug info
                 return {
-                    "recommendation": recommendation,
+                    "recommendation": "",
                     "risk_level": risk_level,
-                    "success": True,
-                    "note": f"Generated using rule-based system (API error: {str(e)})"
+                    "success": False,
+                    "error": "LLM API error",
+                    "debug": str(e)
                 }
         else:
-            # Use rule-based system when no API key
-            recommendation = self._rule_based_recommendation(
-                readmission_score,
-                health_profile
-            )
+            # No client initialized despite API being available
             return {
-                "recommendation": recommendation,
+                "recommendation": "",
                 "risk_level": risk_level,
-                "success": True,
-                "note": "Generated using rule-based system (LLM API not configured)"
+                "success": False,
+                "error": "LLM client not initialized",
+                "note": "GROQ SDK may be missing or failed to initialize"
             }
     
     def _rule_based_recommendation(
@@ -631,103 +656,189 @@ def generate_care_navigation(
     return result["recommendation"]
 
 
+def _run_cli():
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(description="Care Navigation Assistant CLI")
+    parser.add_argument("--score", type=float, help="Readmission score (0-1)")
+    parser.add_argument("--age", type=int, help="Patient age")
+    parser.add_argument("--chas", type=str, help="CHAS tier, e.g. 'CHAS Blue'", default="Not specified")
+    parser.add_argument("--diabetes", action="store_true", help="Patient has diabetes")
+    parser.add_argument("--hypertension", action="store_true", help="Patient has hypertension")
+    parser.add_argument("--preferred-provider", type=str, default="Any", help="Preferred provider string")
+    parser.add_argument("--api-key", type=str, help="Override API key for this run")
+    parser.add_argument("--model", type=str, help="Model name to use (optional)")
+    parser.add_argument("--demo", action="store_true", help="Run built-in sample cases")
+    parser.add_argument("--interactive", action="store_true", help="Interactive prompt: sample dataset or enter your inputs")
+
+    args = parser.parse_args()
+
+    def _print_result(out, score=None, profile=None):
+        # out can be a dict returned by generate_recommendation
+        if isinstance(out, dict):
+            if out.get('success'):
+                print(out.get('recommendation', '').strip())
+            else:
+                print('An error has occurred:')
+                print(out.get('error') or out.get('note') or 'LLM error')
+                if out.get('debug'):
+                    print('\nDebug info:')
+                    print(out.get('debug'))
+        else:
+            # string fallback
+            print(str(out))
+
+    if args.demo:
+        samples = [
+            (0.75, {"age": 78, "chas_tier": "Pioneer Generation", "has_diabetes": True, "has_hypertension": True, "preferred_provider": "Polyclinic"}),
+            (0.45, {"age": 52, "chas_tier": "CHAS Blue", "has_diabetes": True, "has_hypertension": False, "preferred_provider": "GP"}),
+            (0.18, {"age": 45, "chas_tier": "CHAS Green", "has_diabetes": True, "has_hypertension": True, "preferred_provider": "Any"}),
+            (0.89, {"age": 68, "chas_tier": "Merdeka Generation", "has_diabetes": True, "has_hypertension": True, "preferred_provider": "Any"}),
+        ]
+
+        assistant = CareNavigationAssistant(llm_api_key=args.api_key, model_name=args.model or None)
+        for score, profile in samples:
+            out = assistant.generate_recommendation(readmission_score=score, health_profile=profile)
+            _print_result(out, score=score, profile=profile)
+        return
+
+    if args.interactive:
+        # Prompt user to choose dataset sampling or manual input
+        print("Choose input source:")
+        print("1) Test inputs (random from dataset)")
+        print("2) Use your inputs (interactive)")
+        choice = input("Enter 1 or 2: ").strip()
+        assistant = CareNavigationAssistant(llm_api_key=args.api_key, model_name=args.model or None)
+
+        if choice == "1":
+            # Load dataset and sample 3 rows
+            csv_path = Path(__file__).resolve().parents[1] / "data" / "raw" / "diabetic_data.csv"
+            samples = []
+            try:
+                import pandas as pd
+                df = pd.read_csv(csv_path)
+                df_sample = df.sample(n=3, random_state=1)
+                for _, row in df_sample.iterrows():
+                    # map dataset fields to health_profile
+                    age_raw = row.get('age', None)
+                    # derive age numeric as mid-point of bracket if possible
+                    age = None
+                    if isinstance(age_raw, str) and age_raw.startswith('[') and '-' in age_raw:
+                        try:
+                            lo,hi = age_raw.strip('[]').split('-')
+                            age = (int(lo) + int(hi)) // 2
+                        except Exception:
+                            age = None
+
+                    chas = 'Not specified'
+                    # no CHAS in dataset; approximate by payer_code
+                    payer = row.get('payer_code', '')
+                    if isinstance(payer, str) and payer.strip():
+                        chas = payer
+
+                    has_diabetes = True if row.get('diabetesMed', '') == 'Yes' or 'diabetes' in str(row.get('diag_1','')).lower() else False
+                    has_hypertension = False
+
+                    # map readmitted label to score
+                    readm = str(row.get('readmitted', '')).strip()
+                    if readm == 'NO' or readm == 'No':
+                        score = 0.1
+                    elif readm == '<30':
+                        score = 0.5
+                    else:
+                        score = 0.85
+
+                    profile = {
+                        'age': int(age) if age is not None else None,
+                        'chas_tier': chas,
+                        'has_diabetes': bool(has_diabetes),
+                        'has_hypertension': bool(has_hypertension),
+                        'preferred_provider': 'Any'
+                    }
+                    samples.append((float(score), profile))
+
+            except Exception:
+                # fallback to csv module
+                import csv
+                rows = []
+                with open(csv_path, newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for r in reader:
+                        rows.append(r)
+                import random
+                rows_sample = random.sample(rows, min(3, len(rows)))
+                for row in rows_sample:
+                    age_raw = row.get('age', None)
+                    age = None
+                    if isinstance(age_raw, str) and age_raw.startswith('[') and '-' in age_raw:
+                        try:
+                            lo,hi = age_raw.strip('[]').split('-')
+                            age = (int(lo) + int(hi)) // 2
+                        except Exception:
+                            age = None
+                    payer = row.get('payer_code', '')
+                    chas = payer if payer else 'Not specified'
+                    has_diabetes = True if row.get('diabetesMed', '') == 'Yes' or 'diabetes' in str(row.get('diag_1','')).lower() else False
+                    has_hypertension = False
+                    readm = str(row.get('readmitted', '')).strip()
+                    if readm == 'NO' or readm == 'No':
+                        score = 0.1
+                    elif readm == '<30':
+                        score = 0.5
+                    else:
+                        score = 0.85
+                    profile = {
+                        'age': int(age) if age is not None else None,
+                        'chas_tier': chas,
+                        'has_diabetes': bool(has_diabetes),
+                        'has_hypertension': bool(has_hypertension),
+                        'preferred_provider': 'Any'
+                    }
+                    samples.append((float(score), profile))
+
+            # Run assistant on samples
+            for score, profile in samples:
+                out = assistant.generate_recommendation(readmission_score=score, health_profile=profile)
+                _print_result(out, score=score, profile=profile)
+            return
+
+        else:
+            # interactive manual inputs
+            try:
+                score = float(input('Enter readmission score (0-1): ').strip())
+            except Exception:
+                print('Invalid score')
+                return
+            try:
+                age = int(input('Enter age (years): ').strip())
+            except Exception:
+                age = None
+            chas = input('Enter CHAS tier (or leave blank): ').strip() or 'Not specified'
+            has_diabetes = input('Has diabetes? (y/N): ').strip().lower().startswith('y')
+            has_hypertension = input('Has hypertension? (y/N): ').strip().lower().startswith('y')
+            preferred = input('Preferred provider (GP/Polyclinic/Any): ').strip() or 'Any'
+            profile = {'age': age, 'chas_tier': chas, 'has_diabetes': has_diabetes, 'has_hypertension': has_hypertension, 'preferred_provider': preferred}
+            out = assistant.generate_recommendation(readmission_score=score, health_profile=profile)
+            _print_result(out)
+            return
+
+    if args.score is None:
+        parser.print_help()
+        return
+
+    health_profile = {
+        "age": args.age,
+        "chas_tier": args.chas,
+        "has_diabetes": bool(args.diabetes),
+        "has_hypertension": bool(args.hypertension),
+        "preferred_provider": args.preferred_provider,
+    }
+
+    assistant = CareNavigationAssistant(llm_api_key=args.api_key, model_name=args.model or None)
+    out = assistant.generate_recommendation(readmission_score=args.score, health_profile=health_profile)
+    _print_result(out)
+
+
 if __name__ == "__main__":
-    # Test the Care Navigation Assistant
-    print("="*80)
-    print("CARE NAVIGATION ASSISTANT - TEST DEMO")
-    print("="*80)
-    
-    # Test Case 1: High-risk elderly patient
-    print("\n" + "="*80)
-    print("TEST CASE 1: High-Risk Elderly Patient (Pioneer Generation)")
-    print("="*80)
-    
-    test_profile_1 = {
-        "age": 78,
-        "chas_tier": "Pioneer Generation",
-        "has_diabetes": True,
-        "has_hypertension": True,
-        "preferred_provider": "Polyclinic"
-    }
-    
-    result_1 = generate_care_navigation(
-        readmission_score=0.75,
-        diabetes_risk=0.82,
-        hypertension_score=0.68,
-        health_profile=test_profile_1
-    )
-    
-    print(result_1)
-    
-    # Test Case 2: Medium-risk middle-aged patient
-    print("\n" + "="*80)
-    print("TEST CASE 2: Medium-Risk Middle-Aged Patient (CHAS Blue)")
-    print("="*80)
-    
-    test_profile_2 = {
-        "age": 52,
-        "chas_tier": "CHAS Blue",
-        "has_diabetes": True,
-        "has_hypertension": False,
-        "preferred_provider": "GP"
-    }
-    
-    result_2 = generate_care_navigation(
-        readmission_score=0.45,
-        diabetes_risk=0.55,
-        hypertension_score=0.30,
-        health_profile=test_profile_2
-    )
-    
-    print(result_2)
-    
-    # Test Case 3: Low-risk patient
-    print("\n" + "="*80)
-    print("TEST CASE 3: Low-Risk Patient (CHAS Green)")
-    print("="*80)
-    
-    test_profile_3 = {
-        "age": 45,
-        "chas_tier": "CHAS Green",
-        "has_diabetes": True,
-        "has_hypertension": True,
-        "preferred_provider": "Any"
-    }
-    
-    result_3 = generate_care_navigation(
-        readmission_score=0.18,
-        diabetes_risk=0.25,
-        hypertension_score=0.22,
-        health_profile=test_profile_3
-    )
-    
-    print(result_3)
-    
-    # Test Case 4: Urgent risk patient
-    print("\n" + "="*80)
-    print("TEST CASE 4: Urgent Risk Patient (Requires Immediate Attention)")
-    print("="*80)
-    
-    test_profile_4 = {
-        "age": 68,
-        "chas_tier": "Merdeka Generation",
-        "has_diabetes": True,
-        "has_hypertension": True,
-        "preferred_provider": "Any"
-    }
-    
-    result_4 = generate_care_navigation(
-        readmission_score=0.89,
-        diabetes_risk=0.91,
-        hypertension_score=0.85,
-        health_profile=test_profile_4
-    )
-    
-    print(result_4)
-    
-    print("\n" + "="*80)
-    print("DEMO COMPLETE")
-    print("="*80)
-    print("\nNote: Recommendations generated using rule-based system.")
-    print("To use LLM-powered recommendations, set GROQ_API_KEY environment variable.")
-    print("Install the Groq SDK: pip install groq")
+    _run_cli()
