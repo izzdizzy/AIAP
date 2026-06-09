@@ -256,7 +256,7 @@ class CareNavigationAssistant:
         self,
         knowledge_base: Optional[SingaporeHealthcareKnowledgeBase] = None,
         llm_api_key: Optional[str] = None,
-        model_name: str = "gemini-2.0-flash"
+        model_name: str = "gemini-2.5-flash-native-audio-dialog"
     ):
         """
         Initialize the Care Navigation Assistant.
@@ -264,7 +264,7 @@ class CareNavigationAssistant:
         Args:
             knowledge_base: SingaporeHealthcareKnowledgeBase instance
             llm_api_key: Google AI API key (or set GOOGLE_API_KEY env var)
-            model_name: LLM model to use (default: gemini-2.0-flash)
+            model_name: LLM model to use (default: gemini-2.5-flash-native-audio-dialog - has unlimited quota)
         """
         self.knowledge_base = knowledge_base or SingaporeHealthcareKnowledgeBase()
         self.model_name = model_name

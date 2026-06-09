@@ -1,1 +1,50 @@
-Nothing should be ignored based on the provided file changes. The changes only include Python source files (.py) which are legitimate source code files and not build artifacts, dependencies, or temporary files.
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.eggs/
+.egg-info/
+dist/
+build/
+develop-eggs/
+.installed.cfg
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.hypothesis/
+.venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+```
