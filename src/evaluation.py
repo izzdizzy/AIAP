@@ -1,6 +1,6 @@
 """
-Model Evaluation Module for Diabetes Readmission Prediction
-============================================================
+Model Evaluation Module for Chronic Condition Readmission Prediction
+=====================================================================
 Comprehensive model evaluation with detailed metrics, visualizations,
 and healthcare-specific interpretations.
 
@@ -8,6 +8,7 @@ Singapore Healthcare Context:
 - Evaluation metrics are interpreted in healthcare context
 - Emphasis on recall to minimize missed high-risk patients
 - Trade-off analysis between precision and recall for clinical decision-making
+- SHAP integration for model explainability
 """
 
 import pandas as pd
@@ -46,8 +47,8 @@ class ModelEvaluator:
     - Classification Report
     - Metric comparisons
     - Healthcare context interpretations
-    """
-    
+    - Healthcare context interpretations
+    - SHAP analysis for explainability
     def __init__(self, output_dir: str = 'results/evaluation'):
         """
         Initialize the model evaluator.
