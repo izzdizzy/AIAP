@@ -15,6 +15,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
 from sklearn.metrics import (
     confusion_matrix, classification_report, roc_curve, auc,
     precision_recall_curve, average_precision_score,
@@ -488,13 +493,56 @@ class ModelEvaluator:
                 # Plot feature importance
                 self.plot_feature_importance(importance_df, model_name)
         
+        # SHAP Analysis for Explainability
+        shap_results = None
+        if SHAP_AVAILABLE and feature_names is not None and y_pred_proba is not None:
+            try:
+                logger.info("Generating SHAP analysis...")
+                
+                # Create SHAP explainer
+                explainer = shap.TreeExplainer(model) if hasattr(model, 'feature_importances_') else shap.KernelExplainer(model.predict_proba, X_test[:100])
+                
+                # Calculate SHAP values on a sample
+                sample_size = min(100, len(X_test))
+                X_sample = X_test[:sample_size]
+                shap_values = explainer.shap_values(X_sample)
+                
+                # SHAP Summary Plot
+                plt.figure(figsize=(10, 8))
+                shap.summary_plot(shap_values, X_sample, feature_names=feature_names, show=False)
+                plt.title(f'SHAP Summary Plot - {model_name}', fontsize=14, fontweight='bold')
+                plt.savefig(f'{self.output_dir}/shap_summary_{model_name.replace(\" \", \"_\")}.png', dpi=300, bbox_inches='tight')
+                plt.close()
+                logger.info(f"✓ Saved SHAP summary plot to: {self.output_dir}/")
+                
+                # SHAP Waterfall Plots for 3 individual predictions
+                if hasattr(explainer, 'shap_values'):
+                    for i in range(min(3, len(X_sample))):
+                        plt.figure(figsize=(10, 6))
+                        shap.waterfall_plot(shap_values[i], feature_names=feature_names, show=False)
+                        plt.title(f'SHAP Waterfall Plot - Sample {i+1}', fontsize=12, fontweight='bold')
+                        plt.savefig(f'{self.output_dir}/shap_waterfall_{i+1}_{model_name.replace(\" \", \"_\")}.png', dpi=300, bbox_inches='tight')
+                        plt.close()
+                    logger.info(f"✓ Saved 3 SHAP waterfall plots to: {self.output_dir}/")
+                
+                shap_results = {
+                    'summary_saved': True,
+                    'waterfall_count': 3,
+                    'explainer_type': type(explainer).__name__
+                }
+                
+            except Exception as e:
+                logger.warning(f"SHAP analysis failed: {e}")
+                shap_results = {'error': str(e)}
+        
         # Compile results
         results = {
             'model_name': model_name,
             'metrics': metrics,
             'classification_report': report,
             'healthcare_interpretation': interpretation,
-            'feature_importance': feature_importance
+            'feature_importance': feature_importance,
+            'shap_results': shap_results
         }
         
         self.evaluation_results[model_name] = results

@@ -9,7 +9,7 @@
 
 ### CURRENT TEXT (INCORRECT):
 ```
-Inputs: Prior admissions, comorbidity count, BMI, HbA1c, systolic BP, medication count, age, discharge diagnosis
+Inputs: Prior admissions, comorbidity count, medication count, age, discharge diagnosis
 ```
 
 ### CORRECTED TEXT (USE THIS):
@@ -17,7 +17,6 @@ Inputs: Prior admissions, comorbidity count, BMI, HbA1c, systolic BP, medication
 Inputs: 
 • Admission history (prior inpatient, outpatient, emergency visits)
 • Comorbidity indicator (number of diagnoses)
-• Glycemic control (HbA1c test results - categorical)
 • Medication count (number of unique medications)
 • Age groups (categorical ranges)
 • Primary/secondary diagnosis codes (ICD-9)
@@ -25,7 +24,9 @@ Inputs:
 • Lab procedures count
 
 Note: Analysis uses clinical indicators available in UCI dataset that are 
-representative of chronic condition management patterns.
+representative of chronic condition management patterns. Features include:
+time_in_hospital, num_medications, num_procedures, number_diagnoses,
+admission_type_id, discharge_disposition_id, age, race, gender.
 ```
 
 ### ADDITIONAL CLARIFICATIONS:
@@ -87,8 +88,8 @@ Output:
 ## KEY POINTS TO EMPHASIZE IN PRESENTATION:
 
 1. **Dataset Transparency**: "We use UCI Diabetes dataset as a proxy for chronic conditions. 
-   While BMI and blood pressure aren't available, we leverage 50 clinical features including 
-   admission history, medication patterns, lab procedures, and diagnosis codes."
+   We leverage 50 clinical features including admission history, medication patterns, 
+   lab procedures, and diagnosis codes (time_in_hospital, num_medications, number_diagnoses, etc.)."
 
 2. **Singapore Context**: "Features map to Singapore healthcare realities:
    - Prior admissions → Tracks healthcare utilization patterns

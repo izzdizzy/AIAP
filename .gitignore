@@ -1,4 +1,55 @@
 ```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.class
+*.out
+*.a
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+*.~*
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
 # Compressed files
 *.zip
 *.gz
@@ -22,86 +73,4 @@
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-
-# Data files
-data/raw/*.csv
-data/raw/*.zip
-
-# Dependencies
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.conda/
-.eggs/
-.egg-info/
-dist/
-build/
-develop-eggs/
-.installed.cfg
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.DS_Store
-Thumbs.db
-
-# Environment variables
-.env
-.env.local
-.env.*
-!.env.example
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-*.bak
-*.orig
-*~
-.\#*
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-*.egg
-.installed.cfg
-*.egg-link
-
-# Pytest
-.pytest_cache/
-
-# Mypy
-.mypy_cache/
-
-# Coverage
-.coverage
-.coverage.*
-htmlcov/
 ```

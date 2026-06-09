@@ -210,7 +210,7 @@ class ModelTrainer:
                 param_distributions=param_grid,
                 n_iter=n_iterations,
                 cv=cv,
-                scoring='roc_auc',
+                scoring='recall',
                 n_jobs=-1,
                 random_state=self.random_state,
                 verbose=1
@@ -221,7 +221,7 @@ class ModelTrainer:
                 estimator=self.models[model_name],
                 param_grid=param_grid,
                 cv=cv,
-                scoring='roc_auc',
+                scoring='recall',
                 n_jobs=-1,
                 verbose=1
             )
