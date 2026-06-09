@@ -11,10 +11,11 @@ imbalanced-learn>=0.11.0
 
 # Gen AI & Explainability
 shap>=0.43.0
-google-genai>=0.5.0  # Google AI SDK for Gemini models
+groq>=0.9.0  # Groq SDK for Llama models (fast, free tier)
 python-dotenv>=1.0.0
 
 # Alternative LLM (optional)
+# google-genai>=0.5.0  # Uncomment if using Google Gemini instead
 # openai>=1.0.0  # Uncomment if using OpenAI instead
 
 # Jupyter & Visualization

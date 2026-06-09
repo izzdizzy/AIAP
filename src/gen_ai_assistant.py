@@ -720,5 +720,5 @@ if __name__ == "__main__":
     print("DEMO COMPLETE")
     print("="*80)
     print("\nNote: Recommendations generated using rule-based system.")
-    print("To use LLM-powered recommendations, set GOOGLE_API_KEY environment variable.")
-    print("Install the Google AI SDK: pip install google-genai")
+    print("To use LLM-powered recommendations, set GROQ_API_KEY environment variable.")
+    print("Install the Groq SDK: pip install groq")
