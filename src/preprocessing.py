@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
-from sklearn.impute import SimpleImputer
+from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from imblearn.over_sampling import SMOTE
 from typing import Tuple, Dict, List, Optional
 import os
@@ -35,8 +35,9 @@ class DataPreprocessor:
     Comprehensive data preprocessing pipeline for chronic condition readmission prediction.
     
     Handles:
-    - Missing value treatment
-    - Categorical encoding
+    - Missing value treatment with sophisticated imputation (MICE/KNN)
+    - Identifier column removal (encounter_id, patient_nbr)
+    - Categorical encoding with drop_first=True to prevent multicollinearity
     - Feature engineering
     - Class imbalance handling (SMOTE)
     - Feature scaling
@@ -59,6 +60,8 @@ class DataPreprocessor:
         self.onehot_encoders = {}
         self.scaler = StandardScaler()
         self.imputer = SimpleImputer(strategy='median')
+        self.iterative_imputer = IterativeImputer(random_state=self.random_state, max_iter=10)
+        self.knn_imputer = KNNImputer(n_neighbors=5)
         
         # Track preprocessing state
         self.is_fitted = False
@@ -68,6 +71,9 @@ class DataPreprocessor:
         
         # Store preprocessing decisions
         self.preprocessing_log = []
+        
+        # Identifier columns to drop (zero predictive value)
+        self.identifier_cols = ['encounter_id', 'patient_nbr']
     
     def _log_decision(self, step: str, decision: str, justification: str) -> None:
         """Log preprocessing decisions for documentation."""
@@ -90,6 +96,21 @@ class DataPreprocessor:
         """
         logger.info("Starting data cleaning...")
         df_clean = df.copy()
+        
+        # CRITICAL FIX: Drop identifier columns (encounter_id, patient_nbr)
+        # These add ZERO predictive value and are just random IDs
+        dropped_identifiers = []
+        for col in self.identifier_cols:
+            if col in df_clean.columns:
+                dropped_identifiers.append(col)
+                df_clean = df_clean.drop(columns=[col])
+        
+        if dropped_identifiers:
+            self._log_decision(
+                'Cleaning',
+                f'Dropped identifier columns: {dropped_identifiers}',
+                'Patient/encounter IDs are random identifiers with zero predictive value. Keeping them would cause the model to memorize rather than generalize.'
+            )
         
         # Remove duplicate rows
         initial_rows = len(df_clean)
@@ -133,7 +154,11 @@ class DataPreprocessor:
     
     def handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Handle missing values using appropriate strategies.
+        Handle missing values using sophisticated imputation strategies.
+        
+        CRITICAL FIX: Instead of blindly dropping columns with >50% missing data,
+        we use sophisticated imputation and create "Unknown" categories for 
+        high-missingness categorical features (missingness itself may be predictive).
         
         Args:
             df: Input dataframe
@@ -141,7 +166,7 @@ class DataPreprocessor:
         Returns:
             pd.DataFrame: DataFrame with handled missing values
         """
-        logger.info("Handling missing values...")
+        logger.info("Handling missing values with sophisticated imputation...")
         df_processed = df.copy()
         
         # Calculate missing percentage before
@@ -149,18 +174,37 @@ class DataPreprocessor:
         
         # Identify columns with high missing rates (>50%)
         missing_pct = df_processed.isnull().mean() * 100
-        high_missing_cols = missing_pct[missing_pct > 50].index.tolist()
+        high_missing_categorical = []
+        high_missing_numeric = []
         
-        if high_missing_cols:
+        for col in df_processed.columns:
+            if missing_pct[col] > 50:
+                if df_processed[col].dtype == 'object':
+                    high_missing_categorical.append(col)
+                else:
+                    high_missing_numeric.append(col)
+        
+        # CRITICAL FIX: Don't drop high-missing columns!
+        # For categorical: create "Unknown/Missing" category (missingness is informative)
+        # For numeric: use IterativeImputer (MICE) for sophisticated imputation
+        
+        if high_missing_categorical:
             self._log_decision(
                 'Missing Values',
-                f'Dropped {len(high_missing_cols)} columns with >50% missing data',
-                'Columns with excessive missing data provide little predictive value'
+                f'Creating "Unknown" category for {len(high_missing_categorical)} high-missing categorical columns: {high_missing_categorical}',
+                'For clinical categorical features like medical_specialty and payer_code, missingness itself may be predictive. Creating "Unknown" category preserves this signal rather than losing potentially valuable information.'
             )
-            df_processed = df_processed.drop(columns=high_missing_cols)
+            for col in high_missing_categorical:
+                df_processed[col] = df_processed[col].fillna('Unknown/Missing')
         
-        # For categorical columns, fill with mode (most frequent)
-        categorical_cols = df_processed.select_dtypes(include=['object']).columns
+        # Separate remaining columns by type for appropriate imputation
+        categorical_cols = df_processed.select_dtypes(include=['object']).columns.tolist()
+        numeric_cols = df_processed.select_dtypes(include=[np.number]).columns.tolist()
+        
+        # Filter out already-handled high-missing categorical columns
+        categorical_cols = [c for c in categorical_cols if c not in high_missing_categorical]
+        
+        # For remaining categorical columns with missing values, fill with mode
         for col in categorical_cols:
             if df_processed[col].isnull().sum() > 0:
                 mode_value = df_processed[col].mode()[0] if len(df_processed[col].mode()) > 0 else 'Unknown'
@@ -168,21 +212,25 @@ class DataPreprocessor:
         
         self._log_decision(
             'Missing Values',
-            'Filled categorical missing values with mode',
+            'Filled remaining categorical missing values with mode',
             'Mode imputation preserves the distribution of categorical variables'
         )
         
-        # For numeric columns, use median imputation (robust to outliers)
-        numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
+        # CRITICAL FIX: Use IterativeImputer (MICE) for numeric features
+        # This models each feature as a function of other features - much more sophisticated than simple median
         if len(numeric_cols) > 0:
-            df_processed[numeric_cols] = self.imputer.fit_transform(df_processed[numeric_cols])
-            self._log_decision(
-                'Missing Values',
-                'Applied median imputation for numeric features',
-                'Median is robust to outliers compared to mean imputation'
-            )
-        
-        # Calculate missing percentage after
+            cols_with_missing = [c for c in numeric_cols if df_processed[c].isnull().sum() > 0]
+            if cols_with_missing:
+                self._log_decision(
+                    'Missing Values',
+                    f'Applied IterativeImputer (MICE) for {len(cols_with_missing)} numeric features: {cols_with_missing}',
+                    'IterativeImputer (Multivariate Imputation by Chained Equations) models each feature as a function of all other features. This captures correlations between clinical variables (e.g., time_in_hospital correlates with num_lab_procedures) for more accurate imputation than simple median.'
+                )
+                df_processed[numeric_cols] = self.iterative_imputer.fit_transform(df_processed[numeric_cols])
+            else:
+                # No missing numeric values, but still fit the imputer for transform consistency
+                self.iterative_imputer.fit(df_processed[numeric_cols])
+        \n        # Calculate missing percentage after
         missing_after = df_processed.isnull().sum().sum()
         logger.info(f"Missing values reduced from {missing_before} to {missing_after}")
         
@@ -193,6 +241,9 @@ class DataPreprocessor:
                                      label_cols: List[str] = None) -> pd.DataFrame:
         """
         Encode categorical variables using appropriate methods.
+        
+        CRITICAL FIX: Set drop_first=True for OneHotEncoding to prevent 
+        the dummy variable trap (multicollinearity).
         
         Args:
             df: Input dataframe
@@ -219,13 +270,13 @@ class DataPreprocessor:
             n_unique = df_encoded[col].nunique()
             
             if n_unique <= 5:
-                # Low cardinality: use one-hot encoding
+                # Low cardinality: use one-hot encoding with drop_first=True
                 self._log_decision(
                     'Encoding',
-                    f'One-hot encoded {col} ({n_unique} categories)',
-                    'One-hot encoding for low cardinality avoids ordinal assumptions'
+                    f'One-hot encoded {col} ({n_unique} categories) with drop_first=True',
+                    'One-hot encoding for low cardinality avoids ordinal assumptions. Using drop_first=True prevents the dummy variable trap (multicollinearity) by dropping one reference category.'
                 )
-                dummies = pd.get_dummies(df_encoded[col], prefix=col, drop_first=False)
+                dummies = pd.get_dummies(df_encoded[col], prefix=col, drop_first=True)
                 df_encoded = pd.concat([df_encoded, dummies], axis=1)
                 df_encoded = df_encoded.drop(columns=[col])
             else:
