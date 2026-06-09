@@ -13,6 +13,7 @@ Features:
 - Triage recommendations based on risk levels
 - Plain English output for patients and caregivers
 - Integration with CHAS tiers, Healthier SG, and MAF schemes
+- Powered by Groq API (llama-3.1-8b-instant model) for fast, free inference
 
 Author: AIAP Team
 Date: 2024
@@ -25,11 +26,10 @@ from pathlib import Path
 
 
 try:
-    from google import genai
-    from google.genai import types
-    GOOGLE_AI_AVAILABLE = True
+    from groq import Groq
+    GROQ_AVAILABLE = True
 except ImportError:
-    GOOGLE_AI_AVAILABLE = False
+    GROQ_AVAILABLE = False
 
 
 class SingaporeHealthcareKnowledgeBase:
@@ -256,26 +256,26 @@ class CareNavigationAssistant:
         self,
         knowledge_base: Optional[SingaporeHealthcareKnowledgeBase] = None,
         llm_api_key: Optional[str] = None,
-        model_name: str = "gemini-2.5-flash-native-audio-dialog"
+        model_name: str = "llama-3.1-8b-instant"
     ):
         """
         Initialize the Care Navigation Assistant.
         
         Args:
             knowledge_base: SingaporeHealthcareKnowledgeBase instance
-            llm_api_key: Google AI API key (or set GOOGLE_API_KEY env var)
-            model_name: LLM model to use (default: gemini-2.5-flash-native-audio-dialog - has unlimited quota)
+            llm_api_key: Groq API key (or set GROQ_API_KEY env var)
+            model_name: LLM model to use (default: llama-3.1-8b-instant - fast and free tier available)
         """
         self.knowledge_base = knowledge_base or SingaporeHealthcareKnowledgeBase()
         self.model_name = model_name
-        self.api_key = llm_api_key or os.environ.get("GOOGLE_API_KEY")
+        self.api_key = llm_api_key or os.environ.get("GROQ_API_KEY")
         
         # Check if API key is available
         self._api_available = self.api_key is not None and len(self.api_key) > 10
         
-        # Initialize Google AI client if available
-        if GOOGLE_AI_AVAILABLE and self._api_available:
-            self.client = genai.Client(api_key=self.api_key)
+        # Initialize Groq client if available
+        if GROQ_AVAILABLE and self._api_available:
+            self.client = Groq(api_key=self.api_key)
         else:
             self.client = None
     
@@ -442,19 +442,20 @@ Consider:
                 "note": "Generated using rule-based system (LLM API not configured)"
             }
         
-        # Use Google AI API if client is initialized
+        # Use Groq API if client is initialized
         if self.client is not None:
             try:
-                response = self.client.models.generate_content(
+                response = self.client.chat.completions.create(
                     model=self.model_name,
-                    contents=f"{system_prompt}\n\n{user_prompt}",
-                    config=types.GenerateContentConfig(
-                        max_output_tokens=max_tokens,
-                        temperature=0.7
-                    )
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=max_tokens,
+                    temperature=0.7
                 )
                 
-                recommendation = response.text.strip()
+                recommendation = response.choices[0].message.content.strip()
                 
                 return {
                     "recommendation": recommendation,
@@ -465,7 +466,7 @@ Consider:
                 
             except Exception as e:
                 # Fallback to rule-based if API call fails
-                print(f"Google AI API call failed: {e}. Using rule-based fallback.")
+                print(f"Groq API call failed: {e}. Using rule-based fallback.")
                 recommendation = self._rule_based_recommendation(
                     readmission_score,
                     health_profile
@@ -605,7 +606,7 @@ def generate_care_navigation(
         diabetes_risk: Optional diabetes-specific risk score (0-1)
         hypertension_score: Optional hypertension risk score (0-1)
         health_profile: Dict with patient demographics and preferences
-        api_key: Optional OpenAI API key
+        api_key: Optional Groq API key
         
     Returns:
         Care navigation recommendation string
