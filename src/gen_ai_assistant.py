@@ -270,8 +270,12 @@ class CareNavigationAssistant:
         self.model_name = model_name
         self.api_key = llm_api_key or os.environ.get("GROQ_API_KEY")
         
-        # Check if API key is available
-        self._api_available = self.api_key is not None and len(self.api_key) > 10
+        # Check if API key is available (must be set and not a placeholder)
+        self._api_available = (
+            self.api_key is not None 
+            and len(self.api_key) > 20 
+            and self.api_key != "your_groq_api_key_here"
+        )
         
         # Initialize Groq client if available
         if GROQ_AVAILABLE and self._api_available:
@@ -720,5 +724,5 @@ if __name__ == "__main__":
     print("DEMO COMPLETE")
     print("="*80)
     print("\nNote: Recommendations generated using rule-based system.")
-    print("To use LLM-powered recommendations, set GOOGLE_API_KEY environment variable.")
-    print("Install the Google AI SDK: pip install google-genai")
+    print("To use LLM-powered recommendations, set GROQ_API_KEY environment variable.")
+    print("Install the Groq SDK: pip install groq")
