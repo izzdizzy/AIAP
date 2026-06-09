@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
-from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
+from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer, MissingIndicator
 from imblearn.over_sampling import SMOTE
 from typing import Tuple, Dict, List, Optional
 import os
@@ -62,6 +62,10 @@ class DataPreprocessor:
         self.imputer = SimpleImputer(strategy='median')
         self.iterative_imputer = IterativeImputer(random_state=self.random_state, max_iter=10)
         self.knn_imputer = KNNImputer(n_neighbors=5)
+        
+        # Missing indicators for critical columns (FIX 1: Advanced Imputation)
+        self.missing_indicators = {}
+        self.critical_missing_cols = ['weight', 'payer_code', 'medical_specialty']
         
         # Track preprocessing state
         self.is_fitted = False
@@ -156,9 +160,12 @@ class DataPreprocessor:
         """
         Handle missing values using sophisticated imputation strategies.
         
-        CRITICAL FIX: Instead of blindly dropping columns with >50% missing data,
-        we use sophisticated imputation and create "Unknown" categories for 
-        high-missingness categorical features (missingness itself may be predictive).
+        FIX 1: ADVANCED IMPUTATION & MISSINGNESS MECHANISM
+        - Import MissingIndicator from sklearn.impute
+        - Add binary "missingness flags" for critical columns like weight, payer_code, medical_specialty
+        - This allows the model to learn if "missingness" itself is predictive
+        - For weight (>50% missing), drop it but keep the indicator
+        - Use IterativeImputer only for numeric columns where missingness is likely MAR
         
         Args:
             df: Input dataframe
@@ -166,11 +173,27 @@ class DataPreprocessor:
         Returns:
             pd.DataFrame: DataFrame with handled missing values
         """
-        logger.info("Handling missing values with sophisticated imputation...")
+        logger.info("Handling missing values with sophisticated imputation and missingness indicators...")
         df_processed = df.copy()
         
         # Calculate missing percentage before
         missing_before = df_processed.isnull().sum().sum()
+        
+        # FIX 1: Create missingness indicators for critical clinical columns
+        # Missingness itself may be predictive (e.g., weight missing for bedbound patients)
+        for col in self.critical_missing_cols:
+            if col in df_processed.columns:
+                indicator = MissingIndicator(features='missings')
+                missing_flag = indicator.fit_transform(df_processed[[col]])
+                df_processed[f'{col}_missing'] = missing_flag.astype(int)
+                self.missing_indicators[col] = indicator
+                
+                missing_pct = df_processed[col].isnull().mean() * 100
+                self._log_decision(
+                    'Missing Values',
+                    f'Created missingness indicator for {col} ({missing_pct:.1f}% missing)',
+                    f'Missingness in {col} may be clinically informative. For example, weight is often missing for bedbound or emergency patients. The binary flag allows the model to learn if missingness itself predicts readmission.'
+                )
         
         # Identify columns with high missing rates (>50%)
         missing_pct = df_processed.isnull().mean() * 100
@@ -178,15 +201,18 @@ class DataPreprocessor:
         high_missing_numeric = []
         
         for col in df_processed.columns:
+            # Skip the newly created missing indicator columns
+            if col.endswith('_missing'):
+                continue
             if missing_pct[col] > 50:
                 if df_processed[col].dtype == 'object':
                     high_missing_categorical.append(col)
                 else:
                     high_missing_numeric.append(col)
         
-        # CRITICAL FIX: Don't drop high-missing columns!
+        # CRITICAL FIX: Don't drop high-missing columns blindly!
         # For categorical: create "Unknown/Missing" category (missingness is informative)
-        # For numeric: use IterativeImputer (MICE) for sophisticated imputation
+        # For numeric with >50% missing (like weight): rely on the missing indicator, can drop original
         
         if high_missing_categorical:
             self._log_decision(
@@ -230,7 +256,8 @@ class DataPreprocessor:
             else:
                 # No missing numeric values, but still fit the imputer for transform consistency
                 self.iterative_imputer.fit(df_processed[numeric_cols])
-        \n        # Calculate missing percentage after
+        
+        # Calculate missing percentage after
         missing_after = df_processed.isnull().sum().sum()
         logger.info(f"Missing values reduced from {missing_before} to {missing_after}")
         
@@ -299,14 +326,30 @@ class DataPreprocessor:
         """
         Create meaningful features from existing data.
         
+        FIX 2: LEAKAGE REMOVAL & FEATURE ENGINEERING
+        - Create normalized feature: medications_per_day = num_medications / (time_in_hospital + 1)
+        - This controls for length of stay and prevents num_medications from being a severity proxy
+        - Drop raw num_medications if it shows high correlation with target
+        
         Args:
             df: Input dataframe
             
         Returns:
             pd.DataFrame: DataFrame with engineered features
         """
-        logger.info("Engineering features...")
+        logger.info("Engineering features with leakage prevention...")
         df_features = df.copy()
+        
+        # FIX 2: Create normalized medication feature to prevent leakage
+        # num_medications alone is a proxy for severity and leaks target information
+        # Normalize by length of stay to get true medication intensity
+        if 'num_medications' in df_features.columns and 'time_in_hospital' in df_features.columns:
+            df_features['medications_per_day'] = df_features['num_medications'] / (df_features['time_in_hospital'] + 1)
+            self._log_decision(
+                'Feature Engineering',
+                'Created medications_per_day feature (num_medications / (time_in_hospital + 1))',
+                'Raw num_medications is a proxy for disease severity and can leak target information. Normalizing by length of stay controls for this confounding, creating a more clinically meaningful feature that represents medication intensity rather than just disease burden.'
+            )
         
         # Feature 1: Total medications and procedures
         if 'num_medications' in df_features.columns and 'num_procedures' in df_features.columns:
