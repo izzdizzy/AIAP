@@ -270,8 +270,12 @@ class CareNavigationAssistant:
         self.model_name = model_name
         self.api_key = llm_api_key or os.environ.get("GROQ_API_KEY")
         
-        # Check if API key is available
-        self._api_available = self.api_key is not None and len(self.api_key) > 10
+        # Check if API key is available (must be set and not a placeholder)
+        self._api_available = (
+            self.api_key is not None 
+            and len(self.api_key) > 20 
+            and self.api_key != "your_groq_api_key_here"
+        )
         
         # Initialize Groq client if available
         if GROQ_AVAILABLE and self._api_available:
