@@ -60,8 +60,10 @@ def test_gemini_api():
     print("-" * 60)
     
     try:
+        # Using 'gemini-2.5-flash-native-audio-dialog' as it shows 'Unlimited' quota in your console
+        # Standard models are returning RESOURCE_EXHAUSTED due to depleted credits
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-native-audio-dialog",
             contents="Hello! This is a test message to verify the Gemini API is working. Please respond with 'API TEST SUCCESSFUL' and the current date."
         )
         
