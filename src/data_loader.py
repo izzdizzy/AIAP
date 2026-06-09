@@ -106,8 +106,25 @@ class DataLoader:
             filepath = self.data_path
             
         if filepath is None:
-            raise FileNotFoundError("No data path specified")
-            
+            # Try multiple possible filenames for the UCI Diabetes dataset
+            local_paths = [
+                'data/raw/diabetic_data.csv',           # Actual filename in repo
+                'data/raw/diabetes_data_upload.csv',    # Common alternative name
+                'data/raw/diabetes_130_all_discharges.csv',
+                '../data/raw/diabetic_data.csv'
+            ]
+            for path in local_paths:
+                if os.path.exists(path):
+                    filepath = path
+                    logger.info(f"Found dataset at: {path}")
+                    break
+            else:
+                raise FileNotFoundError(
+                    "Dataset not found. Please download from:\n"
+                    "https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008\n"
+                    "\nSave as one of: data/raw/diabetic_data.csv or data/raw/diabetes_data_upload.csv"
+                )
+        
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Dataset not found at: {filepath}")
         
@@ -213,9 +230,9 @@ if __name__ == "__main__":
     print("Testing DataLoader...")
     loader = DataLoader()
     
-    # Try to load from default location
+    # Try to load from default location (auto-detects diabetic_data.csv)
     try:
-        df = loader.load_from_csv('data/raw/diabetes_data_upload.csv')
+        df = loader.load_from_csv()  # Auto-detect filename
         loader.display_overview()
         
         info = loader.get_dataset_info()
@@ -223,6 +240,3 @@ if __name__ == "__main__":
         print(f"Description: {info['description']}")
     except FileNotFoundError as e:
         print(f"Dataset not found: {e}")
-        print("\nPlease download the dataset from:")
-        print("https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008")
-        print("\nSave it as: data/raw/diabetes_data_upload.csv")
