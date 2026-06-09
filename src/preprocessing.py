@@ -278,16 +278,38 @@ class DataPreprocessor:
         # Feature 3: Age groups (if numeric age exists)
         if 'age_numeric' in df_features.columns or 'age' in df_features.columns:
             age_col = 'age_numeric' if 'age_numeric' in df_features.columns else 'age'
-            df_features['age_group'] = pd.cut(
-                df_features[age_col],
-                bins=[0, 18, 30, 45, 60, 75, 100],
-                labels=['Child', 'Young Adult', 'Adult', 'Middle Age', 'Senior', 'Elderly']
-            )
-            self._log_decision(
-                'Feature Engineering',
-                'Created age_group categorical feature',
-                'Age groups capture non-linear relationships with health outcomes'
-            )
+            # Convert to numeric first if it's categorical (e.g., "[10-20)" ranges)
+            if df_features[age_col].dtype == 'object':
+                age_mapping = {
+                    '[0-10)': 5, '[10-20)': 15, '[20-30)': 25, '[30-40)': 35,
+                    '[40-50)': 45, '[50-60)': 55, '[60-70)': 65, '[70-80)': 75,
+                    '[80-90)': 85, '[90-100)': 95
+                }
+                # Map known categories, extract digit from unknown ones
+                mapped = df_features[age_col].map(age_mapping)
+                unmapped_mask = mapped.isna()
+                if unmapped_mask.any():
+                    # Extract first number from strings like "?" or other formats
+                    extracted = df_features.loc[unmapped_mask, age_col].astype(str).str.extract('(\\d+)', expand=False)
+                    extracted = pd.to_numeric(extracted, errors='coerce')
+                    mapped.loc[unmapped_mask] = extracted
+                df_features['age_numeric'] = pd.to_numeric(mapped, errors='coerce').fillna(45)  # Default to middle age if can't parse
+                age_col = 'age_numeric'
+            
+            try:
+                age_values = pd.to_numeric(df_features[age_col], errors='coerce').fillna(45)
+                df_features['age_group'] = pd.cut(
+                    age_values,
+                    bins=[0, 18, 30, 45, 60, 75, 100],
+                    labels=['Child', 'Young Adult', 'Adult', 'Middle Age', 'Senior', 'Elderly']
+                )
+                self._log_decision(
+                    'Feature Engineering',
+                    'Created age_group categorical feature',
+                    'Age groups capture non-linear relationships with health outcomes'
+                )
+            except Exception as e:
+                logger.warning(f"Could not create age_group feature: {e}")
         
         # Feature 4: Diagnosis complexity
         if 'number_diagnoses' in df_features.columns:
