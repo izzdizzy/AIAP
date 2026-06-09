@@ -24,6 +24,14 @@ from typing import Dict, Optional, Any
 from pathlib import Path
 
 
+try:
+    from google import genai
+    from google.genai import types
+    GOOGLE_AI_AVAILABLE = True
+except ImportError:
+    GOOGLE_AI_AVAILABLE = False
+
+
 class SingaporeHealthcareKnowledgeBase:
     """
     Knowledge base containing Singapore healthcare system information.
@@ -248,22 +256,28 @@ class CareNavigationAssistant:
         self,
         knowledge_base: Optional[SingaporeHealthcareKnowledgeBase] = None,
         llm_api_key: Optional[str] = None,
-        model_name: str = "gpt-3.5-turbo"
+        model_name: str = "gemini-1.5-flash"
     ):
         """
         Initialize the Care Navigation Assistant.
         
         Args:
             knowledge_base: SingaporeHealthcareKnowledgeBase instance
-            llm_api_key: OpenAI API key (or set OPENAI_API_KEY env var)
-            model_name: LLM model to use (default: gpt-3.5-turbo)
+            llm_api_key: Google AI API key (or set GOOGLE_API_KEY env var)
+            model_name: LLM model to use (default: gemini-1.5-flash)
         """
         self.knowledge_base = knowledge_base or SingaporeHealthcareKnowledgeBase()
         self.model_name = model_name
-        self.api_key = llm_api_key or os.environ.get("OPENAI_API_KEY")
+        self.api_key = llm_api_key or os.environ.get("GOOGLE_API_KEY")
         
         # Check if API key is available
         self._api_available = self.api_key is not None and len(self.api_key) > 10
+        
+        # Initialize Google AI client if available
+        if GOOGLE_AI_AVAILABLE and self._api_available:
+            self.client = genai.Client(api_key=self.api_key)
+        else:
+            self.client = None
     
     def _build_system_prompt(self) -> str:
         """Build the system prompt with Singapore healthcare knowledge."""
@@ -428,32 +442,42 @@ Consider:
                 "note": "Generated using rule-based system (LLM API not configured)"
             }
         
-        # Try to use OpenAI API
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=self.api_key)
-            
-            response = client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=max_tokens,
-                temperature=0.7
-            )
-            
-            recommendation = response.choices[0].message.content.strip()
-            
-            return {
-                "recommendation": recommendation,
-                "risk_level": risk_level,
-                "success": True,
-                "model_used": self.model_name
-            }
-            
-        except ImportError:
-            # OpenAI library not installed
+        # Use Google AI API if client is initialized
+        if self.client is not None:
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=f"{system_prompt}\n\n{user_prompt}",
+                    config=types.GenerateContentConfig(
+                        max_output_tokens=max_tokens,
+                        temperature=0.7
+                    )
+                )
+                
+                recommendation = response.text.strip()
+                
+                return {
+                    "recommendation": recommendation,
+                    "risk_level": risk_level,
+                    "success": True,
+                    "model_used": self.model_name
+                }
+                
+            except Exception as e:
+                # Fallback to rule-based if API call fails
+                print(f"Google AI API call failed: {e}. Using rule-based fallback.")
+                recommendation = self._rule_based_recommendation(
+                    readmission_score,
+                    health_profile
+                )
+                return {
+                    "recommendation": recommendation,
+                    "risk_level": risk_level,
+                    "success": True,
+                    "note": f"Generated using rule-based system (API error: {str(e)})"
+                }
+        else:
+            # Use rule-based system when no API key
             recommendation = self._rule_based_recommendation(
                 readmission_score,
                 health_profile
@@ -462,20 +486,7 @@ Consider:
                 "recommendation": recommendation,
                 "risk_level": risk_level,
                 "success": True,
-                "note": "Generated using rule-based system (OpenAI library not installed)"
-            }
-            
-        except Exception as e:
-            # API call failed - fall back to rule-based
-            recommendation = self._rule_based_recommendation(
-                readmission_score,
-                health_profile
-            )
-            return {
-                "recommendation": recommendation,
-                "risk_level": risk_level,
-                "success": True,
-                "note": f"Generated using rule-based system (API error: {str(e)})"
+                "note": "Generated using rule-based system (LLM API not configured)"
             }
     
     def _rule_based_recommendation(
@@ -708,4 +719,5 @@ if __name__ == "__main__":
     print("DEMO COMPLETE")
     print("="*80)
     print("\nNote: Recommendations generated using rule-based system.")
-    print("To use LLM-powered recommendations, set OPENAI_API_KEY environment variable.")
+    print("To use LLM-powered recommendations, set GOOGLE_API_KEY environment variable.")
+    print("Install the Google AI SDK: pip install google-genai")

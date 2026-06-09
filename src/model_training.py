@@ -205,23 +205,25 @@ class ModelTrainer:
         # Choose search strategy
         if use_random_search:
             logger.info(f"Using RandomizedSearchCV with {n_iterations} iterations")
+            logger.info("PRIMARY METRIC: Recall (to minimize missed high-risk chronic patients)")
             search = RandomizedSearchCV(
                 estimator=self.models[model_name],
                 param_distributions=param_grid,
                 n_iter=n_iterations,
                 cv=cv,
-                scoring='roc_auc',
+                scoring='recall',  # PRIMARY METRIC: Recall prioritized to minimize false negatives
                 n_jobs=-1,
                 random_state=self.random_state,
                 verbose=1
             )
         else:
             logger.info("Using GridSearchCV")
+            logger.info("PRIMARY METRIC: Recall (to minimize missed high-risk chronic patients)")
             search = GridSearchCV(
                 estimator=self.models[model_name],
                 param_grid=param_grid,
                 cv=cv,
-                scoring='roc_auc',
+                scoring='recall',  # PRIMARY METRIC: Recall prioritized to minimize false negatives
                 n_jobs=-1,
                 verbose=1
             )

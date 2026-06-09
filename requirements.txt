@@ -11,8 +11,11 @@ imbalanced-learn>=0.11.0
 
 # Gen AI & Explainability
 shap>=0.43.0
-openai>=1.0.0
+google-genai>=0.5.0  # Google AI SDK for Gemini models
 python-dotenv>=1.0.0
+
+# Alternative LLM (optional)
+# openai>=1.0.0  # Uncomment if using OpenAI instead
 
 # Jupyter & Visualization
 jupyter>=1.0.0

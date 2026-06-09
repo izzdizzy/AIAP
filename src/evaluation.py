@@ -24,6 +24,15 @@ from typing import Dict, List, Tuple, Optional
 import os
 import logging
 
+# SHAP for model explainability
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("SHAP not installed. Install with: pip install shap")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,8 +56,9 @@ class ModelEvaluator:
     - Classification Report
     - Metric comparisons
     - Healthcare context interpretations
-    - Healthcare context interpretations
     - SHAP analysis for explainability
+    """
+    
     def __init__(self, output_dir: str = 'results/evaluation'):
         """
         Initialize the model evaluator.
@@ -554,6 +564,197 @@ class ModelEvaluator:
             plt.close()
         
         return fig
+    
+    def plot_shap_explanations(self, model, X_test: np.ndarray, 
+                               feature_names: list = None,
+                               model_name: str = "Model",
+                               save_fig: bool = True) -> Dict:
+        """
+        Generate SHAP (SHapley Additive exPlanations) visualizations.
+        
+        This function creates:
+        1. SHAP Summary Plot - Shows global feature importance and impact direction
+        2. SHAP Waterfall Plots - Individual predictions for high/medium/low risk patients
+        
+        Args:
+            model: Trained model (tree-based or any model with shap support)
+            X_test: Test features
+            feature_names: List of feature names
+            model_name: Name of the model for file saving
+            save_fig: Whether to save figures
+            
+        Returns:
+            Dictionary with SHAP analysis results
+        """
+        if not SHAP_AVAILABLE:
+            logger.warning("SHAP not available. Skipping SHAP analysis.")
+            return {"success": False, "reason": "SHAP not installed"}
+        
+        logger.info("Generating SHAP explanations...")
+        
+        # Get feature names
+        if feature_names is None:
+            feature_names = [f'Feature_{i}' for i in range(X_test.shape[1])]
+        
+        # Create SHAP explainer based on model type
+        try:
+            # For tree-based models (Random Forest, XGBoost)
+            if hasattr(model, 'trees_') or 'xgboost' in str(type(model)).lower() or 'randomforest' in str(type(model)).lower():
+                explainer = shap.TreeExplainer(model)
+            else:
+                # For other models, use KernelExplainer (slower but universal)
+                explainer = shap.KernelExplainer(model.predict_proba, X_test[:100])
+            
+            # Calculate SHAP values
+            logger.info("Calculating SHAP values (this may take a moment)...")
+            shap_values = explainer.shap_values(X_test)
+            
+            # Handle multi-dimensional SHAP values (for binary classification)
+            if isinstance(shap_values, list):
+                shap_values = shap_values[1]  # Use positive class
+            
+            # 1. SHAP Summary Plot (Bar chart + Beeswarm)
+            logger.info("Creating SHAP summary plot...")
+            fig_summary, ax_summary = plt.subplots(1, 2, figsize=(16, 6))
+            
+            # Bar chart
+            shap.summary_plot(shap_values, X_test, feature_names=feature_names, 
+                            plot_type="bar", show=False, ax=ax_summary[0])
+            ax_summary[0].set_title('SHAP Feature Importance (Global)', fontweight='bold')
+            
+            # Beeswarm plot
+            shap.summary_plot(shap_values, X_test, feature_names=feature_names,
+                            plot_type="dot", show=False, ax=ax_summary[1], alpha=0.5)
+            ax_summary[1].set_title('SHAP Values Distribution', fontweight='bold')
+            
+            plt.tight_layout()
+            
+            if save_fig:
+                plt.savefig(f'{self.output_dir}/shap_summary_{model_name.replace(" ", "_")}.png',
+                           dpi=300, bbox_inches='tight')
+                logger.info(f"✓ Saved SHAP summary to: {self.output_dir}/shap_summary_{model_name.replace(' ', '_')}.png")
+            plt.close()
+            
+            # 2. SHAP Waterfall Plots for individual predictions
+            # Select representative samples: high risk, medium risk, low risk
+            y_pred_proba = model.predict_proba(X_test)[:, 1]
+            
+            # Find samples in each risk category
+            high_risk_idx = np.where(y_pred_proba > 0.7)[0]
+            medium_risk_idx = np.where((y_pred_proba >= 0.4) & (y_pred_proba <= 0.7))[0]
+            low_risk_idx = np.where(y_pred_proba < 0.4)[0]
+            
+            waterfall_results = {}
+            
+            # High risk patient
+            if len(high_risk_idx) > 0:
+                idx_high = high_risk_idx[0]
+                logger.info(f"Creating waterfall plot for high-risk patient (idx={idx_high})...")
+                
+                # Create explanation for this instance
+                shap_exp = shap.Explanation(values=shap_values[idx_high:idx_high+1],
+                                           base_values=explainer.expected_value,
+                                           data=X_test[idx_high:idx_high+1],
+                                           feature_names=feature_names)
+                
+                fig_waterfall_high = plt.figure(figsize=(10, 6))
+                shap.plots.waterfall(shap_exp[0], show=False)
+                plt.title(f'SHAP Waterfall: High-Risk Patient (Predicted Risk: {y_pred_proba[idx_high]:.2f})',
+                         fontweight='bold', fontsize=12)
+                
+                if save_fig:
+                    plt.savefig(f'{self.output_dir}/shap_waterfall_high_risk.png',
+                               dpi=300, bbox_inches='tight')
+                    logger.info(f"✓ Saved high-risk waterfall to: {self.output_dir}/shap_waterfall_high_risk.png")
+                plt.close()
+                
+                waterfall_results['high_risk'] = {
+                    'index': int(idx_high),
+                    'predicted_risk': float(y_pred_proba[idx_high]),
+                    'file': f'shap_waterfall_high_risk.png'
+                }
+            
+            # Medium risk patient
+            if len(medium_risk_idx) > 0:
+                idx_medium = medium_risk_idx[len(medium_risk_idx)//2]  # Pick middle one
+                logger.info(f"Creating waterfall plot for medium-risk patient (idx={idx_medium})...")
+                
+                shap_exp = shap.Explanation(values=shap_values[idx_medium:idx_medium+1],
+                                           base_values=explainer.expected_value,
+                                           data=X_test[idx_medium:idx_medium+1],
+                                           feature_names=feature_names)
+                
+                fig_waterfall_medium = plt.figure(figsize=(10, 6))
+                shap.plots.waterfall(shap_exp[0], show=False)
+                plt.title(f'SHAP Waterfall: Medium-Risk Patient (Predicted Risk: {y_pred_proba[idx_medium]:.2f})',
+                         fontweight='bold', fontsize=12)
+                
+                if save_fig:
+                    plt.savefig(f'{self.output_dir}/shap_waterfall_medium_risk.png',
+                               dpi=300, bbox_inches='tight')
+                    logger.info(f"✓ Saved medium-risk waterfall to: {self.output_dir}/shap_waterfall_medium_risk.png")
+                plt.close()
+                
+                waterfall_results['medium_risk'] = {
+                    'index': int(idx_medium),
+                    'predicted_risk': float(y_pred_proba[idx_medium]),
+                    'file': f'shap_waterfall_medium_risk.png'
+                }
+            
+            # Low risk patient
+            if len(low_risk_idx) > 0:
+                idx_low = low_risk_idx[0]
+                logger.info(f"Creating waterfall plot for low-risk patient (idx={idx_low})...")
+                
+                shap_exp = shap.Explanation(values=shap_values[idx_low:idx_low+1],
+                                           base_values=explainer.expected_value,
+                                           data=X_test[idx_low:idx_low+1],
+                                           feature_names=feature_names)
+                
+                fig_waterfall_low = plt.figure(figsize=(10, 6))
+                shap.plots.waterfall(shap_exp[0], show=False)
+                plt.title(f'SHAP Waterfall: Low-Risk Patient (Predicted Risk: {y_pred_proba[idx_low]:.2f})',
+                         fontweight='bold', fontsize=12)
+                
+                if save_fig:
+                    plt.savefig(f'{self.output_dir}/shap_waterfall_low_risk.png',
+                               dpi=300, bbox_inches='tight')
+                    logger.info(f"✓ Saved low-risk waterfall to: {self.output_dir}/shap_waterfall_low_risk.png")
+                plt.close()
+                
+                waterfall_results['low_risk'] = {
+                    'index': int(idx_low),
+                    'predicted_risk': float(y_pred_proba[idx_low]),
+                    'file': f'shap_waterfall_low_risk.png'
+                }
+            
+            logger.info("✓ SHAP analysis complete!")
+            
+            return {
+                "success": True,
+                "summary_plot": f'shap_summary_{model_name.replace(" ", "_")}.png',
+                "waterfall_plots": waterfall_results,
+                "num_samples_analyzed": len(X_test),
+                "interpretation": """
+SHAP Interpretation for Chronic Condition Readmission:
+- Positive SHAP value: Feature pushes prediction toward HIGHER readmission risk
+- Negative SHAP value: Feature pushes prediction toward LOWER readmission risk
+- Magnitude: How strongly the feature influences the prediction
+
+Example: If 'num_medications' has SHAP value +0.15, it means having many medications
+increases the readmission probability by 15 percentage points from the baseline.
+
+Clinical Insight: Features like 'time_in_hospital', 'num_lab_procedures', and 
+'num_medications' often show high importance, suggesting that patients with complex
+care needs require more intensive post-discharge follow-up.
+"""
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating SHAP plots: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "reason": str(e)}
     
     def save_evaluation_summary(self, results: Dict) -> None:
         """Save complete evaluation summary to file."""
