@@ -20,6 +20,7 @@ from sklearn.metrics import (
     precision_recall_curve, average_precision_score,
     accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 )
+from sklearn.calibration import calibration_curve, CalibratedClassifierCV
 from typing import Dict, List, Tuple, Optional
 import os
 import logging
@@ -69,6 +70,9 @@ class ModelEvaluator:
         self.output_dir = output_dir
         self.evaluation_results = {}
         self.model_metrics = {}
+        
+        # FIX 3: Store calibrated models
+        self.calibrated_models = {}
         
         # Create output directory
         os.makedirs(output_dir, exist_ok=True)
