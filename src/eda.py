@@ -31,34 +31,40 @@ RANDOM_STATE = 42
 
 class EDAAnalyzer:
     """
-    Comprehensive Exploratory Data Analysis for chronic condition readmission dataset (diabetes as proxy).
-    
-    Generates insightful visualizations and statistical summaries to understand
-    patterns related to hospital readmissions.
+    Comprehensive Exploratory Data Analysis...
     """
     
     def __init__(self, df: pd.DataFrame, output_dir: str = 'results/eda'):
-        """
-        Initialize the EDA Analyzer.
-        
-        Args:
-            df: Pandas DataFrame with the dataset
-            output_dir: Directory to save visualization outputs
-        """
         self.df = df.copy()
         self.output_dir = output_dir
         self.numeric_cols = []
         self.categorical_cols = []
         self.target_col = 'readmitted'
         
-        # Create output directory
         os.makedirs(output_dir, exist_ok=True)
         
         # Identify column types
         self._identify_column_types()
     
+    # 👇 THIS MUST BE INDENTED EXACTLY 4 SPACES 👇
     def _identify_column_types(self) -> None:
         """Identify numeric and categorical columns."""
+        import re
+        
+        # FIX: Convert 'age' from string bins (e.g., '[30-40)') to numeric midpoints
+        if 'age' in self.df.columns and self.df['age'].dtype == 'object':
+            def get_midpoint(val):
+                if pd.isna(val): return np.nan
+                nums = re.findall(r'\d+', str(val))
+                if len(nums) >= 2:
+                    return (int(nums[0]) + int(nums[1])) / 2.0
+                elif len(nums) == 1:
+                    return float(nums[0])
+                return np.nan
+            
+            self.df['age'] = self.df['age'].apply(get_midpoint)
+            logger.info("Converted 'age' brackets to numeric midpoints for analysis.")
+
         self.numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
         self.categorical_cols = self.df.select_dtypes(include=['object']).columns.tolist()
         
@@ -182,7 +188,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/01_missing_values.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"\n✓ Saved: 01_missing_values.png")
         
         return {
@@ -248,7 +254,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/02_target_distribution.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"\n✓ Saved: 02_target_distribution.png")
         
         return {
@@ -273,7 +279,9 @@ class EDAAnalyzer:
         
         key_numeric = ['time_in_hospital', 'num_lab_procedures', 'num_procedures', 
                       'num_medications', 'number_diagnoses', 'age']
-        available_numeric = [col for col in key_numeric if col in self.df.columns]
+        # FIX: Ensure we only process columns that are ACTUALLY numeric
+        available_numeric = [col for col in key_numeric 
+                             if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col])]
         
         if not available_numeric:
             available_numeric = self.numeric_cols[:6]
@@ -305,7 +313,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/03_numeric_distributions.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"✓ Saved: 03_numeric_distributions.png")
         
         # Box plots for outlier detection
@@ -321,7 +329,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/04_numeric_boxplots.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"✓ Saved: 04_numeric_boxplots.png")
         
         # Statistical summary
@@ -381,7 +389,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/05_categorical_distributions.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"✓ Saved: 05_categorical_distributions.png")
         
         return {'features_analyzed': available_cat}
@@ -460,7 +468,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/06_correlation_analysis.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"\n✓ Saved: 06_correlation_analysis.png")
         
         return {
@@ -494,7 +502,9 @@ class EDAAnalyzer:
         # Numeric features vs target
         key_features = ['time_in_hospital', 'num_lab_procedures', 'num_medications', 
                        'number_diagnoses', 'age', 'num_procedures']
-        available_features = [col for col in key_features if col in self.df.columns]
+        # FIX: Ensure we only process columns that are ACTUALLY numeric
+        available_features = [col for col in key_features 
+                              if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col])]
         
         if save_figs and len(available_features) > 0:
             fig, axes = plt.subplots(2, 3, figsize=(18, 10))
@@ -516,7 +526,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/07_features_vs_target.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"✓ Saved: 07_features_vs_target.png")
         
         # Additional: Age distribution by readmission
@@ -547,7 +557,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/08_age_vs_readmission.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"✓ Saved: 08_age_vs_readmission.png")
         
         # Time in hospital analysis
@@ -566,7 +576,7 @@ class EDAAnalyzer:
             
             plt.tight_layout()
             plt.savefig(f'{self.output_dir}/09_time_in_hospital_vs_readmission.png', dpi=300, bbox_inches='tight')
-            plt.close()
+            plt.show()
             print(f"✓ Saved: 09_time_in_hospital_vs_readmission.png")
         
         return {'features_analyzed': available_features}
@@ -623,11 +633,15 @@ class EDAAnalyzer:
             print(f"✓ Average Hospital Stay: {mean_stay:.1f} days")
         
         if 'age' in self.df.columns:
-            age_groups = pd.cut(self.df['age'].dropna(), bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
-            most_common_age = age_groups.mode()
-            if len(most_common_age) > 0:
-                insights.append(f"👴 Most Common Age Group: {most_common_age.iloc[0]}")
-                print(f"✓ Most Common Age Group: {most_common_age.iloc[0]}")
+            # FIX: Force conversion to numeric. Strings like "[30-40)" or "?" become NaN and are dropped.
+            numeric_age = pd.to_numeric(self.df['age'], errors='coerce').dropna()
+            
+            if not numeric_age.empty:
+                age_groups = pd.cut(numeric_age, bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+                most_common_age = age_groups.mode()
+                if len(most_common_age) > 0:
+                    insights.append(f"👴 Most Common Age Group: {most_common_age.iloc[0]}")
+                    print(f"✓ Most Common Age Group: {most_common_age.iloc[0]}")
         
         # Missing data insight
         missing_pct = (self.df.isnull().sum() / len(self.df) * 100).sum() / len(self.df.columns)
@@ -741,7 +755,7 @@ class EDAAnalyzer:
             if save_figs:
                 plt.savefig(f'{self.output_dir}/temporal_trend_analysis.png', dpi=300, bbox_inches='tight')
                 logger.info(f"✓ Saved temporal trend analysis to: {self.output_dir}/")
-            plt.close()
+            plt.show()
             
             # Calculate trend direction
             if z[0] < -0.001:
@@ -857,7 +871,7 @@ class EDAAnalyzer:
             if save_figs:
                 plt.savefig(f'{self.output_dir}/medical_specialty_analysis.png', dpi=300, bbox_inches='tight')
                 logger.info(f"✓ Saved medical specialty analysis to: {self.output_dir}/")
-            plt.close()
+            plt.show()
             
             # Generate insights
             if len(top_10_high) > 0:
@@ -967,7 +981,7 @@ class EDAAnalyzer:
             if save_figs:
                 plt.savefig(f'{self.output_dir}/medication_burden_analysis.png', dpi=300, bbox_inches='tight')
                 logger.info(f"✓ Saved medication burden analysis to: {self.output_dir}/")
-            plt.close()
+            plt.show()
             
             # Generate insights
             low_rate = med_stats.loc[med_labels[0], 'readmission_rate'] * 100 if med_labels[0] in med_stats.index else 0

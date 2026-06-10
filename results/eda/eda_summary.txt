@@ -1,0 +1,28 @@
+================================================================================
+EXPLORATORY DATA ANALYSIS SUMMARY
+Diabetes Readmission Prediction - Singapore Healthcare
+================================================================================
+
+Dataset Shape: (101766, 50)
+Numeric Features: 13
+Categorical Features: 36
+
+KEY INSIGHTS:
+----------------------------------------
+📊 Readmission Rate: 11.2% of patients are readmitted within 30 days
+🏥 Average Hospital Stay: 4.4 days
+⚠️ Average Missing Data per Column: 3.6%
+
+🔬 ADVANCED ANALYTICAL INSIGHTS:
+   • Temporal analysis reveals trends in hospital readmission patterns over time
+   • Medical specialty analysis identifies high-risk care areas
+   • 74.6% of patients have high medication burden (>10 medications)
+
+🇸🇬 SINGAPORE HEALTHCARE IMPLICATIONS:
+   • Early identification of high-risk patients can reduce hospital burden
+   • Predictive model enables proactive care management
+   • Resource optimization for Singapore's healthcare system
+   • Improved patient outcomes through timely interventions
+
+================================================================================
+Visualizations saved to: ../results/eda/

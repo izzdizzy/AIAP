@@ -9,7 +9,7 @@ Singapore Healthcare Context:
 - Feature engineering captures clinically relevant patterns for Singaporean patients
 - Handling class imbalance is crucial for accurate readmission prediction
 """
-
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -89,6 +89,11 @@ class DataPreprocessor:
         logger.info(f"[{step}] {decision} - {justification}")
     
     def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        logger.info("Starting data cleaning...")
+        df_clean = df.copy()
+        
+        # 🚨 CRITICAL FIX: Replace '?' with np.nan (Standard UCI dataset cleanup)
+        df_clean = df_clean.replace('?', np.nan)
         """
         Initial data cleaning.
         
@@ -159,44 +164,38 @@ class DataPreprocessor:
     def handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Handle missing values using sophisticated imputation strategies.
-        
-        FIX 1: ADVANCED IMPUTATION & MISSINGNESS MECHANISM
-        - Import MissingIndicator from sklearn.impute
-        - Add binary "missingness flags" for critical columns like weight, payer_code, medical_specialty
-        - This allows the model to learn if "missingness" itself is predictive
-        - For weight (>50% missing), drop it but keep the indicator
-        - Use IterativeImputer only for numeric columns where missingness is likely MAR
-        
-        Args:
-            df: Input dataframe
-            
-        Returns:
-            pd.DataFrame: DataFrame with handled missing values
         """
         logger.info("Handling missing values with sophisticated imputation and missingness indicators...")
         df_processed = df.copy()
         
+        # 🚨 SAFEGUARD: Prevent pandas crash on 0-column DataFrames
+        if df_processed.shape[1] == 0:
+            raise ValueError("🚨 DataFrame has 0 columns entering handle_missing_values()!")
+            
         # Calculate missing percentage before
         missing_before = df_processed.isnull().sum().sum()
         
         # FIX 1: Create missingness indicators for critical clinical columns
-        # Missingness itself may be predictive (e.g., weight missing for bedbound patients)
         for col in self.critical_missing_cols:
             if col in df_processed.columns:
-                indicator = MissingIndicator(features='missings')
-                missing_flag = indicator.fit_transform(df_processed[[col]])
-                df_processed[f'{col}_missing'] = missing_flag.astype(int)
-                self.missing_indicators[col] = indicator
+                # Calculate percentage safely
+                col_missing_pct = (df_processed[col].isnull().sum() / len(df_processed)) * 100
                 
-                missing_pct = df_processed[col].isnull().mean() * 100
-                self._log_decision(
-                    'Missing Values',
-                    f'Created missingness indicator for {col} ({missing_pct:.1f}% missing)',
-                    f'Missingness in {col} may be clinically informative. For example, weight is often missing for bedbound or emergency patients. The binary flag allows the model to learn if missingness itself predicts readmission.'
-                )
+                if col_missing_pct > 0:
+                    # Safely create binary flag using native pandas
+                    df_processed[f'{col}_missing'] = df_processed[col].isnull().astype(int)
+                    
+                    # Log the decision (properly indented inside the IF block)
+                    self._log_decision(
+                        'Missing Values',
+                        f'Created missingness indicator for {col} ({col_missing_pct:.1f}% missing)',
+                        f'Missingness in {col} may be clinically informative. For example, weight is often missing for bedbound or emergency patients. The binary flag allows the model to learn if missingness itself predicts readmission.'
+                    )
+                else:
+                    logger.info(f"Skipping missing indicator for {col} (0.0% missing)")
         
         # Identify columns with high missing rates (>50%)
-        missing_pct = df_processed.isnull().mean() * 100
+        missing_pct_series = (df_processed.isnull().sum() / len(df_processed)) * 100
         high_missing_categorical = []
         high_missing_numeric = []
         
@@ -204,16 +203,13 @@ class DataPreprocessor:
             # Skip the newly created missing indicator columns
             if col.endswith('_missing'):
                 continue
-            if missing_pct[col] > 50:
+            if missing_pct_series[col] > 50:
                 if df_processed[col].dtype == 'object':
                     high_missing_categorical.append(col)
                 else:
                     high_missing_numeric.append(col)
         
-        # CRITICAL FIX: Don't drop high-missing columns blindly!
-        # For categorical: create "Unknown/Missing" category (missingness is informative)
-        # For numeric with >50% missing (like weight): rely on the missing indicator, can drop original
-        
+        # Handle high missing categorical columns
         if high_missing_categorical:
             self._log_decision(
                 'Missing Values',
@@ -243,14 +239,13 @@ class DataPreprocessor:
         )
         
         # CRITICAL FIX: Use IterativeImputer (MICE) for numeric features
-        # This models each feature as a function of other features - much more sophisticated than simple median
         if len(numeric_cols) > 0:
             cols_with_missing = [c for c in numeric_cols if df_processed[c].isnull().sum() > 0]
             if cols_with_missing:
                 self._log_decision(
                     'Missing Values',
                     f'Applied IterativeImputer (MICE) for {len(cols_with_missing)} numeric features: {cols_with_missing}',
-                    'IterativeImputer (Multivariate Imputation by Chained Equations) models each feature as a function of all other features. This captures correlations between clinical variables (e.g., time_in_hospital correlates with num_lab_procedures) for more accurate imputation than simple median.'
+                    'IterativeImputer (Multivariate Imputation by Chained Equations) models each feature as a function of all other features. This captures correlations between clinical variables for more accurate imputation than simple median.'
                 )
                 df_processed[numeric_cols] = self.iterative_imputer.fit_transform(df_processed[numeric_cols])
             else:
@@ -283,8 +278,9 @@ class DataPreprocessor:
         logger.info("Encoding categorical variables...")
         df_encoded = df.copy()
         
-        # Automatically identify categorical columns if not specified
-        categorical_cols = df_encoded.select_dtypes(include=['object']).columns.tolist()
+        # 🚨 CRITICAL FIX: Include 'category' dtype (created by pd.cut in feature engineering)
+        # If we only select 'object', columns like 'age_group' are skipped and crash the scaler!
+        categorical_cols = df_encoded.select_dtypes(include=['object', 'category']).columns.tolist()
         
         # Remove target column if present
         if 'readmitted' in categorical_cols:
@@ -613,22 +609,25 @@ class DataPreprocessor:
                      handle_imbalance: bool = True) -> Tuple:
         """
         Complete preprocessing pipeline.
-        
-        Args:
-            df: Raw input dataframe
-            target_col: Target column name
-            handle_imbalance: Whether to handle class imbalance
-            
-        Returns:
-            Tuple: X_train, X_test, y_train, y_test, feature_names
         """
         logger.info("=" * 60)
         logger.info("STARTING COMPLETE PREPROCESSING PIPELINE")
         logger.info("=" * 60)
         
+        # 🚨 CRITICAL CHECK: Ensure df actually has columns before starting
+        print(f"🔍 DEBUG: Initial df shape -> {df.shape}")
+        if df.shape[1] == 0:
+            raise ValueError(
+                "🚨 The DataFrame passed to fit_transform has 0 columns! "
+                "Check your Jupyter Notebook cells to see if 'df' was accidentally overwritten or emptied before calling this."
+            )
+
         # Step 1: Clean data
         df_processed = self.clean_data(df)
-        
+        print(f"🔍 DEBUG: Shape after clean_data -> {df_processed.shape}")
+        if df_processed.shape[1] == 0:
+            raise ValueError("🚨 DataFrame has 0 columns after clean_data().")
+
         # Step 2: Handle missing values
         df_processed = self.handle_missing_values(df_processed)
         
