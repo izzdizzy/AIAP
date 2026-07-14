@@ -13,9 +13,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Data processing artifacts
-data/processed/
-data/raw/
 
 # Virtual environments
 venv/
