@@ -1,0 +1,1 @@
+Nothing should be ignored based on the provided file changes. The only added file is a Jupyter notebook (.ipynb), which is a source file that should typically be tracked in version control, especially in data science projects. No build artifacts, dependencies, temporary files, or other ignorable items were detected in the changes.
