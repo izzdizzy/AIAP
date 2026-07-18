@@ -1123,7 +1123,7 @@ def train_lightgbm_model(
         metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        verbose=-1
+        verbose=1
     )
     
     param_dist = create_lightgbm_param_grid()
@@ -1167,7 +1167,7 @@ def train_lightgbm_model(
         metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        verbose=-1
+        verbose=1
     )
     
     start_time = time.time()
