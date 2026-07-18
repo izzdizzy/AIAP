@@ -1,45 +1,11 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
-venv/
-ENV/
-env.bak/
-.venv/
-env/
-
-# Jupyter Notebook
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-__pycache__/
+```
+# Compiled Python files
 *.pyc
+__pycache__/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Environment
+# Dependencies
+venv/
+.venv/
 .env
 .env.local
 *.env.*
@@ -47,37 +13,28 @@ __pycache__/
 # Logs
 *.log
 
-# Coverage
+# Coverage reports
 .coverage
 coverage/
 htmlcov/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Distribution / build artifacts
+dist/
+build/
+*.egg-info/
+
+# Testing
 .pytest_cache/
 .mypy_cache/
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
-
-# Compressed
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+```
