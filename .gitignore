@@ -1,1 +1,4 @@
-(gen empty - no build artifacts, dependencies, or temp files detected)
+```
+__pycache__/
+*.pyc
+```
