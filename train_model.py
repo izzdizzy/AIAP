@@ -9,11 +9,14 @@ Dataset (1999-2008).
 Key Features:
 - Direct loading from raw CSV with proper handling of "?" unknown values
 - Advanced dataset-specific feature engineering (diagnosis grouping, medication counts, etc.)
-- Class imbalance handling using SMOTE with careful parameter tuning
-- Multiple model comparison (XGBoost, LightGBM, CatBoost)
-- Hyperparameter optimization via RandomizedSearchCV with StratifiedKFold
+- Class imbalance handling via scale_pos_weight parameter (no SMOTE needed)
+- HistGradientBoostingClassifier as primary model (optimized for speed)
+- Fallback to XGBoost/LightGBM if available
+- Hyperparameter optimization via RandomizedSearchCV on stratified subset (25k samples)
+- Final model trained on FULL training dataset with best parameters
 - Model evaluation targeting >= 80% ROC-AUC
 - Model persistence using joblib
+- Progress bars and clear status updates throughout
 
 Usage:
     python train_model.py
@@ -25,10 +28,12 @@ Output:
 """
 
 import os
+import sys
 import json
 import re
 from pathlib import Path
 from typing import Tuple, Dict, Any, List, Optional
+import time
 
 import numpy as np
 import pandas as pd
@@ -37,8 +42,8 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, classification_report
 )
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import HistGradientBoostingClassifier
 import joblib
 
 # Try importing gradient boosting libraries
@@ -47,31 +52,25 @@ try:
     XGB_AVAILABLE = True
 except ImportError:
     XGB_AVAILABLE = False
-    print("Warning: XGBoost not available")
+    print("Note: XGBoost not available (will use HistGradientBoostingClassifier)")
 
 try:
     import lightgbm as lgb
     LGB_AVAILABLE = True
 except ImportError:
     LGB_AVAILABLE = False
-    print("Warning: LightGBM not available")
-
-try:
-    import catboost as cb
-    CB_AVAILABLE = True
-except ImportError:
-    CB_AVAILABLE = False
-    print("Warning: CatBoost not available")
+    print("Note: LightGBM not available (will use HistGradientBoostingClassifier)")
 
 
 # =============================================================================
-# CONFIGURATION CONSTANTS
+# CONFIGURATION CONSTANTS - OPTIMIZED FOR SPEED
 # =============================================================================
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
-CV_FOLDS = 5
-N_ITER_SEARCH = 100  # Increased for better hyperparameter search
+CV_FOLDS = 3  # Reduced from 5 for faster cross-validation
+N_ITER_SEARCH = 15  # Reduced from 100 for faster hyperparameter search
+TUNING_SAMPLE_SIZE = 25000  # Stratified sample size for hyperparameter tuning
 TARGET_ROC_AUC = 0.80
 
 # Use raw data directly
@@ -683,46 +682,32 @@ def encode_categorical_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
 # MODEL TRAINING FUNCTIONS
 # =============================================================================
 
-def apply_smote_balanced(
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-    sampling_strategy: float = 0.5
-) -> Tuple[pd.DataFrame, pd.Series]:
+def calculate_scale_pos_weight(y: pd.Series) -> float:
     """
-    Apply SMOTE with balanced sampling to handle class imbalance.
+    Calculate scale_pos_weight parameter for handling class imbalance.
     
-    Using sampling_strategy < 1.0 to avoid over-sampling which can introduce noise.
+    Tree-based models handle imbalance better via this parameter rather than SMOTE.
+    Formula: (negative samples / positive samples)
     
     Args:
-        X_train: Training features
-        y_train: Training target
-        sampling_strategy: Ratio of minority to majority class after SMOTE
+        y: Target variable series
         
     Returns:
-        Tuple containing resampled training features and target
+        float: scale_pos_weight value
     """
-    class_dist = y_train.value_counts()
-    minority_class_count = class_dist.min()
-    majority_class_count = class_dist.max()
-    imbalance_ratio = majority_class_count / max(minority_class_count, 1)
+    class_dist = y.value_counts()
+    negative_count = class_dist.get(0, 0)
+    positive_count = class_dist.get(1, 0)
     
-    print(f"\nClass imbalance ratio before SMOTE: {imbalance_ratio:.2f}:1")
-    print(f"Minority class: {minority_class_count}, Majority class: {majority_class_count}")
+    if positive_count == 0:
+        return 1.0
     
-    # Apply SMOTE with conservative sampling
-    smote = SMOTE(
-        random_state=RANDOM_STATE,
-        k_neighbors=5,
-        sampling_strategy=sampling_strategy
-    )
-    X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+    scale_weight = negative_count / positive_count
+    print(f"\nClass distribution: Negative={negative_count}, Positive={positive_count}")
+    print(f"Imbalance ratio: {scale_weight:.2f}:1")
+    print(f"Using scale_pos_weight={scale_weight:.2f} to handle class imbalance")
     
-    new_dist = pd.Series(y_train_resampled).value_counts()
-    new_imbalance_ratio = new_dist.max() / max(new_dist.min(), 1)
-    print(f"Class imbalance ratio after SMOTE: {new_imbalance_ratio:.2f}:1")
-    print(f"Resampled training size: {len(y_train_resampled)}")
-    
-    return X_train_resampled, y_train_resampled
+    return scale_weight
 
 
 def create_xgboost_param_grid() -> Dict[str, list]:
@@ -792,20 +777,182 @@ def create_catboost_param_grid() -> Dict[str, list]:
     return param_dist
 
 
-def train_xgboost_model(
+def create_histgradientboosting_param_grid() -> Dict[str, list]:
+    """
+    Create parameter grid for HistGradientBoostingClassifier hyperparameter tuning.
+    
+    This model is natively optimized for speed, handles missing values automatically,
+    and performs comparably to XGBoost on large datasets.
+    
+    Returns:
+        Dict: Parameter distributions for RandomizedSearchCV
+    """
+    param_dist = {
+        'max_iter': [100, 200, 300, 400],
+        'learning_rate': [0.01, 0.05, 0.1, 0.2],
+        'max_depth': [3, 5, 7, 10, None],
+        'l2_regularization': [0.0, 0.1, 0.5, 1.0],
+        'min_samples_leaf': [10, 20, 30, 50],
+        'max_bins': [128, 255],
+    }
+    
+    return param_dist
+
+
+def train_histgradientboosting_model(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     X_test: pd.DataFrame,
-    y_test: pd.Series
+    y_test: pd.Series,
+    scale_pos_weight: float
 ) -> Tuple[Any, Dict[str, Any]]:
     """
-    Train XGBoost model with hyperparameter tuning.
+    Train HistGradientBoostingClassifier with hyperparameter tuning.
+    
+    Uses stratified sampling for faster hyperparameter search, then trains
+    final model on full dataset with best parameters.
     
     Args:
         X_train: Training features
         y_train: Training target
         X_test: Test features
         y_test: Test target
+        scale_pos_weight: Weight for handling class imbalance
+        
+    Returns:
+        Tuple containing trained model and results dictionary
+    """
+    print("\n" + "=" * 60)
+    print("HISTGRADIENTBOOSTING HYPERPARAMETER TUNING")
+    print("=" * 60)
+    
+    # Step 1: Create stratified sample for faster hyperparameter tuning
+    print(f"\nCreating stratified sample of {TUNING_SAMPLE_SIZE} rows for hyperparameter search...")
+    if len(y_train) > TUNING_SAMPLE_SIZE:
+        X_tune, _, y_tune, _ = train_test_split(
+            X_train, y_train,
+            train_size=TUNING_SAMPLE_SIZE,
+            stratify=y_train,
+            random_state=RANDOM_STATE
+        )
+        print(f"Sampled {len(y_tune)} rows for tuning (from {len(y_train)} total)")
+    else:
+        X_tune, y_tune = X_train, y_train
+        print(f"Using full training set ({len(y_tune)} rows) for tuning")
+    
+    skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    
+    base_hgb = HistGradientBoostingClassifier(
+        random_state=RANDOM_STATE,
+        early_stopping=True,
+        validation_fraction=0.1,
+        verbose=1
+    )
+    
+    param_dist = create_histgradientboosting_param_grid()
+    
+    print(f"\nStarting hyperparameter search with {N_ITER_SEARCH} iterations and {CV_FOLDS}-fold CV...")
+    print("Progress will be shown below:\n")
+    
+    random_search = RandomizedSearchCV(
+        estimator=base_hgb,
+        param_distributions=param_dist,
+        n_iter=N_ITER_SEARCH,
+        scoring='roc_auc',
+        cv=skf,
+        verbose=2,  # Show progress for each fold
+        n_jobs=-1,
+        random_state=RANDOM_STATE,
+        return_train_score=True
+    )
+    
+    random_search.fit(X_tune, y_tune)
+    
+    best_params = random_search.best_params_
+    best_score = random_search.best_score_
+    
+    print(f"\n{'='*60}")
+    print(f"BEST PARAMETERS FOUND ON SUBSET")
+    print(f"{'='*60}")
+    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
+    print(f"Best parameters: {best_params}")
+    
+    # Step 2: Train final model on FULL training dataset with best parameters
+    print(f"\n{'='*60}")
+    print(f"TRAINING FINAL MODEL ON FULL DATASET ({len(y_train)} samples)")
+    print(f"{'='*60}")
+    
+    # Add class weight handling via sample weights
+    # HistGradientBoostingClassifier doesn't have scale_pos_weight directly,
+    # but we can use class_weight='balanced' or compute sample weights
+    sample_weights = np.where(y_train == 1, scale_pos_weight, 1.0)
+    
+    final_model = HistGradientBoostingClassifier(
+        **best_params,
+        random_state=RANDOM_STATE,
+        early_stopping=True,
+        validation_fraction=0.1,
+        verbose=1
+    )
+    
+    start_time = time.time()
+    final_model.fit(X_train, y_train, sample_weight=sample_weights)
+    train_time = time.time() - start_time
+    
+    print(f"\nFinal model training completed in {train_time:.2f} seconds")
+    print(f"Number of trees built: {final_model.n_trees_}")
+    
+    # Evaluate on test set
+    y_pred_proba = final_model.predict_proba(X_test)[:, 1]
+    y_pred = final_model.predict(X_test)
+    
+    test_metrics = {
+        'accuracy': accuracy_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred, zero_division=0),
+        'recall': recall_score(y_test, y_pred, zero_division=0),
+        'f1': f1_score(y_test, y_pred, zero_division=0),
+        'roc_auc': roc_auc_score(y_test, y_pred_proba)
+    }
+    
+    print("\n" + "-" * 40)
+    print("TEST SET EVALUATION")
+    print("-" * 40)
+    print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
+    print(f"Precision: {test_metrics['precision']:.4f}")
+    print(f"Recall:    {test_metrics['recall']:.4f}")
+    print(f"F1 Score:  {test_metrics['f1']:.4f}")
+    print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
+    
+    results = {
+        'model_name': 'HistGradientBoosting',
+        'best_params': best_params,
+        'best_cv_score': best_score,
+        'test_metrics': test_metrics,
+        'training_time_seconds': train_time
+    }
+    
+    return final_model, results
+
+
+def train_xgboost_model(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    scale_pos_weight: float
+) -> Tuple[Any, Dict[str, Any]]:
+    """
+    Train XGBoost model with hyperparameter tuning.
+    
+    Uses stratified sampling for faster hyperparameter search, then trains
+    final model on full dataset with best parameters.
+    
+    Args:
+        X_train: Training features
+        y_train: Training target
+        X_test: Test features
+        y_test: Test target
+        scale_pos_weight: Weight for handling class imbalance
         
     Returns:
         Tuple containing trained model and results dictionary
@@ -817,6 +964,20 @@ def train_xgboost_model(
     print("\n" + "=" * 60)
     print("XGBOOST HYPERPARAMETER TUNING")
     print("=" * 60)
+    
+    # Create stratified sample for faster tuning
+    print(f"\nCreating stratified sample of {TUNING_SAMPLE_SIZE} rows for hyperparameter search...")
+    if len(y_train) > TUNING_SAMPLE_SIZE:
+        X_tune, _, y_tune, _ = train_test_split(
+            X_train, y_train,
+            train_size=TUNING_SAMPLE_SIZE,
+            stratify=y_train,
+            random_state=RANDOM_STATE
+        )
+        print(f"Sampled {len(y_tune)} rows for tuning (from {len(y_train)} total)")
+    else:
+        X_tune, y_tune = X_train, y_train
+        print(f"Using full training set ({len(y_tune)} rows) for tuning")
     
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
     
@@ -830,6 +991,8 @@ def train_xgboost_model(
     
     param_dist = create_xgboost_param_grid()
     
+    print(f"\nStarting hyperparameter search with {N_ITER_SEARCH} iterations and {CV_FOLDS}-fold CV...")
+    
     random_search = RandomizedSearchCV(
         estimator=base_xgb,
         param_distributions=param_dist,
@@ -842,19 +1005,43 @@ def train_xgboost_model(
         return_train_score=True
     )
     
-    print("\nStarting hyperparameter search...")
-    random_search.fit(X_train, y_train)
+    random_search.fit(X_tune, y_tune)
     
-    best_model = random_search.best_estimator_
     best_params = random_search.best_params_
     best_score = random_search.best_score_
     
-    print(f"\nBest ROC-AUC from cross-validation: {best_score:.4f}")
+    print(f"\n{'='*60}")
+    print(f"BEST PARAMETERS FOUND ON SUBSET")
+    print(f"{'='*60}")
+    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
     print(f"Best parameters: {best_params}")
     
+    # Train final model on FULL dataset
+    print(f"\n{'='*60}")
+    print(f"TRAINING FINAL MODEL ON FULL DATASET ({len(y_train)} samples)")
+    print(f"{'='*60}")
+    
+    # Update scale_pos_weight in best params
+    best_params['scale_pos_weight'] = scale_pos_weight
+    
+    final_model = xgb.XGBClassifier(
+        **best_params,
+        objective='binary:logistic',
+        eval_metric='auc',
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+        tree_method='hist'
+    )
+    
+    start_time = time.time()
+    final_model.fit(X_train, y_train)
+    train_time = time.time() - start_time
+    
+    print(f"\nFinal model training completed in {train_time:.2f} seconds")
+    
     # Evaluate on test set
-    y_pred_proba = best_model.predict_proba(X_test)[:, 1]
-    y_pred = best_model.predict(X_test)
+    y_pred_proba = final_model.predict_proba(X_test)[:, 1]
+    y_pred = final_model.predict(X_test)
     
     test_metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
@@ -877,26 +1064,32 @@ def train_xgboost_model(
         'model_name': 'XGBoost',
         'best_params': best_params,
         'best_cv_score': best_score,
-        'test_metrics': test_metrics
+        'test_metrics': test_metrics,
+        'training_time_seconds': train_time
     }
     
-    return best_model, results
+    return final_model, results
 
 
 def train_lightgbm_model(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     X_test: pd.DataFrame,
-    y_test: pd.Series
+    y_test: pd.Series,
+    scale_pos_weight: float
 ) -> Tuple[Any, Dict[str, Any]]:
     """
     Train LightGBM model with hyperparameter tuning.
+    
+    Uses stratified sampling for faster hyperparameter search, then trains
+    final model on full dataset with best parameters.
     
     Args:
         X_train: Training features
         y_train: Training target
         X_test: Test features
         y_test: Test target
+        scale_pos_weight: Weight for handling class imbalance
         
     Returns:
         Tuple containing trained model and results dictionary
@@ -908,6 +1101,20 @@ def train_lightgbm_model(
     print("\n" + "=" * 60)
     print("LIGHTGBM HYPERPARAMETER TUNING")
     print("=" * 60)
+    
+    # Create stratified sample for faster tuning
+    print(f"\nCreating stratified sample of {TUNING_SAMPLE_SIZE} rows for hyperparameter search...")
+    if len(y_train) > TUNING_SAMPLE_SIZE:
+        X_tune, _, y_tune, _ = train_test_split(
+            X_train, y_train,
+            train_size=TUNING_SAMPLE_SIZE,
+            stratify=y_train,
+            random_state=RANDOM_STATE
+        )
+        print(f"Sampled {len(y_tune)} rows for tuning (from {len(y_train)} total)")
+    else:
+        X_tune, y_tune = X_train, y_train
+        print(f"Using full training set ({len(y_tune)} rows) for tuning")
     
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
     
@@ -921,6 +1128,8 @@ def train_lightgbm_model(
     
     param_dist = create_lightgbm_param_grid()
     
+    print(f"\nStarting hyperparameter search with {N_ITER_SEARCH} iterations and {CV_FOLDS}-fold CV...")
+    
     random_search = RandomizedSearchCV(
         estimator=base_lgb,
         param_distributions=param_dist,
@@ -933,19 +1142,43 @@ def train_lightgbm_model(
         return_train_score=True
     )
     
-    print("\nStarting hyperparameter search...")
-    random_search.fit(X_train, y_train)
+    random_search.fit(X_tune, y_tune)
     
-    best_model = random_search.best_estimator_
     best_params = random_search.best_params_
     best_score = random_search.best_score_
     
-    print(f"\nBest ROC-AUC from cross-validation: {best_score:.4f}")
+    print(f"\n{'='*60}")
+    print(f"BEST PARAMETERS FOUND ON SUBSET")
+    print(f"{'='*60}")
+    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
     print(f"Best parameters: {best_params}")
     
+    # Train final model on FULL dataset
+    print(f"\n{'='*60}")
+    print(f"TRAINING FINAL MODEL ON FULL DATASET ({len(y_train)} samples)")
+    print(f"{'='*60}")
+    
+    # Update scale_pos_weight in best params
+    best_params['scale_pos_weight'] = scale_pos_weight
+    
+    final_model = lgb.LGBMClassifier(
+        **best_params,
+        objective='binary',
+        metric='auc',
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+        verbose=-1
+    )
+    
+    start_time = time.time()
+    final_model.fit(X_train, y_train)
+    train_time = time.time() - start_time
+    
+    print(f"\nFinal model training completed in {train_time:.2f} seconds")
+    
     # Evaluate on test set
-    y_pred_proba = best_model.predict_proba(X_test)[:, 1]
-    y_pred = best_model.predict(X_test)
+    y_pred_proba = final_model.predict_proba(X_test)[:, 1]
+    y_pred = final_model.predict(X_test)
     
     test_metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
@@ -968,101 +1201,11 @@ def train_lightgbm_model(
         'model_name': 'LightGBM',
         'best_params': best_params,
         'best_cv_score': best_score,
-        'test_metrics': test_metrics
+        'test_metrics': test_metrics,
+        'training_time_seconds': train_time
     }
     
-    return best_model, results
-
-
-def train_catboost_model(
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-    X_test: pd.DataFrame,
-    y_test: pd.Series
-) -> Tuple[Any, Dict[str, Any]]:
-    """
-    Train CatBoost model with hyperparameter tuning.
-    
-    Args:
-        X_train: Training features
-        y_train: Training target
-        X_test: Test features
-        y_test: Test target
-        
-    Returns:
-        Tuple containing trained model and results dictionary
-    """
-    if not CB_AVAILABLE:
-        print("CatBoost not available, skipping...")
-        return None, {}
-    
-    print("\n" + "=" * 60)
-    print("CATBOOST HYPERPARAMETER TUNING")
-    print("=" * 60)
-    
-    skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
-    
-    base_cb = cb.CatBoostClassifier(
-        loss_function='LogLoss',
-        eval_metric='AUC',
-        random_state=RANDOM_STATE,
-        verbose=0,
-        thread_count=-1
-    )
-    
-    param_dist = create_catboost_param_grid()
-    
-    random_search = RandomizedSearchCV(
-        estimator=base_cb,
-        param_distributions=param_dist,
-        n_iter=N_ITER_SEARCH // 2,  # CatBoost is slower
-        scoring='roc_auc',
-        cv=skf,
-        verbose=1,
-        n_jobs=-1,
-        random_state=RANDOM_STATE,
-        return_train_score=True
-    )
-    
-    print("\nStarting hyperparameter search...")
-    random_search.fit(X_train, y_train)
-    
-    best_model = random_search.best_estimator_
-    best_params = random_search.best_params_
-    best_score = random_search.best_score_
-    
-    print(f"\nBest ROC-AUC from cross-validation: {best_score:.4f}")
-    print(f"Best parameters: {best_params}")
-    
-    # Evaluate on test set
-    y_pred_proba = best_model.predict_proba(X_test)[:, 1]
-    y_pred = best_model.predict(X_test)
-    
-    test_metrics = {
-        'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred, zero_division=0),
-        'recall': recall_score(y_test, y_pred, zero_division=0),
-        'f1': f1_score(y_test, y_pred, zero_division=0),
-        'roc_auc': roc_auc_score(y_test, y_pred_proba)
-    }
-    
-    print("\n" + "-" * 40)
-    print("TEST SET EVALUATION")
-    print("-" * 40)
-    print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
-    print(f"Precision: {test_metrics['precision']:.4f}")
-    print(f"Recall:    {test_metrics['recall']:.4f}")
-    print(f"F1 Score:  {test_metrics['f1']:.4f}")
-    print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
-    
-    results = {
-        'model_name': 'CatBoost',
-        'best_params': best_params,
-        'best_cv_score': best_score,
-        'test_metrics': test_metrics
-    }
-    
-    return best_model, results
+    return final_model, results
 
 
 def compare_and_select_best_model(
@@ -1217,79 +1360,89 @@ def main():
     print(f"Training samples: {len(y_train)}")
     print(f"Test samples: {len(y_test)}")
     
-    # Step 6: Apply SMOTE
+    # Step 6: Calculate scale_pos_weight for class imbalance handling
     print("\n" + "-" * 40)
-    print("Step 6: Applying SMOTE")
+    print("Step 6: Calculating Class Weight Parameter")
     print("-" * 40)
-    X_train_balanced, y_train_balanced = apply_smote_balanced(
-        X_train, y_train, sampling_strategy=0.5
+    scale_pos_weight = calculate_scale_pos_weight(y_train)
+    
+    # No need for feature scaling with tree-based models!
+    print("\nNote: Tree-based models (HistGradientBoosting, XGBoost, LightGBM)")
+    print("do not require feature scaling. Using raw features directly.\n")
+    X_train_final = X_train.copy()
+    X_test_final = X_test.copy()
+    
+    # Step 7: Train HistGradientBoostingClassifier (primary model - fastest)
+    print("\n" + "-" * 40)
+    print("Step 7: Training HistGradientBoostingClassifier")
+    print("-" * 40)
+    start_total = time.time()
+    
+    hgb_model, hgb_results = train_histgradientboosting_model(
+        X_train_final, y_train,
+        X_test_final, y_test,
+        scale_pos_weight
     )
-    
-    # Step 7: Scale features
-    print("\n" + "-" * 40)
-    print("Step 7: Feature Scaling")
-    print("-" * 40)
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_balanced)
-    X_test_scaled = scaler.transform(X_test)
-    
-    X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train_balanced.columns)
-    X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns)
-    
-    # Step 8: Train multiple models
-    print("\n" + "-" * 40)
-    print("Step 8: Training Multiple Models")
-    print("-" * 40)
     
     model_results = []
+    if hgb_model is not None:
+        model_results.append(('HistGradientBoosting', hgb_model, hgb_results))
     
-    # Train XGBoost
-    xgb_model, xgb_results = train_xgboost_model(
-        X_train_scaled, y_train_balanced,
-        X_test_scaled, y_test
-    )
-    if xgb_model is not None:
-        model_results.append(('XGBoost', xgb_model, xgb_results))
+    # Optionally train XGBoost as fallback/comparison
+    if XGB_AVAILABLE:
+        print("\n" + "-" * 40)
+        print("Step 8: Training XGBoost (optional comparison)")
+        print("-" * 40)
+        xgb_model, xgb_results = train_xgboost_model(
+            X_train_final, y_train,
+            X_test_final, y_test,
+            scale_pos_weight
+        )
+        if xgb_model is not None:
+            model_results.append(('XGBoost', xgb_model, xgb_results))
     
-    # Train LightGBM
-    lgb_model, lgb_results = train_lightgbm_model(
-        X_train_scaled, y_train_balanced,
-        X_test_scaled, y_test
-    )
-    if lgb_model is not None:
-        model_results.append(('LightGBM', lgb_model, lgb_results))
+    # Optionally train LightGBM as fallback/comparison
+    if LGB_AVAILABLE:
+        print("\n" + "-" * 40)
+        print("Step 9: Training LightGBM (optional comparison)")
+        print("-" * 40)
+        lgb_model, lgb_results = train_lightgbm_model(
+            X_train_final, y_train,
+            X_test_final, y_test,
+            scale_pos_weight
+        )
+        if lgb_model is not None:
+            model_results.append(('LightGBM', lgb_model, lgb_results))
     
-    # Train CatBoost
-    cb_model, cb_results = train_catboost_model(
-        X_train_scaled, y_train_balanced,
-        X_test_scaled, y_test
-    )
-    if cb_model is not None:
-        model_results.append(('CatBoost', cb_model, cb_results))
-    
-    # Step 9: Select best model
+    # Step 10: Select best model
     print("\n" + "-" * 40)
-    print("Step 9: Selecting Best Model")
+    print("Step 10: Selecting Best Model")
     print("-" * 40)
     best_model_name, best_model, best_results = compare_and_select_best_model(model_results)
     
-    # Step 10: Save model and artifacts
+    total_training_time = time.time() - start_total
+    print(f"\nTotal training time: {total_training_time:.2f} seconds ({total_training_time/60:.2f} minutes)")
+    
+    # Step 11: Save model and artifacts
     print("\n" + "-" * 40)
-    print("Step 10: Saving Model and Artifacts")
+    print("Step 11: Saving Model and Artifacts")
     print("-" * 40)
     save_model(best_model, MODEL_PATH)
-    save_model(scaler, OUTPUT_DIR / "scaler.joblib")
     
     # Save metadata
     metadata = {
         'training_date': pd.Timestamp.now().isoformat(),
         'dataset_path': str(RAW_DATA_PATH),
         'feature_count': X.shape[1],
-        'training_samples_original': len(y_train),
-        'training_samples_after_smote': len(y_train_balanced),
+        'training_samples': len(y_train),
         'test_samples': len(y_test),
+        'scale_pos_weight_used': scale_pos_weight,
+        'tuning_sample_size': TUNING_SAMPLE_SIZE,
+        'cv_folds': CV_FOLDS,
+        'n_iter_search': N_ITER_SEARCH,
         'best_model_name': best_model_name,
-        'results': best_results
+        'results': best_results,
+        'total_training_time_seconds': total_training_time
     }
     save_metadata(metadata, METADATA_PATH)
     
@@ -1305,6 +1458,7 @@ def main():
     print(f"Metadata file: {METADATA_PATH}")
     print(f"Feature columns file: {FEATURE_COLUMNS_PATH}")
     print(f"Final ROC-AUC: {best_results['test_metrics']['roc_auc']:.4f}")
+    print(f"Total training time: {total_training_time/60:.2f} minutes")
     
     return best_model, best_results
 
