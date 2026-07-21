@@ -321,6 +321,39 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
         if risk_category not in valid_categories:
             raise ValueError(f"risk_category must be one of: {valid_categories}")
         
+        # TASK 5 (P1): Input validation guardrails - Check for dangerous phrases
+        dangerous_phrases = [
+            'stop taking insulin',
+            'ignore doctor',
+            'don\'t take medication',
+            'skip your meds',
+            'stop medication',
+            'discontinue treatment',
+            'ignore medical advice',
+            'harm yourself',
+            'hurt yourself'
+        ]
+        
+        user_question_lower = user_question.lower()
+        for phrase in dangerous_phrases:
+            if phrase in user_question_lower:
+                return (
+                    "**SAFETY WARNING**: I cannot provide advice on stopping or ignoring medical treatment. "
+                    "Please consult your healthcare provider immediately for any concerns about your medications. "
+                    "For emergencies, call 995 or go to the nearest A&E."
+                )
+        
+        # Also check patient symptoms for dangerous content
+        if patient_symptoms:
+            symptoms_str = ", ".join(patient_symptoms).lower()
+            for phrase in dangerous_phrases:
+                if phrase in symptoms_str:
+                    return (
+                        "**SAFETY WARNING**: I notice concerning content related to stopping medical treatment. "
+                        "Please speak with your healthcare provider right away. Your health and safety are important. "
+                        "For emergencies, call 995 or go to the nearest A&E."
+                    )
+        
         # Build a minimal, focused prompt with ONLY current context
         # DO NOT include any chat history - this causes repetition loops
         prompt_parts = []

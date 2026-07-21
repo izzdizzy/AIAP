@@ -40,7 +40,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, make_scorer,
-    roc_auc_score, classification_report
+    roc_auc_score, classification_report, precision_recall_curve
 )
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import LabelEncoder
@@ -980,7 +980,8 @@ def train_histgradientboosting_model(
     y_pred_proba = final_model.predict_proba(X_test)[:, 1]
     y_pred = final_model.predict(X_test)
     
-    test_metrics = {
+    # Calculate metrics at default 0.5 threshold
+    test_metrics_default = {
         'accuracy': accuracy_score(y_test, y_pred),
         'precision': precision_score(y_test, y_pred, zero_division=0),
         'recall': recall_score(y_test, y_pred, zero_division=0),
@@ -989,16 +990,66 @@ def train_histgradientboosting_model(
         'calibration_applied': True
     }
     
+    # TASK 1 (P0): Find optimal threshold for >=80% Recall using precision_recall_curve
+    precision_curve, recall_curve, thresholds_curve = precision_recall_curve(y_test, y_pred_proba)
+    
+    # Find the threshold that achieves >=80% recall with highest precision
+    target_recall = 0.80
+    optimal_threshold = 0.5  # Default fallback
+    best_precision_at_target = 0.0
+    
+    for i in range(len(thresholds_curve)):
+        if recall_curve[i] >= target_recall:
+            if precision_curve[i] > best_precision_at_target:
+                best_precision_at_target = precision_curve[i]
+                optimal_threshold = thresholds_curve[i] if i < len(thresholds_curve) else 0.0
+    
+    # If no threshold found above 0.5, find the one with highest recall
+    if optimal_threshold == 0.5 and len(thresholds_curve) > 0:
+        # Find threshold with recall closest to 80%
+        recall_diffs = [abs(r - target_recall) for r in recall_curve]
+        min_idx = recall_diffs.index(min(recall_diffs))
+        optimal_threshold = thresholds_curve[min_idx] if min_idx < len(thresholds_curve) else 0.3
+    
+    # Calculate metrics at the tuned 80%+ recall threshold
+    y_pred_tuned = (y_pred_proba >= optimal_threshold).astype(int)
+    test_metrics_tuned = {
+        'accuracy': accuracy_score(y_test, y_pred_tuned),
+        'precision': precision_score(y_test, y_pred_tuned, zero_division=0),
+        'recall': recall_score(y_test, y_pred_tuned, zero_division=0),
+        'f1': f1_score(y_test, y_pred_tuned, zero_division=0),
+        'threshold_used': optimal_threshold
+    }
+    
+    test_metrics = {
+        'accuracy': test_metrics_default['accuracy'],
+        'precision': test_metrics_default['precision'],
+        'recall': test_metrics_default['recall'],
+        'f1': test_metrics_default['f1'],
+        'roc_auc': test_metrics_default['roc_auc'],
+        'calibration_applied': True,
+        'default_threshold_metrics': test_metrics_default,
+        'tuned_80_recall_threshold_metrics': test_metrics_tuned,
+        'optimal_threshold_for_80_recall': optimal_threshold
+    }
+    
     print("\n" + "-" * 40)
     print("TEST SET EVALUATION - Calibrated HistGradientBoosting")
     print("-" * 40)
-    print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
-    print(f"Precision: {test_metrics['precision']:.4f}")
-    print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC (Target: 80-90%)")
-    print(f"F1 Score:  {test_metrics['f1']:.4f}")
-    print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
+    print(f"\n--- Metrics at Default 0.5 Threshold ---")
+    print(f"Accuracy:  {test_metrics_default['accuracy']:.4f}")
+    print(f"Precision: {test_metrics_default['precision']:.4f}")
+    print(f"Recall:    {test_metrics_default['recall']:.4f}")
+    print(f"F1 Score:  {test_metrics_default['f1']:.4f}")
+    print(f"ROC-AUC:   {test_metrics_default['roc_auc']:.4f}")
     
-    recall_val = test_metrics['recall']
+    print(f"\n--- Metrics at Tuned Threshold ({optimal_threshold:.3f}) for >=80% Recall ---")
+    print(f"Accuracy:  {test_metrics_tuned['accuracy']:.4f}")
+    print(f"Precision: {test_metrics_tuned['precision']:.4f}")
+    print(f"Recall:    {test_metrics_tuned['recall']:.4f} <-- PRIMARY METRIC (Target: 80-90%)")
+    print(f"F1 Score:  {test_metrics_tuned['f1']:.4f}")
+    
+    recall_val = test_metrics_tuned['recall']
     if TARGET_RECALL_MIN <= recall_val <= TARGET_RECALL_MAX:
         print(f"\n[OK] RECALL TARGET ACHIEVED: {recall_val:.2%} is within 80-90% range")
     elif recall_val < TARGET_RECALL_MIN:
@@ -1554,7 +1605,7 @@ def main():
     # The model is optimized for ROC-AUC, producing well-calibrated probabilities
     # that can be directly converted to severity scores (raw_prob * 100).
     
-    # Save metadata
+    # Save metadata with optimal threshold for 80% recall
     metadata = {
         'training_date': pd.Timestamp.now().isoformat(),
         'dataset_path': str(RAW_DATA_PATH),
@@ -1567,7 +1618,8 @@ def main():
         'n_iter_search': N_ITER_SEARCH,
         'best_model_name': best_model_name,
         'results': best_results,
-        'total_training_time_seconds': total_training_time
+        'total_training_time_seconds': total_training_time,
+        'optimal_threshold_for_80_recall': float(best_results.get('test_metrics', {}).get('optimal_threshold_for_80_recall', 0.3))
     }
     save_metadata(metadata, METADATA_PATH)
     

@@ -9,7 +9,7 @@ Key Features:
 - Load saved .joblib model
 - Align input features to training schema
 - Generate readmission probability score
-- Compute SHAP values for feature importance解释
+- Compute SHAP values for feature importance
 
 Usage:
     from model import ReadmissionPredictor

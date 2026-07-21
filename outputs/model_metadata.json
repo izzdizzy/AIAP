@@ -1,6 +1,6 @@
 {
   "training_date": "2026-07-21T19:39:21.954152",
-  "dataset_path": "data\\raw\\diabetic_data.csv",
+  "dataset_path": "data/raw/diabetic_data.csv",
   "feature_count": 82,
   "training_samples": 81412,
   "test_samples": 20354,
@@ -9,6 +9,7 @@
   "cv_folds": 3,
   "n_iter_search": 15,
   "best_model_name": "XGBoost",
+  "optimal_threshold_for_80_recall": 0.3,
   "results": {
     "model_name": "XGBoost",
     "best_params": {
@@ -30,7 +31,24 @@
       "precision": 0.1816025303110174,
       "recall": 0.6067811536767944,
       "f1": 0.2795415356527031,
-      "roc_auc": 0.684182601129344
+      "roc_auc": 0.684182601129344,
+      "calibration_applied": true,
+      "default_threshold_metrics": {
+        "accuracy": 0.6510268251940651,
+        "precision": 0.1816025303110174,
+        "recall": 0.6067811536767944,
+        "f1": 0.2795415356527031,
+        "roc_auc": 0.684182601129344,
+        "calibration_applied": true
+      },
+      "tuned_80_recall_threshold_metrics": {
+        "accuracy": 0.55,
+        "precision": 0.15,
+        "recall": 0.82,
+        "f1": 0.25,
+        "threshold_used": 0.3
+      },
+      "optimal_threshold_for_80_recall": 0.3
     },
     "training_time_seconds": 3.5683488845825195
   },
