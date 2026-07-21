@@ -949,10 +949,11 @@ with tab1:
                 st.session_state.base_severity = base_severity
                 
                 # Calculate risk_category locally based on FINAL severity score thresholds
+                # Updated thresholds for calibrated model: 0-25 Low, 26-45 Moderate, 46-100 High
                 risk_score_for_categorization = st.session_state.clinical_severity_score / 100.0
-                if risk_score_for_categorization <= 0.30:
+                if risk_score_for_categorization <= 0.25:
                     risk_category = "Low"
-                elif risk_score_for_categorization <= 0.60:
+                elif risk_score_for_categorization <= 0.45:
                     risk_category = "Moderate"
                 else:
                     risk_category = "High"
@@ -1231,10 +1232,10 @@ with tab2:
                         severity_score = st.session_state.get('clinical_severity_score', risk_score * 100)
                         
                         # Determine risk category using absolute thresholds (0-100 scale)
-                        # 0-30: Routine Monitoring, 31-60: Increased Surveillance, 61-100: Immediate Intervention
-                        if severity_score <= 30:
+                        # Updated thresholds for calibrated model: 0-25 Low, 26-45 Moderate, 46-100 High
+                        if severity_score <= 25:
                             risk_category = "Low"
-                        elif severity_score <= 60:
+                        elif severity_score <= 45:
                             risk_category = "Moderate"
                         else:
                             risk_category = "High"
@@ -1299,13 +1300,13 @@ with tab2:
     with col3:
         if st.session_state.current_risk_score is not None:
             # Use absolute thresholds (0-100 scale)
-            # 0-30: Routine Monitoring, 31-60: Increased Surveillance, 61-100: Immediate Intervention
+            # Updated thresholds for calibrated model: 0-25 Low, 26-45 Moderate, 46-100 High
             severity_score = st.session_state.get('clinical_severity_score', st.session_state.current_risk_score * 100)
             
             # Map to clinical urgency levels based on 0-100 severity scale
-            if severity_score <= 30:
+            if severity_score <= 25:
                 st.success("**Urgency Level:** ROUTINE MONITORING")
-            elif severity_score <= 60:
+            elif severity_score <= 45:
                 st.warning("**Urgency Level:** INCREASED SURVEILLANCE")
             else:
                 st.error("**Urgency Level:** IMMEDIATE INTERVENTION")
