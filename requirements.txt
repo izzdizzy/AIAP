@@ -27,3 +27,6 @@ streamlit>=1.28.0
 
 # Gen AI (Google Gemini)
 google-generativeai>=0.3.0
+
+# Environment Variable Management
+python-dotenv>=1.0.0

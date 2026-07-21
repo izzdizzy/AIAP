@@ -1,1 +1,37 @@
-(gen empty - no build artifacts, dependencies, or temp files detected)
+```
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Dependencies
+venv/
+.venv/
+pip-tools/
+*.egg-info/
+
+# Environment files
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Distribution artifacts
+dist/
+build/
+*.egg
+*.whl
+```
