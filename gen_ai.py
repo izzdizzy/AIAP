@@ -30,6 +30,7 @@ Environment Variables:
 import os
 import json
 import time
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -40,6 +41,20 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
     print("Warning: google-generativeai library not available. Install with: pip install google-generativeai")
+
+
+def _load_env_file():
+    """Load .env file robustly for macOS compatibility."""
+    try:
+        from dotenv import load_dotenv
+        env_path = Path(__file__).parent / '.env'
+        load_dotenv(dotenv_path=env_path)
+    except Exception:
+        pass  # Silently fail if dotenv not available
+
+
+# Load environment variables on module import
+_load_env_file()
 
 
 class CareNavigationAssistant:

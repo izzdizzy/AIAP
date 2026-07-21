@@ -428,7 +428,7 @@ def load_feature_columns(feature_columns_path: str = 'outputs/feature_columns.js
         if not path.exists():
             raise FileNotFoundError(f"Feature columns file not found at {path}")
         
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         raise RuntimeError(f"Failed to load feature columns: {str(e)}")
@@ -463,7 +463,7 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
         # Determine file format and read accordingly
         file_name = uploaded_file.name.lower()
         if file_name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_csv(uploaded_file, encoding='utf-8')
         elif file_name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
         else:

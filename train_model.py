@@ -136,7 +136,7 @@ def load_raw_data(file_path: Path) -> pd.DataFrame:
     if not file_path.exists():
         raise FileNotFoundError(f"Data file not found at {file_path}")
     
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path, encoding='utf-8')
     print(f"Loaded raw dataset: {df.shape[0]} records, {df.shape[1]} features")
     return df
 
@@ -1071,7 +1071,7 @@ def train_xgboost_model(
         eval_metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        tree_method='hist'
+        tree_method='auto'  # Cross-platform default (auto selects 'hist' for most cases)
     )
     
     param_dist = create_xgboost_param_grid()
@@ -1118,7 +1118,7 @@ def train_xgboost_model(
         eval_metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        tree_method='hist'
+        tree_method='auto'  # Cross-platform default (auto selects 'hist' for most cases)
     )
     
     start_time = time.time()
@@ -1383,7 +1383,7 @@ def save_metadata(metadata: Dict[str, Any], metadata_path: Path) -> None:
     
     metadata_clean = convert_numpy_types(metadata)
     
-    with open(metadata_path, 'w') as f:
+    with open(metadata_path, 'w', encoding='utf-8') as f:
         json.dump(metadata_clean, f, indent=2)
     
     print(f"Metadata saved to: {metadata_path}")
@@ -1393,7 +1393,7 @@ def save_feature_columns(feature_cols: list, feature_path: Path) -> None:
     """Save feature column order for inference alignment."""
     feature_path.parent.mkdir(parents=True, exist_ok=True)
     
-    with open(feature_path, 'w') as f:
+    with open(feature_path, 'w', encoding='utf-8') as f:
         json.dump(feature_cols, f, indent=2)
     
     print(f"Feature columns saved to: {feature_path}")
@@ -1462,7 +1462,7 @@ def main():
     
     # Save feature defaults to JSON
     defaults_path = OUTPUT_DIR / "feature_defaults.json"
-    with open(defaults_path, 'w') as f:
+    with open(defaults_path, 'w', encoding='utf-8') as f:
         json.dump(feature_defaults, f, indent=2)
     print(f"Saved {len(feature_defaults)} feature defaults to {defaults_path}")
     

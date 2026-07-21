@@ -21,10 +21,13 @@
 
 import os
 import streamlit as st
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file at the very top
-load_dotenv()
+# Robust loading for macOS: find .env relative to this script's location
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Get API key from environment variable
 api_key = os.getenv("GEMINI_API_KEY")
@@ -153,7 +156,7 @@ if 'parsed_patient_data' not in st.session_state:
 def load_feature_columns() -> list:
     """Load expected feature columns from JSON file."""
     try:
-        with open('outputs/feature_columns.json', 'r') as f:
+        with open('outputs/feature_columns.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         st.error(f"Failed to load feature columns: {e}")
@@ -169,7 +172,7 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
     """
     try:
         if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_csv(uploaded_file, encoding='utf-8')
         elif uploaded_file.name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
         else:

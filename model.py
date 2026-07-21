@@ -132,7 +132,7 @@ class ReadmissionPredictor:
             )
         
         try:
-            with open(feature_columns_path, 'r') as f:
+            with open(feature_columns_path, 'r', encoding='utf-8') as f:
                 self.feature_columns = json.load(f)
             print(f"Feature columns loaded: {len(self.feature_columns)} features")
         except Exception as e:
@@ -159,7 +159,7 @@ class ReadmissionPredictor:
             )
         
         try:
-            with open(feature_defaults_path, 'r') as f:
+            with open(feature_defaults_path, 'r', encoding='utf-8') as f:
                 self.feature_defaults = json.load(f)
             print(f"Feature defaults loaded: {len(self.feature_defaults)} baseline values")
         except Exception as e:
@@ -392,7 +392,7 @@ class ReadmissionPredictor:
         # Try to load additional metadata if available
         if DEFAULT_METADATA_PATH.exists():
             try:
-                with open(DEFAULT_METADATA_PATH, 'r') as f:
+                with open(DEFAULT_METADATA_PATH, 'r', encoding='utf-8') as f:
                     metadata = json.load(f)
                     model_info['metadata'] = metadata
             except Exception:
