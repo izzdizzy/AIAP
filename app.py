@@ -650,6 +650,15 @@ with tab1:
                 # Clinical Severity Score is now simply raw_probability * 100 (absolute scale)
                 st.session_state.clinical_severity_score = result['risk_score'] * 100
                 
+                # Calculate risk_category locally based on raw probability thresholds
+                raw_probability = result['risk_score']
+                if raw_probability <= 0.30:
+                    risk_category = "Low"
+                elif raw_probability <= 0.60:
+                    risk_category = "Moderate"
+                else:
+                    risk_category = "High"
+                
                 # Display results
                 st.subheader("Patient Risk Assessment")
                 
@@ -672,7 +681,7 @@ with tab1:
                         "Moderate": "Increased Surveillance",
                         "High": "Immediate Intervention"
                     }
-                    urgency_level = urgency_mapping.get(result['risk_category'], result['risk_category'])
+                    urgency_level = urgency_mapping.get(risk_category, risk_category)
                     st.metric(
                         "Urgency Level",
                         urgency_level,
@@ -697,13 +706,13 @@ with tab1:
                 # Updated risk interpretation with clinical urgency framing
                 st.markdown("### Clinical Interpretation")
                 
-                if result['risk_category'] == "Low":
+                if risk_category == "Low":
                     st.success("""
                     **Routine Monitoring**: Patient shows low clinical severity relative to the population. 
                     Continue current management plan with standard follow-up schedule.
                     Maintain regular appointments with your healthcare provider and adhere to prescribed medications.
                     """)
-                elif result['risk_category'] == "Moderate":
+                elif risk_category == "Moderate":
                     st.warning("""
                     **Increased Surveillance**: Patient shows moderate clinical severity. Enhanced monitoring recommended.
                     Consider scheduling an earlier follow-up appointment to review care plan and medication adherence.
