@@ -354,24 +354,27 @@ with tab1:
     except ValueError:
         diagnosis_float = 250.01  # Default diabetes code
     
-    # Build patient data dictionary with ALL expected features from feature_columns.json
-    # This ensures the DataFrame matches exactly what the model expects
-    patient_data = {
-        'admission_type_id': 1,  # Default value - elective admission
-        'discharge_disposition_id': 1,  # Default - discharged to home
-        'admission_source_id': 1,  # Default - physician referral
-        'time_in_hospital': 5,  # Default - 5 days
-        'num_lab_procedures': 50,  # Default average
-        'num_procedures': 5,  # Default
-        'num_medications': medication_count,  # From user input
-        'number_outpatient': 0,  # Default
-        'number_emergency': prior_admissions // 2,  # Estimate based on prior admissions
-        'number_inpatient': prior_admissions,  # From user input
-        'number_diagnoses': comorbidity_count + 1,  # At least primary diagnosis
-        'diabetes_diag_count': 1,  # At least 1 diabetes diagnosis
-        'comorbidity_count': comorbidity_count,  # From user input
-        'metformin_encoded': 1,  # Default - prescribed
-        'metformin_active': 1,  # Default - active
+    # Build patient data dictionary with STRICT feature alignment
+    # Load expected features and create DataFrame with EXACTLY those columns
+    expected_features = load_feature_columns()
+    
+    # First, build all available feature values from user inputs
+    feature_values = {
+        'admission_type_id': 1,
+        'discharge_disposition_id': 1,
+        'admission_source_id': 1,
+        'time_in_hospital': 5,
+        'num_lab_procedures': 50,
+        'num_procedures': 5,
+        'num_medications': medication_count,
+        'number_outpatient': 0,
+        'number_emergency': prior_admissions // 2,
+        'number_inpatient': prior_admissions,
+        'number_diagnoses': comorbidity_count + 1,
+        'diabetes_diag_count': 1,
+        'comorbidity_count': comorbidity_count,
+        'metformin_encoded': 1,
+        'metformin_active': 1,
         'repaglinide_encoded': 0,
         'repaglinide_active': 0,
         'nateglinide_encoded': 0,
@@ -419,27 +422,33 @@ with tab1:
         'total_medications': medication_count,
         'on_insulin': 1 if high_risk_flag == "Yes" else 0,
         'oral_medications': 1 if high_risk_flag == "No" else 0,
-        'change_encoded': 0,  # Default - no change
-        'diabetesMed_encoded': 1,  # Default - on diabetes meds
-        'age_numeric': age_encoded,  # From user input
+        'change_encoded': 0,
+        'diabetesMed_encoded': 1,
+        'age_numeric': age_encoded,
         'is_elderly': 1 if age_encoded >= 65 else 0,
         'total_prior_admissions': prior_admissions,
-        'emergency_ratio': 0.3,  # Default estimate
-        'inpatient_ratio': 0.7,  # Default estimate
-        'long_stay': 0,  # Default - not long stay
-        'total_procedures': 5,  # Default
-        'high_lab_utilization': 0,  # Default
+        'emergency_ratio': 0.3,
+        'inpatient_ratio': 0.7,
+        'long_stay': 0,
+        'total_procedures': 5,
+        'high_lab_utilization': 0,
         'high_diagnosis_count': 1 if comorbidity_count > 5 else 0,
-        'emergency_admission': 0,  # Default
-        'not_home_discharge': 0,  # Default - discharged home
-        'er_admission': 0,  # Default
+        'emergency_admission': 0,
+        'not_home_discharge': 0,
+        'er_admission': 0,
         'age_comorbidity_interaction': age_comorbidity_interaction,
         'med_per_comorbidity': medication_count / max(comorbidity_count, 1),
         'admissions_per_year': prior_admissions,
         'emerg_inpatient_combo': prior_admissions + (prior_admissions // 2),
         'insulin_complexity': 1 if high_risk_flag == "Yes" else 0,
-        'diabetes_med_intensity': 1,  # Default
+        'diabetes_med_intensity': 1,
     }
+    
+    # Create DataFrame with EXACTLY the columns expected by the model
+    # Any column not in feature_values will be filled with 0
+    patient_data = {}
+    for col in expected_features:
+        patient_data[col] = feature_values.get(col, 0)
     
     # Display input summary
     col1, col2 = st.columns(2)
@@ -556,9 +565,10 @@ with tab1:
                 st.success("✅ Risk assessment complete! Switch to the **Care Navigation** tab for personalized guidance.")
                 
             except Exception as e:
-                st.error(f"Error generating prediction: {str(e)}")
+                st.error(f"ML Prediction failed: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc())
+                st.session_state.current_risk_score = None
 
 
 # =============================================================================
@@ -592,11 +602,11 @@ with tab2:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
     
-    # User input
+    # User input - DO NOT pass chat history to LLM (causes infinite loop)
     user_input = st.chat_input("Type your question here...")
     
     if user_input:
-        # Add user message to history
+        # Add user message to history for display only
         st.session_state.chat_history.append({
             "role": "user",
             "content": user_input
@@ -606,14 +616,13 @@ with tab2:
         with st.chat_message("user"):
             st.markdown(user_input)
         
-        # Generate response
+        # Generate response - LLM receives ONLY: system prompt + patient context + current question
         with st.chat_message("assistant"):
             if st.session_state.current_risk_score is None:
                 st.warning("Please calculate your risk score in the 'Patient Risk Assessment' tab first.")
             else:
                 with st.spinner("Generating personalized guidance..."):
                     try:
-                        # Map symptoms to match what user sees
                         symptom_list = st.session_state.current_symptoms
                         
                         # Determine risk category
@@ -625,35 +634,27 @@ with tab2:
                         else:
                             risk_category = "High"
                         
-                        # Create a summarized patient profile for the AI
-                        # Only pass current query + patient profile, NOT full chat history
-                        # This prevents infinite loops and repetition
-                        patient_profile = {
-                            'symptoms': symptom_list,
-                            'risk_score': risk_score,
-                            'risk_category': risk_category
-                        }
-                        
                         # Generate advice using Gen AI
-                        # Pass only the current user query and summarized patient profile
-                        advice = assistant.generate_advice(
+                        # Pass ONLY: patient symptoms, risk score, risk category, and current user question
+                        # Do NOT pass chat history - this causes infinite repetition
+                        advice = assistant.generate_advice_with_query(
                             patient_symptoms=symptom_list,
                             ml_risk_score=risk_score,
                             risk_category=risk_category,
-                            additional_info=patient_profile
+                            user_query=user_input
                         )
                         
                         # Display response
                         st.markdown(advice)
                         
-                        # Add to chat history
+                        # Add to chat history for display only
                         st.session_state.chat_history.append({
                             "role": "assistant",
                             "content": advice
                         })
                         
                     except Exception as e:
-                        error_msg = f"Error generating response: {str(e)}"
+                        error_msg = f"Gen AI failed: {str(e)}"
                         st.error(error_msg)
                         import traceback
                         st.code(traceback.format_exc())

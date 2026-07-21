@@ -85,40 +85,26 @@ CRITICAL CONTEXT - SINGAPORE HEALTHCARE SYSTEM:
    - Go to A&E for urgent but non-life-threatening conditions
    - Visit GP or polyclinic for routine care and medication refills
 
-STRICT FORMATTING RULES - MUST FOLLOW:
-1. DO NOT use markdown headers (#, ##, ###) under any circumstances. These create huge fonts in the UI.
-2. Use bold text (**text**) for section titles instead of headers.
-3. Keep the tone conversational, concise, and friendly.
-4. Do NOT repeat greetings or introductory phrases like "Hello", "Thank you for sharing", etc.
-5. Do NOT create numbered lists unless absolutely necessary - use bullet points instead.
-6. Avoid repetitive language - each sentence should add new information.
-7. Keep responses between 200-400 words maximum.
-8. Structure your response with these bold sections only:
-   - **Your Risk Assessment** - Explain the ML risk score simply
-   - **Symptom Analysis** - Connect symptoms to diabetes management
-   - **Recommended Actions** - Specific next steps in Singapore healthcare context
-   - **When to Seek Help** - Clear guidance on emergency vs routine care
+STRICT FORMATTING RULES - ABSOLUTELY MANDATORY:
+1. NEVER use markdown headers (#, ##, ###, ####) under any circumstances.
+2. NEVER repeat disclaimers, greetings, or generate the same text twice.
+3. NEVER generate lists, headers, or medical disclaimers in your response.
+4. Respond in a single, concise, conversational paragraph only.
+5. Do not include any introductory phrases like "Hello", "Thank you", "Based on", etc.
+6. Do not include any closing statements or repeated warnings.
+7. Get straight to the point with actionable advice.
 
 YOUR RESPONSE GUIDELINES:
-1. Always acknowledge the patient's current situation empathetically but briefly
-2. Explain the ML risk score in simple, non-alarming terms
-3. Connect symptoms to potential diabetes management issues
-4. Provide specific, actionable next steps relevant to Singapore
-5. Mention appropriate care pathways (CHAS clinics, Healthier SG, polyclinics)
-6. Include lifestyle recommendations (diet, exercise, medication adherence)
-7. Specify when to seek immediate medical attention vs routine follow-up
-8. Never diagnose - always recommend consulting a healthcare professional
-9. Be concise and avoid repetition - get straight to the point
+1. Explain the ML risk score in simple, non-alarming terms
+2. Connect symptoms to potential diabetes management issues
+3. Provide specific, actionable next steps relevant to Singapore
+4. Mention appropriate care pathways (CHAS clinics, Healthier SG, polyclinics) if relevant
+5. Never diagnose - always recommend consulting a healthcare professional
 
 RISK SCORE INTERPRETATION:
 - Low Risk (< 0.4): Continue current management, routine follow-ups
 - Medium Risk (0.4 - 0.7): Increase monitoring, consider medication review
 - High Risk (> 0.7): Urgent follow-up recommended, assess medication adherence, check for complications
-
-IMPORTANT DISCLAIMERS TO INCLUDE:
-- This is AI-generated guidance, not medical advice
-- Always consult your doctor for medical decisions
-- In emergencies, call 995 or go to the nearest A&E
 """
 
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.5-flash"):
@@ -163,10 +149,10 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
         
         # Generation configuration for balanced responses
         self.generation_config = genai.types.GenerationConfig(
-            temperature=0.7,  # Balanced creativity vs consistency
+            temperature=0.3,  # Low temperature to reduce hallucinations and repetition
             top_p=0.9,
             top_k=40,
-            max_output_tokens=1024,
+            max_output_tokens=512,
             candidate_count=1
         )
         
@@ -177,7 +163,8 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
         patient_symptoms: List[str],
         ml_risk_score: float,
         risk_category: str,
-        additional_info: Optional[Dict[str, Any]] = None
+        additional_info: Optional[Dict[str, Any]] = None,
+        user_query: Optional[str] = None
     ) -> str:
         """
         Format patient information into a structured prompt for the AI model.
@@ -187,7 +174,7 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
             ml_risk_score: Float value between 0 and 1 representing readmission risk
             risk_category: String category ("Low", "Medium", "High")
             additional_info: Optional dictionary with additional patient context
-                           (e.g., age, comorbidities, current medications)
+            user_query: Optional specific question from the user
         
         Returns:
             str: Formatted prompt string
@@ -200,29 +187,21 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
             symptoms_str = ", ".join(patient_symptoms) if isinstance(patient_symptoms, list) else str(patient_symptoms)
             prompt_parts.append(f"Current Symptoms: {symptoms_str}")
         else:
-            prompt_parts.append("Current Symptoms: No specific symptoms reported")
+            prompt_parts.append("Current Symptoms: None reported")
         
         # ML risk assessment section
         risk_percentage = ml_risk_score * 100
         prompt_parts.append(f"Hospital Readmission Risk Score: {ml_risk_score:.2f} ({risk_percentage:.1f}%)")
         prompt_parts.append(f"Risk Category: {risk_category}")
         
-        # Additional context if provided
-        if additional_info:
-            prompt_parts.append("\nAdditional Patient Information:")
-            for key, value in additional_info.items():
-                prompt_parts.append(f"- {key.replace('_', ' ').title()}: {value}")
+        # User's specific question (if any)
+        if user_query:
+            prompt_parts.append(f"\nPatient Question: {user_query}")
         
-        # Generate the request
+        # Generate the request - concise, single paragraph response
         prompt_parts.append(
-            "\nBased on this information, please provide personalized care navigation advice "
-            "including:\n"
-            "1. Interpretation of the risk score\n"
-            "2. Symptom assessment and potential concerns\n"
-            "3. Recommended next steps (care pathway in Singapore)\n"
-            "4. Lifestyle and medication management tips\n"
-            "5. When to seek immediate medical attention\n"
-            "6. Relevant Singapore healthcare resources (CHAS, Healthier SG, polyclinics)"
+            "\nProvide a concise, conversational paragraph addressing the patient's situation. "
+            "Explain the risk score simply, connect it to their symptoms, and give actionable next steps."
         )
         
         return "\n".join(prompt_parts)
@@ -308,15 +287,7 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
                 # Extract and validate response
                 if response and response.text:
                     advice_text = response.text.strip()
-                    
-                    # Add timestamp and disclaimer
-                    full_response = self._add_disclaimer_and_metadata(
-                        advice=advice_text,
-                        risk_score=ml_risk_score,
-                        risk_category=risk_category
-                    )
-                    
-                    return full_response
+                    return advice_text
                 else:
                     raise RuntimeError("Empty response received from API")
             
@@ -337,6 +308,95 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
                     )
                 else:
                     # Generic retry with delay
+                    if attempt < max_retries - 1:
+                        print(f"API call failed (attempt {attempt + 1}/{max_retries}): {error_type}. Retrying...")
+                        time.sleep(retry_delay)
+        
+        # All retries exhausted
+        raise RuntimeError(
+            f"Failed to generate advice after {max_retries} attempts. "
+            f"Last error: {type(last_exception).__name__}: {str(last_exception)}"
+        )
+    
+    def generate_advice_with_query(
+        self,
+        patient_symptoms: List[str],
+        ml_risk_score: float,
+        risk_category: str,
+        user_query: str,
+        max_retries: int = 3,
+        retry_delay: float = 2.0
+    ) -> str:
+        """
+        Generate personalized care navigation advice using Gemini AI with a specific user query.
+        This method does NOT use chat history - it only receives the current query and patient context.
+        This prevents infinite loops and repetition.
+        
+        Args:
+            patient_symptoms: List of patient-reported symptoms
+            ml_risk_score: Float value between 0 and 1 representing readmission risk
+            risk_category: String category ("Low", "Medium", "High")
+            user_query: The user's current question
+            max_retries: Maximum number of retry attempts for API calls (default: 3)
+            retry_delay: Delay in seconds between retries (default: 2.0)
+        
+        Returns:
+            str: Generated healthcare advice text
+        
+        Raises:
+            ValueError: If risk score is outside valid range [0, 1]
+            RuntimeError: If API call fails after all retries
+        """
+        # Validate inputs
+        if not isinstance(ml_risk_score, (int, float)):
+            raise TypeError("ml_risk_score must be a numeric value")
+        
+        if ml_risk_score < 0 or ml_risk_score > 1:
+            raise ValueError("ml_risk_score must be between 0 and 1")
+        
+        # Validate risk category
+        valid_categories = ["Low", "Medium", "High"]
+        if risk_category not in valid_categories:
+            raise ValueError(f"risk_category must be one of: {valid_categories}")
+        
+        # Format the prompt with user query
+        user_prompt = self._format_patient_context(
+            patient_symptoms=patient_symptoms,
+            ml_risk_score=ml_risk_score,
+            risk_category=risk_category,
+            user_query=user_query
+        )
+        
+        # Attempt API call with retry logic
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                # Generate response
+                response = self.model.generate_content(
+                    contents=user_prompt,
+                    generation_config=self.generation_config
+                )
+                
+                # Extract and validate response
+                if response and response.text:
+                    return response.text.strip()
+                else:
+                    raise RuntimeError("Empty response received from API")
+            
+            except Exception as e:
+                last_exception = e
+                error_type = type(e).__name__
+                
+                # Handle specific error types
+                if "rate limit" in str(e).lower() or "quota" in str(e).lower():
+                    wait_time = retry_delay * (2 ** attempt)
+                    print(f"Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}")
+                    time.sleep(wait_time)
+                elif "api key" in str(e).lower() or "authentication" in str(e).lower():
+                    raise ValueError(
+                        f"API authentication failed. Check your GEMINI_API_KEY. Error: {str(e)}"
+                    )
+                else:
                     if attempt < max_retries - 1:
                         print(f"API call failed (attempt {attempt + 1}/{max_retries}): {error_type}. Retrying...")
                         time.sleep(retry_delay)
