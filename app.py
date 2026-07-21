@@ -92,50 +92,6 @@ def load_assistant():
         return None
 
 
-# =============================================================================
-# CLINICAL SEVERITY ADJUSTMENT - POST-PROCESSING LAYER
-# =============================================================================
-
-def calculate_clinical_adjustment(features_dict: dict) -> int:
-    """
-    Apply clinical severity adjustment based on established medical red flags.
-    
-    The ML model was trained on noisy UCI data and may produce counter-intuitive
-    results (e.g., penalizing extremely high lab procedures). This post-processing
-    layer ensures that clinically severe patients receive appropriate risk scores
-    by adding heuristic bonuses for known risk factors.
-    
-    Args:
-        features_dict: Dictionary containing patient feature values
-        
-    Returns:
-        Integer severity adjustment points (0 or positive)
-    """
-    adjustment_points = 0
-    
-    # Severe inpatient history: 3+ prior inpatient admissions
-    if features_dict.get('number_inpatient', 0) >= 3:
-        adjustment_points += 15
-    
-    # High emergency utilization: 3+ emergency visits
-    if features_dict.get('number_emergency', 0) >= 3:
-        adjustment_points += 10
-    
-    # Extensive lab work: 60+ lab procedures indicates complex workup
-    if features_dict.get('num_lab_procedures', 0) >= 60:
-        adjustment_points += 10
-    
-    # Polypharmacy: 15+ medications indicates complex comorbidities
-    if features_dict.get('num_medications', 0) >= 15:
-        adjustment_points += 10
-    
-    # Elderly patient: Age 70+ is an independent risk factor
-    if features_dict.get('age_numeric', 0) >= 70:
-        adjustment_points += 5
-    
-    return adjustment_points
-
-
 # Initialize session state for chat history and form data
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
@@ -167,8 +123,12 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
     """
     Parse uploaded Excel or CSV file and extract patient features.
     
-    Returns a dictionary of feature values that can be used to pre-fill the form.
-    Also calculates data completeness percentage for confidence assessment.
+    Args:
+        uploaded_file: Streamlit UploadedFile object containing CSV or Excel data
+        
+    Returns:
+        Optional[Dict[str, Any]]: Dictionary of feature values for form pre-filling,
+                                  or None if parsing fails
     """
     try:
         if uploaded_file.name.endswith('.csv'):

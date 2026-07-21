@@ -299,11 +299,10 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
             retry_delay: Delay in seconds between retries (default: 2.0)
         
         Returns:
-            str: Generated healthcare advice text
+            str: Generated healthcare advice text, or hardcoded fallback if API fails
         
         Raises:
             ValueError: If risk score is outside valid range [0, 1]
-            RuntimeError: If API call fails after all retries
         """
         # Validate inputs
         if not isinstance(ml_risk_score, (int, float)):
@@ -363,9 +362,36 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
         
         user_prompt = "\n".join(prompt_parts)
         
-        # CRITICAL FIX FOR TRUNCATION BUG: Using non-streaming generation with stream=False
-        # This ensures we receive the complete response without cutting off mid-sentence.
-        # The exact pattern required by the task specification is used below.
+        # API FAILURE FALLBACK: Pre-defined care pathway templates based on risk level
+        # This ensures the app never crashes even if Gemini API is unavailable
+        fallback_templates = {
+            "Low": (
+                "Based on your Clinical Severity Score of {} out of 100 (Routine Monitoring), "
+                "your condition appears stable. Continue your current diabetes management plan: "
+                "1) Take medications as prescribed, 2) Monitor blood glucose regularly, "
+                "3) Maintain a balanced diet low in refined carbohydrates, 4) Engage in 150 minutes "
+                "of moderate exercise weekly. Schedule routine follow-ups with your Healthier SG GP. "
+                "Visit a CHAS clinic for subsidized care. Seek immediate help if you experience "
+                "chest pain, severe shortness of breath, or confusion."
+            ),
+            "Moderate": (
+                "Based on your Clinical Severity Score of {} out of 100 (Increased Surveillance), "
+                "you should schedule an earlier follow-up appointment to review your care plan. "
+                "Pay close attention to medication adherence and monitor for symptom changes. "
+                "Consider visiting a polyclinic for enhanced monitoring and medication review. "
+                "Under Healthier SG, you can enroll with a dedicated GP for coordinated care. "
+                "If symptoms worsen (persistent vomiting, vision changes, slow-healing sores), "
+                "seek medical attention promptly."
+            ),
+            "High": (
+                "Based on your Clinical Severity Score of {} out of 100 (Immediate Intervention), "
+                "you require urgent medical attention. Do not delay—visit a polyclinic or A&E immediately. "
+                "Your symptoms and severity level indicate potential complications that need prompt assessment. "
+                "Bring your medication list and recent health records. Call 995 if you experience "
+                "life-threatening symptoms like chest pain, difficulty breathing, or loss of consciousness. "
+                "After stabilization, follow up with your GP under Healthier SG for ongoing management."
+            )
+        }
         
         # Attempt API call with retry logic
         last_exception = None
@@ -391,8 +417,8 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
                             time.sleep(retry_delay)
                             continue
                         else:
-                            # Return safe fallback message after all retries
-                            return "I apologize, but I'm having trouble generating a response right now. Please try again or consult your healthcare provider directly."
+                            # Return hardcoded fallback after all retries exhausted
+                            return fallback_templates.get(risk_category, fallback_templates["Moderate"]).format(severity_score)
                     
                     # Return raw advice text - UI handles disclaimers separately
                     return advice_text
@@ -410,21 +436,21 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
                     print(f"Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}")
                     time.sleep(wait_time)
                 elif "api key" in str(e).lower() or "authentication" in str(e).lower():
-                    # Don't retry authentication errors
-                    raise ValueError(
-                        f"API authentication failed. Check your GEMINI_API_KEY. Error: {str(e)}"
-                    )
+                    # Don't retry authentication errors - return fallback immediately
+                    print(f"API authentication failed. Using fallback template for {risk_category} risk level.")
+                    return fallback_templates.get(risk_category, fallback_templates["Moderate"]).format(severity_score)
                 else:
                     # Generic retry with delay
                     if attempt < max_retries - 1:
                         print(f"API call failed (attempt {attempt + 1}/{max_retries}): {error_type}. Retrying...")
                         time.sleep(retry_delay)
+                    else:
+                        # All retries exhausted - return hardcoded fallback
+                        print(f"All API retries exhausted. Using fallback template for {risk_category} risk level.")
+                        return fallback_templates.get(risk_category, fallback_templates["Moderate"]).format(severity_score)
         
-        # All retries exhausted
-        raise RuntimeError(
-            f"Failed to generate advice after {max_retries} attempts. "
-            f"Last error: {type(last_exception).__name__}: {str(last_exception)}"
-        )
+        # Final fallback (should not reach here, but safety net)
+        return fallback_templates.get(risk_category, fallback_templates["Moderate"]).format(severity_score)
     
     def _add_disclaimer_and_metadata(
         self,

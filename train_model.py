@@ -100,8 +100,8 @@ F2_SCORER = create_recall_targeted_scorer()
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
-CV_FOLDS = 3  # Reduced from 5 for faster cross-validation
-N_ITER_SEARCH = 15  # Reduced from 100 for faster hyperparameter search
+CV_FOLDS = 5  # Increased for more robust cross-validation
+N_ITER_SEARCH = 50  # Increased for more thorough hyperparameter search
 TUNING_SAMPLE_SIZE = 25000  # Stratified sample size for hyperparameter tuning
 TARGET_RECALL_MIN = 0.80  # Clinical target: 80-90% Recall
 TARGET_RECALL_MAX = 0.90
@@ -1071,7 +1071,7 @@ def train_xgboost_model(
         eval_metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        tree_method='auto'  # Cross-platform default (auto selects 'hist' for most cases)
+        tree_method='hist'  # Optimized for Apple Silicon (macOS) and large datasets
     )
     
     param_dist = create_xgboost_param_grid()
@@ -1118,7 +1118,7 @@ def train_xgboost_model(
         eval_metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        tree_method='auto'  # Cross-platform default (auto selects 'hist' for most cases)
+        tree_method='hist'  # Optimized for Apple Silicon (macOS) and large datasets
     )
     
     start_time = time.time()
