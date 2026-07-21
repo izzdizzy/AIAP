@@ -1459,6 +1459,43 @@ def main():
     print("-" * 40)
     save_model(best_model, MODEL_PATH)
     
+    # Calculate and save dynamic risk thresholds based on test set probability distribution
+    # Thresholds are dynamically calculated from the test set distribution to ensure 
+    # meaningful risk stratification even when the model is optimized for high Recall.
+    # This uses percentile-based categorization:
+    #   - Low Risk: Bottom 33% of probability distribution
+    #   - Moderate Risk: Middle 33%
+    #   - High Risk: Top 33%
+    try:
+        # Get probability predictions on test set
+        test_probs = best_model.predict_proba(X_test_final)[:, 1]
+        
+        # Calculate 33rd and 66th percentiles
+        threshold_33 = float(np.percentile(test_probs, 33))
+        threshold_66 = float(np.percentile(test_probs, 66))
+        
+        thresholds_data = {
+            'threshold_low_moderate': threshold_33,  # Below this = Low risk
+            'threshold_moderate_high': threshold_66,  # Above this = High risk
+            'description': 'Percentile-based thresholds for risk categorization',
+            'methodology': 'Low: <33rd percentile, Moderate: 33rd-66th percentile, High: >66th percentile',
+            'test_set_size': len(test_probs),
+            'prob_min': float(test_probs.min()),
+            'prob_max': float(test_probs.max()),
+            'prob_mean': float(test_probs.mean()),
+            'prob_median': float(np.median(test_probs))
+        }
+        
+        THRESHOLDS_PATH = OUTPUT_DIR / "thresholds.json"
+        with open(THRESHOLDS_PATH, 'w') as f:
+            json.dump(thresholds_data, f, indent=2)
+        print(f"Dynamic thresholds saved to: {THRESHOLDS_PATH}")
+        print(f"  - Low/Moderate threshold (33rd percentile): {threshold_33:.4f}")
+        print(f"  - Moderate/High threshold (66th percentile): {threshold_66:.4f}")
+    except Exception as e:
+        print(f"Warning: Could not calculate dynamic thresholds: {e}")
+        print("Will use default thresholds in app.py")
+    
     # Save metadata
     metadata = {
         'training_date': pd.Timestamp.now().isoformat(),

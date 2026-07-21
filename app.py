@@ -679,8 +679,16 @@ with tab1:
                         delta=None
                     )
                 
-                # Risk interpretation
+                # Risk interpretation with info tooltip about dynamic thresholds
                 st.markdown("### Risk Interpretation")
+                
+                # Info tooltip explaining the risk categorization methodology
+                st.info(
+                    "ℹ️ **Risk categories are relative to the patient population.** "
+                    "High Recall optimization ensures no at-risk patient is missed. "
+                    "Categories are based on percentile distribution (Low: bottom 33%, Moderate: middle 33%, High: top 33%)."
+                )
+                
                 if result['risk_category'] == "Low":
                     st.success("""
                     **Low Risk**: Continue current management plan. 
@@ -859,10 +867,24 @@ with tab2:
                         symptom_list = st.session_state.current_symptoms
                         risk_score = st.session_state.current_risk_score
                         
-                        # Determine risk category
-                        if risk_score < 0.20:
+                        # Determine risk category using the same dynamic thresholds as model.py
+                        # Import predictor to get the actual thresholds
+                        from model import ReadmissionPredictor, DEFAULT_THRESHOLD_LOW_MODERATE, DEFAULT_THRESHOLD_MODERATE_HIGH
+                        
+                        # Try to load predictor to get dynamic thresholds, fallback to defaults
+                        try:
+                            predictor_temp = ReadmissionPredictor()
+                            threshold_low = predictor_temp.threshold_low_moderate
+                            threshold_high = predictor_temp.threshold_moderate_high
+                        except Exception:
+                            # Fallback to default percentile-based thresholds
+                            threshold_low = DEFAULT_THRESHOLD_LOW_MODERATE
+                            threshold_high = DEFAULT_THRESHOLD_MODERATE_HIGH
+                        
+                        # Categorize using dynamic thresholds
+                        if risk_score < threshold_low:
                             risk_category = "Low"
-                        elif risk_score < 0.40:
+                        elif risk_score < threshold_high:
                             risk_category = "Moderate"
                         else:
                             risk_category = "High"
@@ -924,10 +946,25 @@ with tab2:
     
     with col3:
         if st.session_state.current_risk_score is not None:
-            if st.session_state.current_risk_score < 0.20:
+            # Use dynamic percentile-based thresholds from the trained model
+            # Import predictor to get the actual thresholds
+            from model import ReadmissionPredictor, DEFAULT_THRESHOLD_LOW_MODERATE, DEFAULT_THRESHOLD_MODERATE_HIGH
+            
+            # Try to load predictor to get dynamic thresholds, fallback to defaults
+            try:
+                predictor_temp = ReadmissionPredictor()
+                threshold_low = predictor_temp.threshold_low_moderate
+                threshold_high = predictor_temp.threshold_moderate_high
+            except Exception:
+                # Fallback to default percentile-based thresholds
+                threshold_low = DEFAULT_THRESHOLD_LOW_MODERATE
+                threshold_high = DEFAULT_THRESHOLD_MODERATE_HIGH
+            
+            # Categorize using dynamic thresholds
+            if st.session_state.current_risk_score < threshold_low:
                 st.success("**Risk Level:** LOW")
-            elif st.session_state.current_risk_score < 0.40:
-                st.warning("**Risk Level:** MEDIUM")
+            elif st.session_state.current_risk_score < threshold_high:
+                st.warning("**Risk Level:** MODERATE")
             else:
                 st.error("**Risk Level:** HIGH")
         else:

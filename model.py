@@ -43,6 +43,13 @@ except ImportError:
 DEFAULT_MODEL_PATH = Path("outputs/readmission_model.joblib")
 DEFAULT_FEATURE_COLUMNS_PATH = Path("outputs/feature_columns.json")
 DEFAULT_METADATA_PATH = Path("outputs/model_metadata.json")
+DEFAULT_THRESHOLDS_PATH = Path("outputs/thresholds.json")
+
+# Default percentile-based thresholds (fallback if thresholds.json not found)
+# These will be overwritten by dynamic thresholds from the trained model
+# Note: These are placeholder values; actual thresholds are calculated from test set distribution
+DEFAULT_THRESHOLD_LOW_MODERATE = 0.33  # Placeholder: 33rd percentile
+DEFAULT_THRESHOLD_MODERATE_HIGH = 0.66  # Placeholder: 66th percentile
 
 
 # =============================================================================
@@ -63,7 +70,8 @@ class ReadmissionPredictor:
     def __init__(
         self,
         model_path: Path = DEFAULT_MODEL_PATH,
-        feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH
+        feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH,
+        thresholds_path: Path = DEFAULT_THRESHOLDS_PATH
     ):
         """
         Initialize the predictor by loading the model and feature schema.
@@ -71,6 +79,7 @@ class ReadmissionPredictor:
         Args:
             model_path: Path to the saved .joblib model file
             feature_columns_path: Path to the feature columns JSON file
+            thresholds_path: Path to the dynamic thresholds JSON file
             
         Raises:
             FileNotFoundError: If model or feature columns file not found
@@ -80,9 +89,15 @@ class ReadmissionPredictor:
         self.feature_columns = None
         self.shap_explainer = None
         
+        # Dynamic risk thresholds for percentile-based categorization
+        # These ensure meaningful risk stratification even when model is optimized for high Recall
+        self.threshold_low_moderate = DEFAULT_THRESHOLD_LOW_MODERATE
+        self.threshold_moderate_high = DEFAULT_THRESHOLD_MODERATE_HIGH
+        
         # Load model and feature schema
         self._load_model(model_path)
         self._load_feature_columns(feature_columns_path)
+        self._load_thresholds(thresholds_path)
         
         # Initialize SHAP explainer if available
         if SHAP_AVAILABLE and self.model is not None:
@@ -132,6 +147,48 @@ class ReadmissionPredictor:
             print(f"Feature columns loaded: {len(self.feature_columns)} features")
         except Exception as e:
             raise Exception(f"Failed to load feature columns: {str(e)}")
+    
+    def _load_thresholds(self, thresholds_path: Path) -> None:
+        """
+        Load dynamic risk thresholds from JSON file.
+        
+        These thresholds are calculated from the test set probability distribution
+        during model training to ensure meaningful risk stratification even when
+        the model is optimized for high Recall (100% Recall optimization inflates
+        all probability scores, so relative percentile-based categorization is used).
+        
+        Args:
+            thresholds_path: Path to the thresholds JSON file
+            
+        Note:
+            If the file doesn't exist or cannot be loaded, falls back to default
+            percentile-based thresholds (33rd and 66th percentiles).
+            
+        Clinical Context:
+            When the model is re-optimized for 100% Recall to minimize false negatives
+            (clinically critical for patient safety), probability scores become inflated.
+            Using hardcoded thresholds like "Low < 20%, High > 40%" would classify ALL
+            patients as High Risk. Instead, we use relative percentiles from the training
+            data distribution to ensure meaningful risk stratification.
+        """
+        if not thresholds_path.exists():
+            print(f"Thresholds file not found at {thresholds_path}. Using default thresholds.")
+            return
+        
+        try:
+            with open(thresholds_path, 'r') as f:
+                thresholds_data = json.load(f)
+            
+            self.threshold_low_moderate = thresholds_data.get(
+                'threshold_low_moderate', DEFAULT_THRESHOLD_LOW_MODERATE
+            )
+            self.threshold_moderate_high = thresholds_data.get(
+                'threshold_moderate_high', DEFAULT_THRESHOLD_MODERATE_HIGH
+            )
+            print(f"Dynamic thresholds loaded: Low/Moderate={self.threshold_low_moderate:.4f}, "
+                  f"Moderate/High={self.threshold_moderate_high:.4f}")
+        except Exception as e:
+            print(f"Warning: Failed to load thresholds ({e}). Using default thresholds.")
     
     def _initialize_shap_explainer(self) -> None:
         """
@@ -286,18 +343,33 @@ class ReadmissionPredictor:
     
     def _categorize_risk(self, risk_score: float) -> str:
         """
-        Categorize risk score into Low/Medium/High categories.
+        Categorize risk score into Low/Moderate/High categories using dynamic thresholds.
+        
+        Uses percentile-based thresholds loaded from the model training process to ensure
+        meaningful risk stratification even when the model is optimized for high Recall.
+        
+        When the model is optimized for 100% Recall (to minimize false negatives), probability
+        scores become inflated. These dynamic thresholds ensure patients are RELATIVELY
+        categorized based on the test set distribution:
+        
+        Risk Categories (based on test set distribution):
+        - Low: Below 33rd percentile (bottom third of patient population)
+        - Moderate: Between 33rd and 66th percentile (middle third)
+        - High: Above 66th percentile (top third)
+        
+        Example: If the model's average output is 0.80 due to aggressive optimization,
+        a patient scoring 0.65 might still be "Low Risk" relative to other patients.
         
         Args:
             risk_score: Probability of readmission (0-1)
             
         Returns:
-            String risk category
+            String risk category ("Low", "Moderate", or "High")
         """
-        if risk_score < 0.3:
+        if risk_score < self.threshold_low_moderate:
             return "Low"
-        elif risk_score < 0.6:
-            return "Medium"
+        elif risk_score < self.threshold_moderate_high:
+            return "Moderate"
         else:
             return "High"
     
