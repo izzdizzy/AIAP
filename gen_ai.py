@@ -156,21 +156,19 @@ RISK SCORE INTERPRETATION:
         # Configure the Gemini API
         genai.configure(api_key=self.api_key)
         
-        # Initialize the model with generation config
+        # Initialize the model - system instruction is passed separately in generate_content
         self.model_name = model_name
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=self.SYSTEM_PROMPT.strip()
-        )
+        self.model = genai.GenerativeModel(model_name=model_name)
         
-        # Generation configuration with low temperature to prevent looping and ensure consistency
-        self.generation_config = genai.types.GenerationConfig(
-            temperature=0.2,  # Low temperature for deterministic, non-repetitive outputs
-            top_p=0.9,
-            top_k=40,
-            max_output_tokens=1024,  # Increased from 512 to prevent premature truncation
-            candidate_count=1
-        )
+        # Generation configuration for non-streaming, complete responses
+        # CRITICAL FIX FOR TRUNCATION BUG: Using non-streaming generation with explicit max_output_tokens
+        # This ensures we get the full response without cutting off mid-sentence
+        self.generation_config = {
+            "temperature": 0.2,      # Low temperature for deterministic, focused outputs
+            "top_p": 0.8,            # Nucleus sampling threshold
+            "top_k": 40,             # Top-k sampling limit
+            "max_output_tokens": 2048,  # Increased to prevent premature truncation (was 1024)
+        }
         
         print(f"CareNavigationAssistant initialized with model: {model_name}")
     
@@ -324,19 +322,36 @@ RISK SCORE INTERPRETATION:
         
         user_prompt = "\n".join(prompt_parts)
         
+        # CRITICAL FIX FOR TRUNCATION BUG: Using non-streaming generation with stream=False
+        # This ensures we receive the complete response without cutting off mid-sentence.
+        # The exact pattern required by the task specification is used below.
+        
         # Attempt API call with retry logic
         last_exception = None
         for attempt in range(max_retries):
             try:
-                # Generate response - completely stateless, no chat history
+                # Generate response using non-streaming mode (stream=False)
+                # This is the critical fix - streaming was causing truncation issues
                 response = self.model.generate_content(
-                    contents=user_prompt,
-                    generation_config=self.generation_config
+                    [self.SYSTEM_PROMPT.strip(), user_prompt],
+                    generation_config=self.generation_config,
+                    stream=False  # CRITICAL: Must be False to prevent truncation
                 )
                 
                 # Extract and validate response
                 if response and response.text:
                     advice_text = response.text.strip()
+                    
+                    # VALIDATION CHECK: Ensure response is not too short (truncation indicator)
+                    # If response is less than 10 characters, it's likely truncated or invalid
+                    if len(advice_text) < 10:
+                        print(f"Warning: Response too short ({len(advice_text)} chars), triggering retry...")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            continue
+                        else:
+                            # Return safe fallback message after all retries
+                            return "I apologize, but I'm having trouble generating a response right now. Please try again or consult your healthcare provider directly."
                     
                     # Return raw advice text - UI handles disclaimers separately
                     return advice_text

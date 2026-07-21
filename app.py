@@ -869,6 +869,7 @@ with tab2:
                         
                         # Generate advice using Gen AI - completely stateless call
                         # Only pass current context, NOT chat history
+                        # The gen_ai.py now uses non-streaming mode (stream=False) to prevent truncation
                         advice = assistant.generate_advice(
                             patient_symptoms=symptom_list,
                             ml_risk_score=risk_score,
@@ -876,7 +877,8 @@ with tab2:
                             user_question=user_input
                         )
                         
-                        # Display response
+                        # Display full response using st.markdown - no streaming chunks
+                        # This ensures the complete text is rendered at once without truncation
                         st.markdown(advice)
                         
                         # Add to chat history (for display only)

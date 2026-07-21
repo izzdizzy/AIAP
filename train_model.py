@@ -728,7 +728,10 @@ def create_xgboost_param_grid() -> Dict[str, list]:
         'gamma': [0, 0.1, 0.2, 0.3, 0.4],
         'reg_alpha': [0, 0.1, 0.5, 1.0, 2.0],
         'reg_lambda': [1, 1.5, 2, 3, 4],
-        'scale_pos_weight': [1, 2, 3, 5, 10]
+        # scale_pos_weight: Aggressively favor minority class (readmissions)
+        # Higher values (up to 15) ensure the model prioritizes catching high-risk patients
+        # This is critical for clinical recall - missing a high-risk patient is far worse than a false positive
+        'scale_pos_weight': [5, 10, 15, 20]
     }
     
     return param_dist
@@ -751,7 +754,10 @@ def create_lightgbm_param_grid() -> Dict[str, list]:
         'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
         'reg_alpha': [0, 0.1, 0.5, 1.0],
         'reg_lambda': [1, 1.5, 2, 3],
-        'scale_pos_weight': [1, 2, 3, 5, 10]
+        # scale_pos_weight: Aggressively favor minority class (readmissions)
+        # Higher values ensure the model prioritizes catching high-risk patients
+        # This is critical for clinical recall - missing a high-risk patient is far worse than a false positive
+        'scale_pos_weight': [5, 10, 15, 20]
     }
     
     return param_dist
@@ -794,6 +800,9 @@ def create_histgradientboosting_param_grid() -> Dict[str, list]:
         'l2_regularization': [0.0, 0.1, 0.5, 1.0],
         'min_samples_leaf': [10, 20, 30, 50],
         'max_bins': [128, 255],
+        # Class weight handling: higher values favor the minority class (readmissions)
+        # This helps the model focus on correctly identifying high-risk patients
+        'class_weight': [{0: 1, 1: 5}, {0: 1, 1: 10}, {0: 1, 1: 15}]
     }
     
     return param_dist
@@ -858,7 +867,11 @@ def train_histgradientboosting_model(
         estimator=base_hgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        scoring='roc_auc',
+        # OPTIMIZING FOR RECALL: Clinically, false negatives (missing a high-risk patient) 
+        # are much worse than false positives. Optimizing for Recall ensures we minimize 
+        # false negatives, ensuring high-risk patients are flagged for intervention even 
+        # if it results in more false positives.
+        scoring='recall',
         cv=skf,
         verbose=2,  # Show progress for each fold
         n_jobs=-1,
@@ -874,7 +887,9 @@ def train_histgradientboosting_model(
     print(f"\n{'='*60}")
     print(f"BEST PARAMETERS FOUND ON SUBSET")
     print(f"{'='*60}")
-    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
+    # Note: best_score now reflects Recall (our primary clinical metric) instead of ROC-AUC
+    print(f"Best Recall from cross-validation: {best_score:.4f}")
+    print(f"(Recall is our primary metric to minimize false negatives)")
     print(f"Best parameters: {best_params}")
     
     # Step 2: Train final model on FULL training dataset with best parameters
@@ -915,11 +930,12 @@ def train_histgradientboosting_model(
     }
     
     print("\n" + "-" * 40)
-    print("TEST SET EVALUATION")
+    print("TEST SET EVALUATION - HistGradientBoosting")
     print("-" * 40)
     print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
     print(f"Precision: {test_metrics['precision']:.4f}")
-    print(f"Recall:    {test_metrics['recall']:.4f}")
+    # PRIMARY CLINICAL METRIC: Recall is most important - we must catch all high-risk patients
+    print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC (minimizes false negatives)")
     print(f"F1 Score:  {test_metrics['f1']:.4f}")
     print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
     
@@ -997,7 +1013,11 @@ def train_xgboost_model(
         estimator=base_xgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        scoring='roc_auc',
+        # OPTIMIZING FOR RECALL: Clinically, false negatives (missing a high-risk patient) 
+        # are much worse than false positives. Optimizing for Recall ensures we minimize 
+        # false negatives, ensuring high-risk patients are flagged for intervention even 
+        # if it results in more false positives.
+        scoring='recall',
         cv=skf,
         verbose=1,
         n_jobs=-1,
@@ -1013,7 +1033,7 @@ def train_xgboost_model(
     print(f"\n{'='*60}")
     print(f"BEST PARAMETERS FOUND ON SUBSET")
     print(f"{'='*60}")
-    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
+    print(f"Best Recall from cross-validation: {best_score:.4f}")
     print(f"Best parameters: {best_params}")
     
     # Train final model on FULL dataset
@@ -1052,11 +1072,12 @@ def train_xgboost_model(
     }
     
     print("\n" + "-" * 40)
-    print("TEST SET EVALUATION")
+    print("TEST SET EVALUATION - XGBoost")
     print("-" * 40)
     print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
     print(f"Precision: {test_metrics['precision']:.4f}")
-    print(f"Recall:    {test_metrics['recall']:.4f}")
+    # PRIMARY CLINICAL METRIC: Recall is most important - we must catch all high-risk patients
+    print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC (minimizes false negatives)")
     print(f"F1 Score:  {test_metrics['f1']:.4f}")
     print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
     
@@ -1134,7 +1155,11 @@ def train_lightgbm_model(
         estimator=base_lgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        scoring='roc_auc',
+        # OPTIMIZING FOR RECALL: Clinically, false negatives (missing a high-risk patient) 
+        # are much worse than false positives. Optimizing for Recall ensures we minimize 
+        # false negatives, ensuring high-risk patients are flagged for intervention even 
+        # if it results in more false positives.
+        scoring='recall',
         cv=skf,
         verbose=1,
         n_jobs=-1,
@@ -1148,9 +1173,9 @@ def train_lightgbm_model(
     best_score = random_search.best_score_
     
     print(f"\n{'='*60}")
-    print(f"BEST PARAMETERS FOUND ON SUBSET")
+    print(f"BEST PARAMETERS FOUND ON SUBSET (LightGBM)")
     print(f"{'='*60}")
-    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
+    print(f"Best Recall from cross-validation: {best_score:.4f}")
     print(f"Best parameters: {best_params}")
     
     # Train final model on FULL dataset
@@ -1193,6 +1218,7 @@ def train_lightgbm_model(
     print("-" * 40)
     print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
     print(f"Precision: {test_metrics['precision']:.4f}")
+    # PRIMARY CLINICAL METRIC: Recall is most important
     print(f"Recall:    {test_metrics['recall']:.4f}")
     print(f"F1 Score:  {test_metrics['f1']:.4f}")
     print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
@@ -1212,7 +1238,12 @@ def compare_and_select_best_model(
     model_results: List[Tuple[str, Any, Dict[str, Any]]]
 ) -> Tuple[str, Any, Dict[str, Any]]:
     """
-    Compare trained models and select the best one based on ROC-AUC.
+    Compare trained models and select the best one based on Recall (primary clinical metric).
+    
+    CRITICAL CLINICAL DECISION: We optimize for Recall rather than ROC-AUC because:
+    - False negatives (missing a high-risk patient) are clinically much worse than false positives
+    - A missed high-risk patient may not receive needed intervention, leading to readmission
+    - A false positive only results in additional monitoring, which is low-risk
     
     Args:
         model_results: List of tuples (model_name, model, results_dict)
@@ -1224,33 +1255,32 @@ def compare_and_select_best_model(
         raise ValueError("No models were trained successfully")
     
     print("\n" + "=" * 60)
-    print("MODEL COMPARISON")
+    print("MODEL COMPARISON - OPTIMIZED FOR RECALL")
     print("=" * 60)
+    print("(Recall is our primary metric to minimize false negatives)")
     
     best_model_name = None
     best_model = None
     best_results = None
-    best_roc_auc = 0.0
+    best_recall = 0.0
     
     for model_name, model, results in model_results:
         if model is None:
             continue
         
+        # PRIMARY METRIC: Recall - we must catch all high-risk patients
+        recall = results['test_metrics']['recall']
         roc_auc = results['test_metrics']['roc_auc']
-        print(f"{model_name}: ROC-AUC = {roc_auc:.4f}")
+        print(f"{model_name}: Recall = {recall:.4f}, ROC-AUC = {roc_auc:.4f}")
         
-        if roc_auc > best_roc_auc:
-            best_roc_auc = roc_auc
+        if recall > best_recall:
+            best_recall = recall
             best_model_name = model_name
             best_model = model
             best_results = results
     
-    print(f"\nBest model: {best_model_name} with ROC-AUC = {best_roc_auc:.4f}")
-    
-    if best_roc_auc >= TARGET_ROC_AUC:
-        print(f"✓ Target ROC-AUC ({TARGET_ROC_AUC}) ACHIEVED!")
-    else:
-        print(f"⚠ Target ROC-AUC ({TARGET_ROC_AUC}) not achieved. Current: {best_roc_auc:.4f}")
+    print(f"\nBest model: {best_model_name} with Recall = {best_recall:.4f}")
+    print(f"(Selected based on Recall to minimize false negatives)")
     
     return best_model_name, best_model, best_results
 
@@ -1457,6 +1487,8 @@ def main():
     print(f"Model file: {MODEL_PATH}")
     print(f"Metadata file: {METADATA_PATH}")
     print(f"Feature columns file: {FEATURE_COLUMNS_PATH}")
+    # PRIMARY CLINICAL METRIC: Recall - we prioritize catching all high-risk patients
+    print(f"Final Recall:  {best_results['test_metrics']['recall']:.4f} <-- PRIMARY METRIC (minimizes false negatives)")
     print(f"Final ROC-AUC: {best_results['test_metrics']['roc_auc']:.4f}")
     print(f"Total training time: {total_training_time/60:.2f} minutes")
     
