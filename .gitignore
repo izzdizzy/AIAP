@@ -3,12 +3,6 @@
 *.pyc
 __pycache__/
 
-# Dependencies
-venv/
-.venv/
-pip-tools/
-*.egg-info/
-
 # Environment files
 .env
 .env.local
@@ -17,21 +11,16 @@ pip-tools/
 # Logs
 *.log
 
-# Editor/IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Excel and CSV backup/temp files
 *.tmp
+*~$*.xlsx
+*.xlsm
+*.xlsb
+*.ods
+*.csv.swp
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Distribution artifacts
-dist/
-build/
-*.egg
-*.whl
+# Generated data files (if they follow a pattern)
+*_risk.csv
+*_risk.xlsx
+*_risk_full.xlsx
 ```
