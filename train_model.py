@@ -1332,8 +1332,8 @@ def train_lightgbm_model(
     dynamic_scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1.0
     
     best_params['scale_pos_weight'] = dynamic_scale_pos_weight
-    best_params['is_unbalance'] = True  # Also set is_unbalance for LightGBM
-    print(f"Dynamic scale_pos_weight: {dynamic_scale_pos_weight:.2f}, is_unbalance=True")
+    # Note: Use scale_pos_weight instead of is_unbalance to avoid conflict
+    print(f"Dynamic scale_pos_weight: {dynamic_scale_pos_weight:.2f}")
     
     final_model = lgb.LGBMClassifier(
         **best_params,
