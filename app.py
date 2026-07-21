@@ -391,27 +391,41 @@ with st.sidebar:
     )
     
     if uploaded_file is not None:
-        # CRITICAL: Reset all session state before processing new upload to prevent state bleed-over
-        reset_session_state_for_new_upload()
+        # Only process the file if it's different from the last processed file
+        # This prevents infinite rerun loops when the same file remains selected
+        last_processed_file = st.session_state.get('processed_file_name', None)
         
-        parsed_data = parse_uploaded_file(uploaded_file)
-        if parsed_data:
-            # Store parsed data in session state - widgets will read from this during initialization
-            st.session_state['parsed_patient_data'] = parsed_data
+        if last_processed_file != uploaded_file.name:
+            # CRITICAL: Reset all session state before processing new upload to prevent state bleed-over
+            reset_session_state_for_new_upload()
             
-            st.success(f"✅ Successfully loaded data from {uploaded_file.name}")
-            
-            # Show preview with human-readable labels
-            with st.expander("View loaded data"):
-                # Display with friendly names where available
-                friendly_data = {}
-                for key, value in parsed_data.items():
-                    display_name = FEATURE_DISPLAY_NAMES.get(key, key)
-                    friendly_data[display_name] = value
-                st.json(friendly_data)
-            
-            # Trigger a rerun to ensure widgets render with fresh state
-            st.rerun()
+            try:
+                parsed_data = parse_uploaded_file(uploaded_file)
+                if parsed_data:
+                    # Store parsed data in session state - widgets will read from this during initialization
+                    st.session_state['parsed_patient_data'] = parsed_data
+                    st.session_state['processed_file_name'] = uploaded_file.name
+                    
+                    st.success(f"✅ Successfully loaded data from {uploaded_file.name}")
+                    
+                    # Show preview with human-readable labels
+                    with st.expander("View loaded data"):
+                        # Display with friendly names where available
+                        friendly_data = {}
+                        for key, value in parsed_data.items():
+                            display_name = FEATURE_DISPLAY_NAMES.get(key, key)
+                            friendly_data[display_name] = value
+                        st.json(friendly_data)
+                    
+                    # Trigger a single rerun to ensure widgets render with fresh state
+                    st.rerun()
+                else:
+                    st.error("Failed to parse the uploaded file. Please check the file format.")
+            except Exception as e:
+                st.error(f"Error processing file: {str(e)}")
+        else:
+            # File already processed, just show a subtle indicator
+            st.info(f"📄 Using data from {uploaded_file.name}")
     
     st.markdown("---")
     st.subheader("Clinical Features")
