@@ -331,6 +331,49 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
         return None
 
 
+def reset_session_state_for_new_upload():
+    """
+    Clear all session state keys related to model features and form inputs
+    before processing a new file upload. This prevents state bleed-over from
+    previous uploads or manual form inputs.
+    """
+    # List of all widget keys that need to be reset
+    widget_keys_to_reset = [
+        'prior_admissions_input',
+        'comorbidity_count_input',
+        'age_group_input',
+        'medication_count_input',
+        'discharge_diagnosis_input',
+        'high_risk_flag_input',
+        'symptoms_multiselect',
+        'parsed_patient_data'
+    ]
+    
+    # Reset widget keys to default values
+    for key in widget_keys_to_reset:
+        if key in st.session_state:
+            if key == 'symptoms_multiselect':
+                st.session_state[key] = []
+            elif key == 'parsed_patient_data':
+                st.session_state[key] = {}
+            elif key == 'age_group_input':
+                st.session_state[key] = 6  # Default to 60-70
+            elif key == 'high_risk_flag_input':
+                st.session_state[key] = 0
+            elif key in ['prior_admissions_input', 'comorbidity_count_input', 'medication_count_input']:
+                st.session_state[key] = 0
+            else:
+                st.session_state[key] = "" if key == 'discharge_diagnosis_input' else 0
+    
+    # Also reset any derived/session features that might have stale values
+    derived_feature_keys = [
+        'current_risk_score', 'clinical_severity_score', 'current_symptoms'
+    ]
+    for key in derived_feature_keys:
+        if key in st.session_state:
+            st.session_state[key] = None if key == 'current_risk_score' else ([] if key == 'current_symptoms' else 0)
+
+
 # =============================================================================
 # SIDEBAR - PATIENT INFORMATION
 # =============================================================================
@@ -348,6 +391,9 @@ with st.sidebar:
     )
     
     if uploaded_file is not None:
+        # CRITICAL: Reset all session state before processing new upload to prevent state bleed-over
+        reset_session_state_for_new_upload()
+        
         parsed_data = parse_uploaded_file(uploaded_file)
         if parsed_data:
             # Store parsed data in session state - widgets will read from this during initialization
@@ -363,6 +409,9 @@ with st.sidebar:
                     display_name = FEATURE_DISPLAY_NAMES.get(key, key)
                     friendly_data[display_name] = value
                 st.json(friendly_data)
+            
+            # Trigger a rerun to ensure widgets render with fresh state
+            st.rerun()
     
     st.markdown("---")
     st.subheader("Clinical Features")
@@ -525,91 +574,131 @@ with tab1:
         diagnosis_float = 250.01  # Default diabetes code
     
     # Build patient data dictionary with ALL expected features from feature_columns.json
-    # This ensures the DataFrame matches exactly what the model expects
-    patient_data = {
-        'admission_type_id': 1,  # Default value - elective admission
-        'discharge_disposition_id': 1,  # Default - discharged to home
-        'admission_source_id': 1,  # Default - physician referral
-        'time_in_hospital': 5,  # Default - 5 days
-        'num_lab_procedures': 50,  # Default average
-        'num_procedures': 5,  # Default
-        'num_medications': medication_count,  # From user input
-        'number_outpatient': 0,  # Default
-        'number_emergency': prior_admissions // 2,  # Estimate based on prior admissions
-        'number_inpatient': prior_admissions,  # From user input
-        'number_diagnoses': comorbidity_count + 1,  # At least primary diagnosis
-        'diabetes_diag_count': 1,  # At least 1 diabetes diagnosis
-        'comorbidity_count': comorbidity_count,  # From user input
-        'metformin_encoded': 1,  # Default - prescribed
-        'metformin_active': 1,  # Default - active
-        'repaglinide_encoded': 0,
-        'repaglinide_active': 0,
-        'nateglinide_encoded': 0,
-        'nateglinide_active': 0,
-        'chlorpropamide_encoded': 0,
-        'chlorpropamide_active': 0,
-        'glimepiride_encoded': 0,
-        'glimepiride_active': 0,
-        'acetohexamide_encoded': 0,
-        'acetohexamide_active': 0,
-        'glipizide_encoded': 0,
-        'glipizide_active': 0,
-        'glyburide_encoded': 0,
-        'glyburide_active': 0,
-        'tolbutamide_encoded': 0,
-        'tolbutamide_active': 0,
-        'pioglitazone_encoded': 0,
-        'pioglitazone_active': 0,
-        'rosiglitazone_encoded': 0,
-        'rosiglitazone_active': 0,
-        'acarbose_encoded': 0,
-        'acarbose_active': 0,
-        'miglitol_encoded': 0,
-        'miglitol_active': 0,
-        'troglitazone_encoded': 0,
-        'troglitazone_active': 0,
-        'tolazamide_encoded': 0,
-        'tolazamide_active': 0,
-        'examide_encoded': 0,
-        'examide_active': 0,
-        'citoglipton_encoded': 0,
-        'citoglipton_active': 0,
-        'insulin_encoded': 1 if high_risk_flag == "Yes" else 0,
-        'insulin_active': 1 if high_risk_flag == "Yes" else 0,
-        'glyburide-metformin_encoded': 0,
-        'glyburide-metformin_active': 0,
-        'glipizide-metformin_encoded': 0,
-        'glipizide-metformin_active': 0,
-        'glimepiride-pioglitazone_encoded': 0,
-        'glimepiride-pioglitazone_active': 0,
-        'metformin-rosiglitazone_encoded': 0,
-        'metformin-rosiglitazone_active': 0,
-        'metformin-pioglitazone_encoded': 0,
-        'metformin-pioglitazone_active': 0,
-        'total_medications': medication_count,
-        'on_insulin': 1 if high_risk_flag == "Yes" else 0,
-        'oral_medications': 1 if high_risk_flag == "No" else 0,
-        'change_encoded': 0,  # Default - no change
-        'diabetesMed_encoded': 1,  # Default - on diabetes meds
-        'age_numeric': age_encoded,  # From user input
-        'is_elderly': 1 if age_encoded >= 65 else 0,
-        'total_prior_admissions': prior_admissions,
-        'emergency_ratio': 0.3,  # Default estimate
-        'inpatient_ratio': 0.7,  # Default estimate
-        'long_stay': 0,  # Default - not long stay
-        'total_procedures': 5,  # Default
-        'high_lab_utilization': 0,  # Default
-        'high_diagnosis_count': 1 if comorbidity_count > 5 else 0,
-        'emergency_admission': 0,  # Default
-        'not_home_discharge': 0,  # Default - discharged home
-        'er_admission': 0,  # Default
-        'age_comorbidity_interaction': age_comorbidity_interaction,
-        'med_per_comorbidity': medication_count / max(comorbidity_count, 1),
-        'admissions_per_year': prior_admissions,
-        'emerg_inpatient_combo': prior_admissions + (prior_admissions // 2),
-        'insulin_complexity': 1 if high_risk_flag == "Yes" else 0,
-        'diabetes_med_intensity': 1,  # Default
-    }
+    # This ensures the DataFrame matches exactly what the model expects.
+    # For any feature not present in the CSV/uploaded data, we explicitly set it to 0
+    # to prevent state bleed-over from previous uploads or manual inputs.
+    patient_data = {}
+    
+    # First, initialize ALL expected features to 0 (clean slate)
+    for feature in expected_features:
+        patient_data[feature] = 0
+    
+    # Now override with actual values from user input / parsed CSV data
+    # Only the features that have valid values should be set
+    patient_data['admission_type_id'] = 1  # Default value - elective admission
+    patient_data['discharge_disposition_id'] = 1  # Default - discharged to home
+    patient_data['admission_source_id'] = 1  # Default - physician referral
+    patient_data['time_in_hospital'] = 5  # Default - 5 days
+    patient_data['num_lab_procedures'] = 50  # Default average
+    patient_data['num_procedures'] = 5  # Default
+    patient_data['num_medications'] = medication_count  # From user input
+    patient_data['number_outpatient'] = 0  # Default
+    patient_data['number_emergency'] = prior_admissions // 2  # Estimate based on prior admissions
+    patient_data['number_inpatient'] = prior_admissions  # From user input (maps to number_inpatient)
+    patient_data['number_diagnoses'] = comorbidity_count + 1  # At least primary diagnosis
+    patient_data['diabetes_diag_count'] = 1  # At least 1 diabetes diagnosis
+    patient_data['comorbidity_count'] = comorbidity_count  # From user input
+    patient_data['metformin_encoded'] = 1  # Default - prescribed
+    patient_data['metformin_active'] = 1  # Default - active
+    # repaglinide through citoglipton remain 0 (default)
+    patient_data['insulin_encoded'] = 1 if high_risk_flag == "Yes" else 0
+    patient_data['insulin_active'] = 1 if high_risk_flag == "Yes" else 0
+    # combination meds remain 0 (default)
+    patient_data['total_medications'] = medication_count
+    patient_data['on_insulin'] = 1 if high_risk_flag == "Yes" else 0
+    patient_data['oral_medications'] = 1 if high_risk_flag == "No" else 0
+    patient_data['change_encoded'] = 0  # Default - no change
+    patient_data['diabetesMed_encoded'] = 1  # Default - on diabetes meds
+    patient_data['age_numeric'] = age_encoded  # From user input
+    patient_data['is_elderly'] = 1 if age_encoded >= 65 else 0
+    patient_data['total_prior_admissions'] = prior_admissions
+    patient_data['emergency_ratio'] = 0.3  # Default estimate
+    patient_data['inpatient_ratio'] = 0.7  # Default estimate
+    patient_data['long_stay'] = 0  # Default - not long stay
+    patient_data['total_procedures'] = 5  # Default
+    patient_data['high_lab_utilization'] = 0  # Default
+    patient_data['high_diagnosis_count'] = 1 if comorbidity_count > 5 else 0
+    patient_data['emergency_admission'] = 0  # Default
+    patient_data['not_home_discharge'] = 0  # Default - discharged home
+    patient_data['er_admission'] = 0  # Default
+    patient_data['age_comorbidity_interaction'] = age_comorbidity_interaction
+    patient_data['med_per_comorbidity'] = medication_count / max(comorbidity_count, 1)
+    patient_data['admissions_per_year'] = prior_admissions
+    patient_data['emerg_inpatient_combo'] = prior_admissions + (prior_admissions // 2)
+    patient_data['insulin_complexity'] = 1 if high_risk_flag == "Yes" else 0
+    patient_data['diabetes_med_intensity'] = 1  # Default
+    
+    # If we have parsed CSV data, override the defaults with actual CSV values
+    parsed_data = st.session_state.get('parsed_patient_data', {})
+    if parsed_data:
+        # Map CSV columns directly to expected features
+        # Only set values for features that exist in both the CSV and expected_features
+        for feature in expected_features:
+            if feature in parsed_data:
+                csv_value = parsed_data[feature]
+                # Handle NaN values from CSV
+                if pd.isna(csv_value):
+                    patient_data[feature] = 0
+                else:
+                    patient_data[feature] = csv_value
+        
+        # Handle special mappings from parsed data
+        if 'prior_admissions' in parsed_data:
+            patient_data['number_inpatient'] = int(parsed_data['prior_admissions'])
+            patient_data['total_prior_admissions'] = int(parsed_data['prior_admissions'])
+        if 'num_medications' in parsed_data:
+            patient_data['num_medications'] = int(parsed_data['num_medications'])
+            patient_data['total_medications'] = int(parsed_data['num_medications'])
+        if 'comorbidity_count' in parsed_data:
+            patient_data['comorbidity_count'] = int(parsed_data['comorbidity_count'])
+            patient_data['number_diagnoses'] = int(parsed_data['comorbidity_count']) + 1
+        if 'age_numeric' in parsed_data:
+            patient_data['age_numeric'] = int(parsed_data['age_numeric'])
+            patient_data['is_elderly'] = 1 if int(parsed_data['age_numeric']) >= 65 else 0
+        if 'high_risk_flag' in parsed_data:
+            flag_val = parsed_data['high_risk_flag']
+            is_high_risk = flag_val == 1 or (isinstance(flag_val, str) and flag_val.lower() == 'yes')
+            patient_data['insulin_encoded'] = 1 if is_high_risk else 0
+            patient_data['insulin_active'] = 1 if is_high_risk else 0
+            patient_data['on_insulin'] = 1 if is_high_risk else 0
+            patient_data['oral_medications'] = 1 if not is_high_risk else 0
+            patient_data['insulin_complexity'] = 1 if is_high_risk else 0
+        if 'time_in_hospital' in parsed_data:
+            patient_data['time_in_hospital'] = int(parsed_data['time_in_hospital'])
+            patient_data['long_stay'] = 1 if int(parsed_data['time_in_hospital']) > 7 else 0
+        if 'num_lab_procedures' in parsed_data:
+            patient_data['num_lab_procedures'] = int(parsed_data['num_lab_procedures'])
+            patient_data['high_lab_utilization'] = 1 if int(parsed_data['num_lab_procedures']) > 100 else 0
+        if 'num_procedures' in parsed_data:
+            patient_data['num_procedures'] = int(parsed_data['num_procedures'])
+            patient_data['total_procedures'] = int(parsed_data['num_procedures'])
+        if 'number_outpatient' in parsed_data:
+            patient_data['number_outpatient'] = int(parsed_data['number_outpatient'])
+        if 'number_emergency' in parsed_data:
+            patient_data['number_emergency'] = int(parsed_data['number_emergency'])
+            patient_data['emergency_ratio'] = int(parsed_data['number_emergency']) / max(prior_admissions, 1)
+        if 'number_diagnoses' in parsed_data:
+            patient_data['number_diagnoses'] = int(parsed_data['number_diagnoses'])
+        if 'diabetes_diag_count' in parsed_data:
+            patient_data['diabetes_diag_count'] = int(parsed_data['diabetes_diag_count'])
+        if 'metformin_encoded' in parsed_data:
+            patient_data['metformin_encoded'] = int(parsed_data['metformin_encoded'])
+            patient_data['metformin_active'] = int(parsed_data['metformin_encoded'])
+        if 'insulin_encoded' in parsed_data:
+            patient_data['insulin_encoded'] = int(parsed_data['insulin_encoded'])
+            patient_data['insulin_active'] = int(parsed_data['insulin_encoded'])
+        if 'on_insulin' in parsed_data:
+            patient_data['on_insulin'] = int(parsed_data['on_insulin'])
+        if 'change_encoded' in parsed_data:
+            patient_data['change_encoded'] = int(parsed_data['change_encoded'])
+        if 'diabetesMed_encoded' in parsed_data:
+            patient_data['diabetesMed_encoded'] = int(parsed_data['diabetesMed_encoded'])
+    
+    # Recalculate interaction features based on final values
+    patient_data['age_comorbidity_interaction'] = patient_data['age_numeric'] * patient_data['comorbidity_count']
+    patient_data['med_per_comorbidity'] = patient_data['num_medications'] / max(patient_data['comorbidity_count'], 1)
+    patient_data['admissions_per_year'] = patient_data['total_prior_admissions']
+    patient_data['emerg_inpatient_combo'] = patient_data['number_inpatient'] + patient_data['number_emergency']
     
     # Display input summary with human-readable labels
     st.markdown("### 📋 Patient Data Summary")
