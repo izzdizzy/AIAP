@@ -56,11 +56,10 @@ class CareNavigationAssistant:
     """
     
     # System prompt that enforces Singapore healthcare context with strict formatting rules
-    # Updated to explicitly instruct the AI to be a conversational care navigator
+    # Updated to use Clinical Severity framing instead of probability/percentage
     SYSTEM_PROMPT = """
 You are a conversational care navigator for diabetic patients in Singapore. Your role is to provide 
-personalized, actionable healthcare advice based on hospital readmission risk predictions and 
-patient symptoms.
+personalized, actionable healthcare advice based on clinical severity scores and patient symptoms.
 
 CRITICAL CONTEXT - SINGAPORE HEALTHCARE SYSTEM:
 1. CHAS (Community Health Assist Scheme):
@@ -88,11 +87,12 @@ CRITICAL CONTEXT - SINGAPORE HEALTHCARE SYSTEM:
 
 CRITICAL CONVERSATIONAL RULES - MUST FOLLOW:
 1. You are a conversational care navigator. Answer the user's specific question directly using the provided context.
-2. Do NOT just repeat the user's risk score or symptoms back to them unless they specifically ask for a summary.
-3. If the user asks what to watch out for, give them actionable steps based on their specific symptoms and risk score.
+2. Do NOT just repeat the user's severity score or symptoms back to them unless they specifically ask for a summary.
+3. If the user asks what to watch out for, give them actionable steps based on their specific symptoms and urgency level.
 4. NEVER include disclaimers, headers, or metadata blocks - these are handled by the UI
 5. Each response should directly answer the user's current question only - do not reference prior conversation
 6. Provide fresh, unique information in each response - never say "As mentioned before" or "To reiterate"
+7. CRITICAL: The score provided is a Clinical Severity Score (0-100), NOT a percentage or probability. Do NOT describe it as "% chance" or "probability".
 
 STRICT FORMATTING RULES - MUST FOLLOW:
 1. DO NOT use markdown headers (#, ##, ###) under any circumstances. These create huge fonts in the UI.
@@ -107,7 +107,7 @@ STRICT FORMATTING RULES - MUST FOLLOW:
 
 YOUR RESPONSE GUIDELINES:
 1. Always directly answer the user's specific question first
-2. Explain the ML risk score in simple, non-alarming terms only when relevant to the question
+2. When referring to the score, describe it as "Clinical Severity Score of [X] out of 100" - NEVER as a percentage or probability
 3. Connect symptoms to potential diabetes management issues when asked
 4. Provide specific, actionable next steps relevant to Singapore healthcare
 5. Mention appropriate care pathways (CHAS clinics, Healthier SG, polyclinics) when giving care recommendations
@@ -117,10 +117,12 @@ YOUR RESPONSE GUIDELINES:
 9. Be concise and avoid repetition - get straight to the point
 10. CRITICAL: Each response must be stateless and self-contained - do not reference prior conversation
 
-RISK SCORE INTERPRETATION:
-- Low Risk (< 0.20): Continue current management, routine follow-ups
-- Moderate Risk (0.20 - 0.40): Increase monitoring, consider medication review
-- High Risk (> 0.40): Urgent follow-up recommended, assess medication adherence, check for complications
+CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
+- Routine Monitoring (Low Urgency, Score < 33): Patient shows low clinical severity relative to population. Advise standard Healthier SG GP follow-ups, continue current management plan, maintain regular appointments with healthcare provider, adhere to prescribed medications. No immediate action required.
+
+- Increased Surveillance (Moderate Urgency, Score 33-66): Patient shows moderate clinical severity. Recommend scheduling an earlier follow-up appointment to review care plan and medication adherence. Pay close attention to any changes in symptoms. Consider contacting polyclinic for enhanced monitoring.
+
+- Immediate Intervention (High Urgency, Score > 66): Patient shows high clinical severity requiring urgent attention. STRONGLY advise seeking immediate medical attention at polyclinic or A&E. Do not delay. This requires prompt consultation with healthcare provider to assess potential complications and adjust treatment plan.
 """
 
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.5-flash"):
@@ -184,8 +186,8 @@ RISK SCORE INTERPRETATION:
         
         Args:
             patient_symptoms: List of patient-reported symptoms
-            ml_risk_score: Float value between 0 and 1 representing readmission risk
-            risk_category: String category ("Low", "Medium", "High")
+            ml_risk_score: Float value between 0 and 1 representing clinical severity
+            risk_category: String category ("Low", "Moderate", "High") - maps to urgency levels
             additional_info: Optional dictionary with additional patient context
                            (e.g., age, comorbidities, current medications)
         
@@ -202,10 +204,20 @@ RISK SCORE INTERPRETATION:
         else:
             prompt_parts.append("Current Symptoms: No specific symptoms reported")
         
-        # ML risk assessment section
-        risk_percentage = ml_risk_score * 100
-        prompt_parts.append(f"Hospital Readmission Risk Score: {ml_risk_score:.2f} ({risk_percentage:.1f}%)")
-        prompt_parts.append(f"Risk Category: {risk_category}")
+        # Clinical Severity Score section - reframed from probability to relative severity (0-100 scale)
+        # Convert 0-1 score to 0-100 severity score
+        severity_score = int(ml_risk_score * 100)
+        
+        # Map internal categories to clinical urgency levels for the AI
+        urgency_mapping = {
+            "Low": "Routine Monitoring",
+            "Moderate": "Increased Surveillance",
+            "High": "Immediate Intervention"
+        }
+        urgency_level = urgency_mapping.get(risk_category, risk_category)
+        
+        prompt_parts.append(f"Clinical Severity Score: {severity_score} out of 100")
+        prompt_parts.append(f"Urgency Level: {urgency_level}")
         
         # Additional context if provided
         if additional_info:
@@ -213,15 +225,15 @@ RISK SCORE INTERPRETATION:
             for key, value in additional_info.items():
                 prompt_parts.append(f"- {key.replace('_', ' ').title()}: {value}")
         
-        # Generate the request
+        # Generate the request - updated to reflect clinical severity framing
         prompt_parts.append(
             "\nBased on this information, please provide personalized care navigation advice "
             "including:\n"
-            "1. Interpretation of the risk score\n"
+            "1. Interpretation of the clinical severity score (as X out of 100, NOT as percentage)\n"
             "2. Symptom assessment and potential concerns\n"
-            "3. Recommended next steps (care pathway in Singapore)\n"
+            "3. Recommended next steps based on urgency level (care pathway in Singapore)\n"
             "4. Lifestyle and medication management tips\n"
-            "5. When to seek immediate medical attention\n"
+            "5. When to seek immediate medical attention vs routine follow-up\n"
             "6. Relevant Singapore healthcare resources (CHAS, Healthier SG, polyclinics)"
         )
 
@@ -232,7 +244,7 @@ RISK SCORE INTERPRETATION:
         Classify risk score into categories.
 
         Updated thresholds for UCI Diabetes dataset (baseline ~11% readmission rate).
-        A 50% probability is exceptionally high in this context.
+        A severity score of 50+ is considered high in this context.
 
         Args:
             risk_score: Float value between 0 and 1
@@ -305,17 +317,31 @@ RISK SCORE INTERPRETATION:
         else:
             prompt_parts.append("Patient Symptoms: None reported")
         
-        # Risk assessment
-        prompt_parts.append(f"Readmission Risk Score: {ml_risk_score:.2f} ({ml_risk_score*100:.1f}%)")
-        prompt_parts.append(f"Risk Category: {risk_category}")
+        # Clinical Severity Score - reframed from probability to relative severity (0-100 scale)
+        # Convert 0-1 score to 0-100 severity score
+        severity_score = int(ml_risk_score * 100)
+        
+        # Map internal categories to clinical urgency levels for the AI
+        urgency_mapping = {
+            "Low": "Routine Monitoring",
+            "Moderate": "Increased Surveillance",
+            "High": "Immediate Intervention"
+        }
+        urgency_level = urgency_mapping.get(risk_category, risk_category)
+        
+        prompt_parts.append(f"Clinical Severity Score: {severity_score} out of 100")
+        prompt_parts.append(f"Urgency Level: {urgency_level}")
         
         # User's current question
         prompt_parts.append(f"\nPatient Question: {user_question}")
         
-        # Clear instruction to answer the specific question
+        # Clear instruction to answer the specific question with clinical severity framing
         prompt_parts.append(
             "\nProvide a concise, direct answer to the patient's question above. "
-            "Include relevant guidance about their risk level and symptoms. "
+            "Refer to the score as 'Clinical Severity Score of X out of 100' - NEVER as a percentage or probability. "
+            "Tailor advice based on the urgency level (Routine Monitoring = standard GP follow-ups, "
+            "Increased Surveillance = earlier appointment/polyclinic check-in, "
+            "Immediate Intervention = seek immediate medical attention at polyclinic or A&E). "
             "Do NOT repeat disclaimers or metadata - those are handled by the UI. "
             "Do NOT reference previous conversations."
         )

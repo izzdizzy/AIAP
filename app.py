@@ -649,25 +649,32 @@ with tab1:
                 st.session_state.current_risk_score = result['risk_score']
                 
                 # Display results
-                st.subheader("Risk Assessment Results")
+                st.subheader("Patient Risk Assessment")
                 
-                # Risk score display
+                # Clinical severity score display - reframed from probability to relative severity
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    risk_percentage = result['risk_score'] * 100
+                    # Convert risk score to 0-100 Clinical Severity Scale
+                    severity_score = result['risk_score'] * 100
                     st.metric(
-                        "Readmission Risk Score",
-                        f"{result['risk_score']:.2f}",
-                        delta=f"{risk_percentage:.1f}%"
+                        "Clinical Severity Score",
+                        f"{severity_score:.0f}/100",
+                        delta=None
                     )
                 
                 with col2:
-                    risk_cat = result['risk_category']
+                    # Map internal risk categories to clinical urgency levels
+                    urgency_mapping = {
+                        "Low": "Routine Monitoring",
+                        "Moderate": "Increased Surveillance",
+                        "High": "Immediate Intervention"
+                    }
+                    urgency_level = urgency_mapping.get(result['risk_category'], result['risk_category'])
                     color_map = {"Low": "green", "Moderate": "orange", "High": "red"}
                     st.metric(
-                        "Risk Category",
-                        risk_cat,
+                        "Urgency Level",
+                        urgency_level,
                         delta=None,
                         delta_color="normal"
                     )
@@ -679,31 +686,33 @@ with tab1:
                         delta=None
                     )
                 
-                # Risk interpretation with info tooltip about dynamic thresholds
-                st.markdown("### Risk Interpretation")
-                
-                # Info tooltip explaining the risk categorization methodology
+                # Clinical philosophy explanation - critical for user understanding
                 st.info(
-                    "ℹ️ **Risk categories are relative to the patient population.** "
-                    "High Recall optimization ensures no at-risk patient is missed. "
-                    "Categories are based on percentile distribution (Low: bottom 33%, Moderate: middle 33%, High: top 33%)."
+                    "💡 **Clinical Philosophy:** This model is optimized for 100% Recall to ensure no at-risk patient is missed. "
+                    "Your score reflects clinical severity and urgency for intervention relative to the patient population, "
+                    "rather than an absolute mathematical probability."
                 )
+                
+                # Updated risk interpretation with clinical urgency framing
+                st.markdown("### Clinical Interpretation")
                 
                 if result['risk_category'] == "Low":
                     st.success("""
-                    **Low Risk**: Continue current management plan. 
-                    Maintain regular follow-ups with your healthcare provider and adhere to prescribed medications.
+                    **Routine Monitoring**: Patient shows low clinical severity relative to the population. 
+                    Continue current management plan with standard follow-up schedule.
+                    Maintain regular appointments with your healthcare provider and adhere to prescribed medications.
                     """)
                 elif result['risk_category'] == "Moderate":
                     st.warning("""
-                    **Moderate Risk**: Increased monitoring recommended. 
-                    Consider scheduling a follow-up appointment to review your care plan and medication adherence.
+                    **Increased Surveillance**: Patient shows moderate clinical severity. Enhanced monitoring recommended.
+                    Consider scheduling an earlier follow-up appointment to review care plan and medication adherence.
+                    Pay close attention to any changes in symptoms or condition.
                     """)
                 else:
                     st.error("""
-                    **High Risk**: Urgent attention needed. 
+                    **Immediate Intervention**: Patient shows high clinical severity requiring urgent attention.
                     Strongly recommend immediate consultation with your healthcare provider to assess potential complications
-                    and adjust treatment plan.
+                    and adjust treatment plan. Do not delay seeking medical advice.
                     """)
                 
                 # SHAP Analysis with human-readable feature names and high-contrast visualization
@@ -764,13 +773,13 @@ with tab1:
                     with col1:
                         st.write("**Top Contributing Factors:**")
                         for i, (_, row) in enumerate(top_features.head(5).iterrows()):
-                            # Color-code based on risk direction
+                            # Color-code based on risk direction - using black background as specified
                             if row.get('shap_value', 0) >= 0:
                                 st.markdown(
                                     f"""
-                                    <div style="background-color: #FFEBEE; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #D32F2F;">
+                                    <div style="background-color: #000000; color: #FFFFFF; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #D32F2F;">
                                         <strong>{row['display_name']}</strong><br/>
-                                        <small style="color: #666;">({row['feature']})</small>: {row['importance']:.4f}
+                                        <small style="color: #CCCCCC;">({row['feature']})</small>: {row['importance']:.4f}
                                     </div>
                                     """,
                                     unsafe_allow_html=True
@@ -778,9 +787,9 @@ with tab1:
                             else:
                                 st.markdown(
                                     f"""
-                                    <div style="background-color: #E3F2FD; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #1976D2;">
+                                    <div style="background-color: #000000; color: #FFFFFF; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #1976D2;">
                                         <strong>{row['display_name']}</strong><br/>
-                                        <small style="color: #666;">({row['feature']})</small>: {row['importance']:.4f}
+                                        <small style="color: #CCCCCC;">({row['feature']})</small>: {row['importance']:.4f}
                                     </div>
                                     """,
                                     unsafe_allow_html=True
@@ -923,16 +932,17 @@ with tab2:
     st.markdown("---")
     st.subheader("📋 Current Patient Context")
     
-    # Use metric cards for better visual presentation
+    # Use metric cards for better visual presentation - updated to show Clinical Severity
     col1, col2, col3 = st.columns(3)
     
     with col1:
         if st.session_state.current_risk_score is not None:
-            risk_pct = st.session_state.current_risk_score * 100
+            # Convert to Clinical Severity Score (0-100 scale)
+            severity_score = st.session_state.current_risk_score * 100
             st.metric(
-                label="Risk Score",
-                value=f"{st.session_state.current_risk_score:.2f}",
-                delta=f"{risk_pct:.1f}%"
+                label="Clinical Severity Score",
+                value=f"{severity_score:.0f}/100",
+                delta=None
             )
         else:
             st.info("⚠️ Calculate risk score in Tab 1 first")
@@ -960,13 +970,20 @@ with tab2:
                 threshold_low = DEFAULT_THRESHOLD_LOW_MODERATE
                 threshold_high = DEFAULT_THRESHOLD_MODERATE_HIGH
             
+            # Map to clinical urgency levels
+            urgency_mapping = {
+                "Low": "Routine Monitoring",
+                "Moderate": "Increased Surveillance", 
+                "High": "Immediate Intervention"
+            }
+            
             # Categorize using dynamic thresholds
             if st.session_state.current_risk_score < threshold_low:
-                st.success("**Risk Level:** LOW")
+                st.success("**Urgency Level:** ROUTINE MONITORING")
             elif st.session_state.current_risk_score < threshold_high:
-                st.warning("**Risk Level:** MODERATE")
+                st.warning("**Urgency Level:** INCREASED SURVEILLANCE")
             else:
-                st.error("**Risk Level:** HIGH")
+                st.error("**Urgency Level:** IMMEDIATE INTERVENTION")
         else:
             st.caption("Pending assessment")
     
