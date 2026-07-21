@@ -19,6 +19,110 @@ from gen_ai import CareNavigationAssistant
 
 
 # =============================================================================
+# FEATURE DISPLAY NAMES - HUMAN-READABLE LABELS FOR PATIENTS
+# =============================================================================
+
+FEATURE_DISPLAY_NAMES = {
+    # Core clinical features
+    'time_in_hospital': 'Days Spent in Hospital',
+    'num_lab_procedures': 'Number of Lab Tests',
+    'num_procedures': 'Number of Medical Procedures',
+    'num_medications': 'Total Medications Count',
+    'number_outpatient': 'Outpatient Visits',
+    'number_emergency': 'Emergency Room Visits',
+    'number_inpatient': 'Inpatient Admissions',
+    'number_diagnoses': 'Total Diagnoses Count',
+    'diabetes_diag_count': 'Diabetes-Related Diagnoses',
+    'comorbidity_count': 'Number of Other Health Conditions',
+    
+    # Medication features
+    'metformin_encoded': 'Metformin Prescribed',
+    'metformin_active': 'Metformin Active',
+    'repaglinide_encoded': 'Repaglinide Prescribed',
+    'repaglinide_active': 'Repaglinide Active',
+    'nateglinide_encoded': 'Nateglinide Prescribed',
+    'nateglinide_active': 'Nateglinide Active',
+    'chlorpropamide_encoded': 'Chlorpropamide Prescribed',
+    'chlorpropamide_active': 'Chlorpropamide Active',
+    'glimepiride_encoded': 'Glimepiride Prescribed',
+    'glimepiride_active': 'Glimepiride Active',
+    'acetohexamide_encoded': 'Acetohexamide Prescribed',
+    'acetohexamide_active': 'Acetohexamide Active',
+    'glipizide_encoded': 'Glipizide Prescribed',
+    'glipizide_active': 'Glipizide Active',
+    'glyburide_encoded': 'Glyburide Prescribed',
+    'glyburide_active': 'Glyburide Active',
+    'tolbutamide_encoded': 'Tolbutamide Prescribed',
+    'tolbutamide_active': 'Tolbutamide Active',
+    'pioglitazone_encoded': 'Pioglitazone Prescribed',
+    'pioglitazone_active': 'Pioglitazone Active',
+    'rosiglitazone_encoded': 'Rosiglitazone Prescribed',
+    'rosiglitazone_active': 'Rosiglitazone Active',
+    'acarbose_encoded': 'Acarbose Prescribed',
+    'acarbose_active': 'Acarbose Active',
+    'miglitol_encoded': 'Miglitol Prescribed',
+    'miglitol_active': 'Miglitol Active',
+    'troglitazone_encoded': 'Troglitazone Prescribed',
+    'troglitazone_active': 'Troglitazone Active',
+    'tolazamide_encoded': 'Tolazamide Prescribed',
+    'tolazamide_active': 'Tolazamide Active',
+    'examide_encoded': 'Examide Prescribed',
+    'examide_active': 'Examide Active',
+    'citoglipton_encoded': 'Citoglipton Prescribed',
+    'citoglipton_active': 'Citoglipton Active',
+    'insulin_encoded': 'Insulin Therapy',
+    'insulin_active': 'Insulin Active',
+    'glyburide-metformin_encoded': 'Glyburide-Metformin Prescribed',
+    'glyburide-metformin_active': 'Glyburide-Metformin Active',
+    'glipizide-metformin_encoded': 'Glipizide-Metformin Prescribed',
+    'glipizide-metformin_active': 'Glipizide-Metformin Active',
+    'glimepiride-pioglitazone_encoded': 'Glimepiride-Pioglitazone Prescribed',
+    'glimepiride-pioglitazone_active': 'Glimepiride-Pioglitazone Active',
+    'metformin-rosiglitazone_encoded': 'Metformin-Rosiglitazone Prescribed',
+    'metformin-rosiglitazone_active': 'Metformin-Rosiglitazone Active',
+    'metformin-pioglitazone_encoded': 'Metformin-Pioglitazone Prescribed',
+    'metformin-pioglitazone_active': 'Metformin-Pioglitazone Active',
+    
+    # Derived features
+    'total_medications': 'Total Medications',
+    'on_insulin': 'Currently on Insulin',
+    'oral_medications': 'Taking Oral Medications',
+    'change_encoded': 'Medication Change at Discharge',
+    'diabetesMed_encoded': 'Diabetes Medication Prescribed',
+    'age_numeric': 'Patient Age',
+    'is_elderly': 'Elderly Patient (65+)',
+    'total_prior_admissions': 'Total Prior Admissions',
+    'emergency_ratio': 'Emergency Visit Ratio',
+    'inpatient_ratio': 'Inpatient Stay Ratio',
+    'long_stay': 'Extended Hospital Stay',
+    'total_procedures': 'Total Procedures Performed',
+    'high_lab_utilization': 'High Lab Test Usage',
+    'high_diagnosis_count': 'Multiple Diagnoses',
+    'emergency_admission': 'Emergency Admission',
+    'not_home_discharge': 'Discharged to Non-Home Location',
+    'er_admission': 'ER Admission',
+    
+    # Interaction features
+    'age_comorbidity_interaction': 'Age × Health Conditions Interaction',
+    'med_per_comorbidity': 'Medications per Health Condition',
+    'admissions_per_year': 'Admissions per Year',
+    'emerg_inpatient_combo': 'Emergency + Inpatient Combined',
+    'insulin_complexity': 'Insulin Treatment Complexity',
+    'diabetes_med_intensity': 'Diabetes Medication Intensity',
+    
+    # Administrative features
+    'admission_type_id': 'Admission Type',
+    'discharge_disposition_id': 'Discharge Location',
+    'admission_source_id': 'Admission Source',
+    
+    # User-facing form fields
+    'prior_admissions': 'Previous Hospital Admissions (Last 12 Months)',
+    'discharge_diagnosis': 'Primary Discharge Diagnosis Code',
+    'high_risk_flag': 'High Risk Patient Flag',
+}
+
+
+# =============================================================================
 # PAGE CONFIGURATION
 # =============================================================================
 
@@ -59,7 +163,7 @@ def load_assistant():
         return None
 
 
-# Initialize session state for chat history
+# Initialize session state for chat history and form data
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'current_risk_score' not in st.session_state:
@@ -68,6 +172,8 @@ if 'current_symptoms' not in st.session_state:
     st.session_state.current_symptoms = []
 if 'form_initialized' not in st.session_state:
     st.session_state.form_initialized = False
+if 'parsed_patient_data' not in st.session_state:
+    st.session_state.parsed_patient_data = {}
 
 
 # =============================================================================
@@ -200,13 +306,42 @@ with st.sidebar:
     if uploaded_file is not None:
         parsed_data = parse_uploaded_file(uploaded_file)
         if parsed_data:
-            # Store parsed data in session state for form pre-filling
+            # CRITICAL FIX: Explicitly overwrite session state for all widget keys
+            # This ensures the form immediately reflects the uploaded data
+            
+            # Clear any previous parsed data first
+            if 'parsed_patient_data' in st.session_state:
+                del st.session_state['parsed_patient_data']
+            
+            # Store new parsed data
             st.session_state['parsed_patient_data'] = parsed_data
+            
+            # EXPLICITLY overwrite widget session state keys to force UI update
+            if 'prior_admissions' in parsed_data:
+                st.session_state['prior_admissions_input'] = int(parsed_data['prior_admissions'])
+            if 'comorbidity_count' in parsed_data:
+                st.session_state['comorbidity_count_input'] = int(parsed_data['comorbidity_count'])
+            if 'num_medications' in parsed_data:
+                st.session_state['medication_count_input'] = int(parsed_data['num_medications'])
+            if 'discharge_diagnosis' in parsed_data:
+                st.session_state['discharge_diagnosis_input'] = str(parsed_data['discharge_diagnosis'])
+            if 'age_group_display' in parsed_data:
+                age_options = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"]
+                if parsed_data['age_group_display'] in age_options:
+                    st.session_state['age_group_input'] = age_options.index(parsed_data['age_group_display'])
+            if 'high_risk_display' in parsed_data:
+                st.session_state['high_risk_flag_input'] = 1 if parsed_data['high_risk_display'] == "Yes" else 0
+            
             st.success(f"✅ Successfully loaded data from {uploaded_file.name}")
             
-            # Show preview
+            # Show preview with human-readable labels
             with st.expander("View loaded data"):
-                st.json(parsed_data)
+                # Display with friendly names where available
+                friendly_data = {}
+                for key, value in parsed_data.items():
+                    display_name = FEATURE_DISPLAY_NAMES.get(key, key)
+                    friendly_data[display_name] = value
+                st.json(friendly_data)
     
     st.markdown("---")
     st.subheader("Clinical Features")
@@ -217,21 +352,21 @@ with st.sidebar:
     
     parsed_data = st.session_state['parsed_patient_data']
     
-    # 6 Clinical Features from the dataset
+    # 6 Clinical Features from the dataset - using human-readable labels
     prior_admissions = st.number_input(
-        "Prior Admissions (last 12 months)",
+        FEATURE_DISPLAY_NAMES.get('prior_admissions', "Prior Admissions (last 12 months)"),
         min_value=0,
         max_value=50,
-        value=int(parsed_data.get('prior_admissions', 1)),
+        value=int(parsed_data.get('prior_admissions', 1)) if 'prior_admissions' in parsed_data else 1,
         key="prior_admissions_input",
         help="Number of hospital admissions in the past 12 months"
     )
     
     comorbidity_count = st.number_input(
-        "Comorbidity Count",
+        FEATURE_DISPLAY_NAMES.get('comorbidity_count', "Comorbidity Count"),
         min_value=0,
         max_value=20,
-        value=int(parsed_data.get('comorbidity_count', 3)),
+        value=int(parsed_data.get('comorbidity_count', 3)) if 'comorbidity_count' in parsed_data else 3,
         key="comorbidity_count_input",
         help="Number of co-existing medical conditions"
     )
@@ -252,17 +387,17 @@ with st.sidebar:
     )
     
     medication_count = st.number_input(
-        "Medication Count",
+        FEATURE_DISPLAY_NAMES.get('num_medications', "Medication Count"),
         min_value=0,
         max_value=50,
-        value=int(parsed_data.get('num_medications', 5)),
+        value=int(parsed_data.get('num_medications', 5)) if 'num_medications' in parsed_data else 5,
         key="medication_count_input",
         help="Number of medications prescribed"
     )
     
     discharge_diagnosis = st.text_input(
-        "Discharge Diagnosis (ICD Code)",
-        value=str(parsed_data.get('discharge_diagnosis', "250.01")),
+        FEATURE_DISPLAY_NAMES.get('discharge_diagnosis', "Discharge Diagnosis (ICD Code)"),
+        value=str(parsed_data.get('discharge_diagnosis', "250.01")) if 'discharge_diagnosis' in parsed_data else "250.01",
         key="discharge_diagnosis_input",
         help="Primary diagnosis code at discharge (e.g., 250.01 for diabetes)"
     )
@@ -273,7 +408,7 @@ with st.sidebar:
         default_risk_index = 1 if parsed_data['high_risk_display'] == "Yes" else 0
     
     high_risk_flag = st.selectbox(
-        "High Risk Flag",
+        FEATURE_DISPLAY_NAMES.get('high_risk_flag', "High Risk Flag"),
         options=["No", "Yes"],
         index=default_risk_index,
         key="high_risk_flag_input",
@@ -441,19 +576,30 @@ with tab1:
         'diabetes_med_intensity': 1,  # Default
     }
     
-    # Display input summary
+    # Display input summary with human-readable labels
+    st.markdown("### 📋 Patient Data Summary")
+    
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Input Summary")
-        st.json(patient_data)
+        st.subheader("Clinical Input Values")
+        # Create a human-readable summary instead of raw JSON
+        summary_data = {
+            FEATURE_DISPLAY_NAMES.get('prior_admissions', 'Prior Admissions'): prior_admissions,
+            FEATURE_DISPLAY_NAMES.get('comorbidity_count', 'Comorbidity Count'): comorbidity_count,
+            "Age Group": age_group,
+            FEATURE_DISPLAY_NAMES.get('num_medications', 'Medication Count'): medication_count,
+            FEATURE_DISPLAY_NAMES.get('discharge_diagnosis', 'Discharge Diagnosis'): discharge_diagnosis,
+            FEATURE_DISPLAY_NAMES.get('high_risk_flag', 'High Risk Flag'): high_risk_flag,
+        }
+        st.json(summary_data)
     
     with col2:
-        st.subheader("Selected Symptoms")
+        st.subheader("Reported Symptoms")
         if selected_symptoms:
-            for symptom in selected_symptoms:
-                st.write(f"• {symptom}")
+            symptoms_text = ", ".join(selected_symptoms)
+            st.info(f"💬 {symptoms_text}")
         else:
-            st.caption("No symptoms selected")
+            st.caption("No symptoms reported")
     
     st.markdown("---")
     
@@ -517,22 +663,27 @@ with tab1:
                     and adjust treatment plan.
                     """)
                 
-                # SHAP Analysis
+                # SHAP Analysis with human-readable feature names
                 if 'feature_importance' in result and result['feature_importance']:
-                    st.markdown("### Key Risk Factors (SHAP Analysis)")
+                    st.markdown("### 🔍 Key Risk Factors (SHAP Analysis)")
                     
                     importance_df = pd.DataFrame(result['feature_importance'])
                     
-                    # Display top factors
+                    # Add human-readable display names to the dataframe
+                    importance_df['display_name'] = importance_df['feature'].apply(
+                        lambda x: FEATURE_DISPLAY_NAMES.get(x, x)
+                    )
+                    
+                    # Display top factors with friendly names
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write("**Top Contributing Factors:**")
                         for i, row in importance_df.head(5).iterrows():
-                            bar_length = min(row['importance'] * 100, 100)
                             st.markdown(
                                 f"""
-                                <div style="background-color: #f0f2f6; padding: 5px; margin: 3px 0; border-radius: 3px;">
-                                    <strong>{row['feature']}</strong>: {row['importance']:.4f}
+                                <div style="background-color: #f0f2f6; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #4CAF50;">
+                                    <strong>{row['display_name']}</strong><br/>
+                                    <small style="color: #666;">({row['feature']})</small>: {row['importance']:.4f}
                                 </div>
                                 """,
                                 unsafe_allow_html=True
@@ -546,12 +697,14 @@ with tab1:
                         if positive:
                             st.info("**Factors Increasing Risk:**")
                             for f in positive:
-                                st.write(f"• {f['feature']}")
+                                display_name = FEATURE_DISPLAY_NAMES.get(f['feature'], f['feature'])
+                                st.write(f"• {display_name}")
                         
                         if negative:
                             st.success("**Factors Decreasing Risk:**")
                             for f in negative:
-                                st.write(f"• {f['feature']}")
+                                display_name = FEATURE_DISPLAY_NAMES.get(f['feature'], f['feature'])
+                                st.write(f"• {display_name}")
                 
                 st.success("✅ Risk assessment complete! Switch to the **Care Navigation** tab for personalized guidance.")
                 
@@ -662,28 +815,50 @@ with tab2:
                             "content": error_msg
                         })
     
-    # Context display
+    # Context display with improved layout
     st.markdown("---")
-    st.subheader("Current Context")
-    col1, col2 = st.columns(2)
+    st.subheader("📋 Current Patient Context")
+    
+    # Use metric cards for better visual presentation
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.write("**Risk Score:**")
         if st.session_state.current_risk_score is not None:
-            st.metric("ML Risk Score", f"{st.session_state.current_risk_score:.2f}")
+            risk_pct = st.session_state.current_risk_score * 100
+            st.metric(
+                label="Risk Score",
+                value=f"{st.session_state.current_risk_score:.2f}",
+                delta=f"{risk_pct:.1f}%"
+            )
         else:
-            st.caption("Not calculated yet - visit Tab 1")
+            st.info("⚠️ Calculate risk score in Tab 1 first")
     
     with col2:
-        st.write("**Reported Symptoms:**")
-        if st.session_state.current_symptoms:
-            for symptom in st.session_state.current_symptoms:
-                st.write(f"• {symptom}")
+        symptom_count = len(st.session_state.current_symptoms) if st.session_state.current_symptoms else 0
+        st.metric(
+            label="Reported Symptoms",
+            value=symptom_count
+        )
+    
+    with col3:
+        if st.session_state.current_risk_score is not None:
+            if st.session_state.current_risk_score < 0.3:
+                st.success("**Risk Level:** LOW")
+            elif st.session_state.current_risk_score < 0.6:
+                st.warning("**Risk Level:** MEDIUM")
+            else:
+                st.error("**Risk Level:** HIGH")
         else:
-            st.caption("None selected")
+            st.caption("Pending assessment")
+    
+    # Show symptoms list if any
+    if st.session_state.current_symptoms:
+        with st.expander("View Reported Symptoms"):
+            symptoms_display = ", ".join(st.session_state.current_symptoms)
+            st.write(f"💬 {symptoms_display}")
     
     # Clear chat button
-    if st.button("Clear Chat History", use_container_width=False):
+    if st.button("🗑️ Clear Chat History", use_container_width=False):
         st.session_state.chat_history = []
         st.rerun()
 
