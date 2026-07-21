@@ -227,26 +227,27 @@ def generate_patient_data(risk_level: str) -> dict:
     
     else:  # low risk
         # Low risk patient profile:
-        # - No/few prior admissions
-        # - Low comorbidity count
-        # - Standard adult age (not pediatric outlier)
-        # - Few medications
-        # - Well-controlled diabetes
+        # - No/few prior admissions (prior_admissions=0)
+        # - Low comorbidity count (comorbidity_count=2)
+        # - Age in 50-60 range (age_numeric=55)
+        # - Few medications (num_medications=3)
+        # - Well-controlled diabetes on metformin only
+        # - Discharged to home, no emergency admission
         return {
-            'admission_type_id': 1,
-            'discharge_disposition_id': 1,
-            'admission_source_id': 1,
-            'time_in_hospital': 2,
-            'num_lab_procedures': 25,
-            'num_procedures': 2,
-            'num_medications': 3,
-            'number_outpatient': 1,
-            'number_emergency': 0,
-            'number_inpatient': 1,
-            'number_diagnoses': 3,
-            'diabetes_diag_count': 1,
-            'comorbidity_count': 2,
-            'metformin_encoded': 1,
+            'admission_type_id': 1,  # Elective admission
+            'discharge_disposition_id': 1,  # Discharged to home
+            'admission_source_id': 7,  # Most common source (not ER)
+            'time_in_hospital': 2,  # Short stay
+            'num_lab_procedures': 25,  # Below median
+            'num_procedures': 0,  # No procedures (dataset mode)
+            'num_medications': 3,  # Few medications
+            'number_outpatient': 0,  # No outpatient visits
+            'number_emergency': 0,  # No ER visits
+            'number_inpatient': 0,  # No inpatient admissions (prior_admissions=0)
+            'number_diagnoses': 3,  # Basic diagnoses
+            'diabetes_diag_count': 1,  # One diabetes diagnosis
+            'comorbidity_count': 2,  # Low comorbidity
+            'metformin_encoded': 1,  # On metformin
             'metformin_active': 1,
             'repaglinide_encoded': 0,
             'repaglinide_active': 0,
@@ -280,7 +281,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'examide_active': 0,
             'citoglipton_encoded': 0,
             'citoglipton_active': 0,
-            'insulin_encoded': 0,
+            'insulin_encoded': 0,  # NOT on insulin (low risk)
             'insulin_active': 0,
             'glyburide-metformin_encoded': 0,
             'glyburide-metformin_active': 0,
@@ -293,28 +294,28 @@ def generate_patient_data(risk_level: str) -> dict:
             'metformin-pioglitazone_encoded': 0,
             'metformin-pioglitazone_active': 0,
             'total_medications': 3,
-            'on_insulin': 0,
-            'oral_medications': 1,
-            'change_encoded': 0,
-            'diabetesMed_encoded': 1,
-            'age_numeric': 55,  # Standard adult age [50-60) bin midpoint - not a pediatric outlier
-            'is_elderly': 0,
-            'total_prior_admissions': 0,
+            'on_insulin': 0,  # NOT on insulin
+            'oral_medications': 1,  # On oral meds only
+            'change_encoded': 0,  # No medication change
+            'diabetesMed_encoded': 1,  # On diabetes meds
+            'age_numeric': 55,  # Age in [50-60) range
+            'is_elderly': 0,  # Not elderly (< 65)
+            'total_prior_admissions': 0,  # ZERO prior admissions
             'emergency_ratio': 0.0,
-            'inpatient_ratio': 1.0,
+            'inpatient_ratio': 0.0,  # 0/0 treated as 0
             'long_stay': 0,
-            'total_procedures': 2,
+            'total_procedures': 0,
             'high_lab_utilization': 0,
             'high_diagnosis_count': 0,
             'emergency_admission': 0,
-            'not_home_discharge': 0,
+            'not_home_discharge': 0,  # Discharged to home
             'er_admission': 0,
-            'age_comorbidity_interaction': 55 * 2,
-            'med_per_comorbidity': 3 / 2,
-            'admissions_per_year': 0,
-            'emerg_inpatient_combo': 0,
-            'insulin_complexity': 0,
-            'diabetes_med_intensity': 1,
+            'age_comorbidity_interaction': 55 * 2,  # 110
+            'med_per_comorbidity': 3 / 2,  # 1.5
+            'admissions_per_year': 0,  # No admissions
+            'emerg_inpatient_combo': 0,  # 0 * 0 = 0
+            'insulin_complexity': 0,  # on_insulin * total_meds = 0 * 3
+            'diabetes_med_intensity': 1 * 3,  # diabetes_diag_count * total_meds
         }
 
 
