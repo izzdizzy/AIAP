@@ -83,11 +83,13 @@ class ReadmissionPredictor:
         self.feature_columns = None
         self.feature_defaults = None
         self.shap_explainer = None
+        self.optimal_threshold = 0.5  # Default threshold
         
         # Load model and feature schema
         self._load_model(model_path)
         self._load_feature_columns(feature_columns_path)
         self._load_feature_defaults(feature_defaults_path)
+        self._load_optimal_threshold()
         
         # Initialize SHAP explainer if available
         if SHAP_AVAILABLE and self.model is not None:
