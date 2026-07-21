@@ -135,25 +135,26 @@ def generate_patient_data(risk_level: str) -> dict:
     
     elif risk_level == "moderate":
         # Moderate risk patient profile:
-        # - Some prior admissions
+        # - Some prior admissions (total 1-2)
         # - Moderate comorbidity count
         # - Middle-aged
-        # - Moderate medications
+        # - Moderate medications (5)
         # - Oral medications
+        # - Lower lab procedures (25) to distinguish from high risk
         return {
             'admission_type_id': 1,
             'discharge_disposition_id': 1,
             'admission_source_id': 1,
-            'time_in_hospital': 4,
-            'num_lab_procedures': 45,
-            'num_procedures': 4,
-            'num_medications': 8,
-            'number_outpatient': 2,
+            'time_in_hospital': 3,
+            'num_lab_procedures': 25,
+            'num_procedures': 2,
+            'num_medications': 5,
+            'number_outpatient': 1,
             'number_emergency': 1,
-            'number_inpatient': 2,
-            'number_diagnoses': 5,
-            'diabetes_diag_count': 2,
-            'comorbidity_count': 4,
+            'number_inpatient': 1,
+            'number_diagnoses': 4,
+            'diabetes_diag_count': 1,
+            'comorbidity_count': 3,
             'metformin_encoded': 1,
             'metformin_active': 1,
             'repaglinide_encoded': 0,
@@ -162,8 +163,8 @@ def generate_patient_data(risk_level: str) -> dict:
             'nateglinide_active': 0,
             'chlorpropamide_encoded': 0,
             'chlorpropamide_active': 0,
-            'glimepiride_encoded': 1,
-            'glimepiride_active': 1,
+            'glimepiride_encoded': 0,
+            'glimepiride_active': 0,
             'acetohexamide_encoded': 0,
             'acetohexamide_active': 0,
             'glipizide_encoded': 0,
@@ -200,55 +201,55 @@ def generate_patient_data(risk_level: str) -> dict:
             'metformin-rosiglitazone_active': 0,
             'metformin-pioglitazone_encoded': 0,
             'metformin-pioglitazone_active': 0,
-            'total_medications': 8,
+            'total_medications': 5,
             'on_insulin': 0,
             'oral_medications': 1,
             'change_encoded': 0,
             'diabetesMed_encoded': 1,
             'age_numeric': 55,
             'is_elderly': 0,
-            'total_prior_admissions': 2,
+            'total_prior_admissions': 1,
             'emergency_ratio': 0.33,
-            'inpatient_ratio': 0.67,
+            'inpatient_ratio': 0.33,
             'long_stay': 0,
-            'total_procedures': 4,
+            'total_procedures': 2,
             'high_lab_utilization': 0,
             'high_diagnosis_count': 0,
             'emergency_admission': 0,
             'not_home_discharge': 0,
             'er_admission': 0,
-            'age_comorbidity_interaction': 55 * 4,
-            'med_per_comorbidity': 8 / 4,
-            'admissions_per_year': 2,
-            'emerg_inpatient_combo': 3,
+            'age_comorbidity_interaction': 55 * 3,
+            'med_per_comorbidity': 5 / 3,
+            'admissions_per_year': 1,
+            'emerg_inpatient_combo': 2,
             'insulin_complexity': 0,
             'diabetes_med_intensity': 1,
         }
     
     else:  # low risk
         # Low risk patient profile:
-        # - No/few prior admissions (prior_admissions=0)
-        # - Low comorbidity count (comorbidity_count=2)
-        # - Age in 50-60 range (age_numeric=55)
-        # - Few medications (num_medications=3)
+        # - No prior admissions (prior_admissions=0)
+        # - Low comorbidity count
+        # - Age in 40-50 range
+        # - Few medications (2)
+        # - 15 lab procedures
         # - Well-controlled diabetes on metformin only
         # - Discharged to home, no emergency admission
-        # CRITICAL: ALL utilization metrics set to absolute minimums to ensure low score
         return {
             'admission_type_id': 1,  # Elective admission
             'discharge_disposition_id': 1,  # Discharged to home
             'admission_source_id': 7,  # Most common source (not ER)
-            'time_in_hospital': 1,  # MINIMUM: Shortest possible stay (was 2)
-            'num_lab_procedures': 10,  # MINIMUM: Far below median (was 25)
-            'num_procedures': 0,  # No procedures (dataset mode)
-            'num_medications': 3,  # Few medications
-            'number_outpatient': 0,  # No outpatient visits
-            'number_emergency': 0,  # No ER visits
-            'number_inpatient': 0,  # No inpatient admissions (prior_admissions=0)
-            'number_diagnoses': 1,  # MINIMUM: Single diagnosis (was 3)
-            'diabetes_diag_count': 1,  # One diabetes diagnosis
-            'comorbidity_count': 1,  # MINIMUM: Lowest comorbidity (was 2)
-            'metformin_encoded': 1,  # On metformin
+            'time_in_hospital': 2,
+            'num_lab_procedures': 15,
+            'num_procedures': 0,
+            'num_medications': 2,
+            'number_outpatient': 0,
+            'number_emergency': 0,
+            'number_inpatient': 0,
+            'number_diagnoses': 2,
+            'diabetes_diag_count': 1,
+            'comorbidity_count': 1,
+            'metformin_encoded': 1,
             'metformin_active': 1,
             'repaglinide_encoded': 0,
             'repaglinide_active': 0,
@@ -282,7 +283,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'examide_active': 0,
             'citoglipton_encoded': 0,
             'citoglipton_active': 0,
-            'insulin_encoded': 0,  # NOT on insulin (low risk)
+            'insulin_encoded': 0,
             'insulin_active': 0,
             'glyburide-metformin_encoded': 0,
             'glyburide-metformin_active': 0,
@@ -294,29 +295,29 @@ def generate_patient_data(risk_level: str) -> dict:
             'metformin-rosiglitazone_active': 0,
             'metformin-pioglitazone_encoded': 0,
             'metformin-pioglitazone_active': 0,
-            'total_medications': 3,
-            'on_insulin': 0,  # NOT on insulin
-            'oral_medications': 1,  # On oral meds only
-            'change_encoded': 0,  # No medication change
-            'diabetesMed_encoded': 1,  # On diabetes meds
-            'age_numeric': 45,  # Younger age for lower risk (was 55)
-            'is_elderly': 0,  # Not elderly (< 65)
-            'total_prior_admissions': 0,  # ZERO prior admissions
+            'total_medications': 2,
+            'on_insulin': 0,
+            'oral_medications': 1,
+            'change_encoded': 0,
+            'diabetesMed_encoded': 1,
+            'age_numeric': 45,
+            'is_elderly': 0,
+            'total_prior_admissions': 0,
             'emergency_ratio': 0.0,
-            'inpatient_ratio': 0.0,  # 0/0 treated as 0
+            'inpatient_ratio': 0.0,
             'long_stay': 0,
             'total_procedures': 0,
             'high_lab_utilization': 0,
             'high_diagnosis_count': 0,
             'emergency_admission': 0,
-            'not_home_discharge': 0,  # Discharged to home
+            'not_home_discharge': 0,
             'er_admission': 0,
-            'age_comorbidity_interaction': 45 * 1,  # 45 (minimum)
-            'med_per_comorbidity': 3 / 1,  # 3.0
-            'admissions_per_year': 0,  # No admissions
-            'emerg_inpatient_combo': 0,  # 0 * 0 = 0
-            'insulin_complexity': 0,  # on_insulin * total_meds = 0 * 3
-            'diabetes_med_intensity': 1 * 3,  # diabetes_diag_count * total_meds
+            'age_comorbidity_interaction': 45 * 1,
+            'med_per_comorbidity': 2 / 1,
+            'admissions_per_year': 0,
+            'emerg_inpatient_combo': 0,
+            'insulin_complexity': 0,
+            'diabetes_med_intensity': 1 * 2,
         }
 
 

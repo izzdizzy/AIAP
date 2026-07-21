@@ -365,6 +365,50 @@ def load_assistant():
         return None
 
 
+# =============================================================================
+# CLINICAL SEVERITY ADJUSTMENT - POST-PROCESSING LAYER
+# =============================================================================
+
+def calculate_clinical_adjustment(features_dict: dict) -> int:
+    """
+    Apply clinical severity adjustment based on established medical red flags.
+    
+    The ML model was trained on noisy UCI data and may produce counter-intuitive
+    results (e.g., penalizing extremely high lab procedures). This post-processing
+    layer ensures that clinically severe patients receive appropriate risk scores
+    by adding heuristic bonuses for known risk factors.
+    
+    Args:
+        features_dict: Dictionary containing patient feature values
+        
+    Returns:
+        Integer severity adjustment points (0 or positive)
+    """
+    adjustment_points = 0
+    
+    # Severe inpatient history: 3+ prior inpatient admissions
+    if features_dict.get('number_inpatient', 0) >= 3:
+        adjustment_points += 15
+    
+    # High emergency utilization: 3+ emergency visits
+    if features_dict.get('number_emergency', 0) >= 3:
+        adjustment_points += 10
+    
+    # Extensive lab work: 60+ lab procedures indicates complex workup
+    if features_dict.get('num_lab_procedures', 0) >= 60:
+        adjustment_points += 10
+    
+    # Polypharmacy: 15+ medications indicates complex comorbidities
+    if features_dict.get('num_medications', 0) >= 15:
+        adjustment_points += 10
+    
+    # Elderly patient: Age 70+ is an independent risk factor
+    if features_dict.get('age_numeric', 0) >= 70:
+        adjustment_points += 5
+    
+    return adjustment_points
+
+
 # Initialize session state for chat history and form data
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
@@ -1140,8 +1184,17 @@ with tab1:
                 # Get prediction
                 result = predictor.predict(patient_data, return_shap=True)
                 
-                # Store raw probability from calibrated model
+                # Store raw probability from calibrated model as "Base Risk Score"
                 raw_risk_score = result['risk_score']
+                
+                # Apply Clinical Severity Adjustment to compensate for dataset noise
+                # This ensures medical red flags are properly weighted
+                clinical_adjustment_points = calculate_clinical_adjustment(patient_data)
+                
+                # Calculate Final Severity Score: (raw_prob * 100) + clinical_adjustment_points
+                # Clamp between 0 and 100
+                base_severity = raw_risk_score * 100
+                final_severity_score = min(100, max(0, base_severity + clinical_adjustment_points))
                 
                 # Check data completeness for confidence adjustment
                 is_low_completeness = st.session_state.get('data_completeness_low', False)
@@ -1155,15 +1208,21 @@ with tab1:
                     adjusted_risk_score = (raw_risk_score * completeness_factor) + \
                                          (baseline_readmission_rate * (1 - completeness_factor))
                     st.session_state.current_risk_score = adjusted_risk_score
-                    st.session_state.clinical_severity_score = adjusted_risk_score * 100
+                    # Apply clinical adjustment to the completeness-adjusted score as well
+                    adjusted_severity = min(100, max(0, (adjusted_risk_score * 100) + clinical_adjustment_points))
+                    st.session_state.clinical_severity_score = adjusted_severity
                     st.session_state.is_low_confidence = True
                 else:
                     st.session_state.current_risk_score = raw_risk_score
-                    st.session_state.clinical_severity_score = raw_risk_score * 100
+                    st.session_state.clinical_severity_score = final_severity_score
                     st.session_state.is_low_confidence = False
                 
-                # Calculate risk_category locally based on raw probability thresholds
-                risk_score_for_categorization = st.session_state.current_risk_score
+                # Store clinical adjustment info for display
+                st.session_state.clinical_adjustment_points = clinical_adjustment_points
+                st.session_state.base_severity = base_severity
+                
+                # Calculate risk_category locally based on FINAL severity score thresholds
+                risk_score_for_categorization = st.session_state.clinical_severity_score / 100.0
                 if risk_score_for_categorization <= 0.30:
                     risk_category = "Low"
                 elif risk_score_for_categorization <= 0.60:
@@ -1354,8 +1413,11 @@ with tab1:
                 # ================================================================
                 with st.expander("🔧 Show Raw Debug Info", expanded=False):
                     st.markdown("**Raw Model Output:**")
-                    st.code(f"Raw Probability: {result['risk_score']:.6f}")
-                    st.code(f"Clinical Severity Score (raw_prob * 100): {result['risk_score'] * 100:.2f}")
+                    st.code(f"Raw Probability (Base Risk Score): {result['risk_score']:.6f}")
+                    st.code(f"Base Severity (raw_prob * 100): {st.session_state.base_severity:.2f}")
+                    st.code(f"Clinical Adjustment Points: {st.session_state.clinical_adjustment_points}")
+                    st.code(f"Final Severity Score (Base + Adjustment, clamped 0-100): {st.session_state.clinical_severity_score:.2f}")
+                    st.info("**Note:** Final score includes a Clinical Logic Adjustment to compensate for dataset noise and ensure medical red flags are properly weighted.")
                     
                     st.markdown("**ALL 82 Features Being Fed to Model (Exact Order):**")
                     # Display the complete patient_data dictionary with all 82 features
