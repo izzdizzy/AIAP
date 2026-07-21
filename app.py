@@ -1,16 +1,32 @@
 # =============================================================================
 # BUG FIX SUMMARY - IT3100 Progress Review 2
 # =============================================================================
-# BUG 1: CSV-TO-UI MAPPING WAS BROKEN
-# Root Cause: The session state initialization for widgets ran unconditionally
-# before checking for parsed CSV data. While the override logic existed, the
-# order of operations caused race conditions where default values would persist.
+# CRITICAL STATE MANAGEMENT FIX - Streamlit st.session_state and Widget Binding
+# =============================================================================
+# PROBLEM: "Patient Data Summary" and "Clinical Input Values" sections were frozen
+# on default/stale values when CSV was uploaded or manual inputs were changed.
 #
-# Fix Applied:
-# - Moved parsed_data check to run BEFORE any default initialization
-# - Added explicit type conversion and validation for age_numeric -> age_group mapping
-# - Fixed high_risk_flag parsing to handle both integer (0/1) and string ("Yes"/"No") values
-# - Added debug logging to trace the mapping path
+# ROOT CAUSE ANALYSIS:
+# 1. Session state initialization ran unconditionally BEFORE checking for CSV data,
+#    causing race conditions where defaults persisted over uploaded values.
+# 2. The "Clinical Input Values" display read from local widget variables instead of
+#    session state, causing it to show stale values after CSV uploads.
+# 3. Manual widget changes were not being reflected in the summary because the
+#    summary read from local variables captured at script start, not current state.
+#
+# STREAMLIT STATE RULES FOLLOWED:
+# Rule 1: NEVER pass value=st.session_state[key] into widgets - causes lockups
+# Rule 2: ALWAYS initialize keys in session state BEFORE widget declaration
+# Rule 3: To update widgets from CSV, update st.session_state[key] directly
+# Rule 4: Avoid st.rerun() unless guarded by file-name check to prevent loops
+#
+# FIX APPLIED:
+# 1. Split session state init into TWO paths:
+#    - IF CSV data exists: ALWAYS overwrite session state with parsed values
+#    - IF NO CSV data: Only initialize if key doesn't exist (preserves user input)
+# 2. "Clinical Input Values" now reads DIRECTLY from st.session_state keys
+# 3. ML inference patient_data construction now reads from st.session_state
+# 4. Added comprehensive comments explaining state flow
 #
 # CSV Column -> Session State Key Mapping Table:
 # | CSV Column          | Session State Key        | Widget Type      | Notes                    |
@@ -36,36 +52,6 @@
 # | 70-79             | "70-80"           | 7                     |
 # | 80-89             | "80-90"           | 8                     |
 # | 90+               | "90-100"          | 9                     |
-#
-# BUG 2: LOW-RISK PATIENT STILL SCORES HIGH
-# Root Cause Analysis:
-# After tracing the 82-feature vector construction for a low-risk patient
-# (prior_admissions=0, comorbidity_count=2, age=55, num_medications=3), we found:
-#
-# 1. MISSING feature_defaults.json: The model.py expects this file for baseline
-#    imputation, but it was never generated. Without it, missing features default
-#    to ZERO, causing massive distribution shift.
-#
-# 2. HARDCODED DEFAULTS IN APP.PY: Lines 612-616 hardcoded values like:
-#    - admission_source_id=1 (physician referral) but dataset mode=7
-#    - num_lab_procedures=50 (dataset median=44, close enough)
-#    - time_in_hospital=5 (dataset median=4, close enough)
-#
-# 3. CRITICAL: The insulin_complexity feature was being set based on high_risk_flag
-#    instead of actual insulin usage. For low-risk patients, on_insulin=0, but
-#    total_medications from CSV could still be non-zero, causing incorrect calculation.
-#
-# 4. DISCHARGE_DISPOSITION_ID default was 0 in some code paths, but 0 is INVALID
-#    in the UCI dataset (valid range is 1-29). This caused the model to interpret
-#    it as an outlier.
-#
-# Fix Applied:
-# - Generate feature_defaults.json from training data medians/modes
-# - Override ALL hardcoded defaults with CSV values when available
-# - Recalculate derived features AFTER CSV override to ensure consistency
-# - Set discharge_disposition_id=1 (home) as safe default, not 0
-# - Ensure admission_source_id uses dataset mode (7) as fallback, not 1
-# - Fixed insulin_complexity to use actual insulin_encoded value, not high_risk_flag
 # =============================================================================
 
 import os
@@ -500,45 +486,109 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("Clinical Features")
     
-    # CRITICAL FIX: Check for parsed CSV data FIRST before initializing defaults
-    # This ensures uploaded file values take precedence over hardcoded defaults
-    parsed_data = st.session_state.get('parsed_patient_data', {})
+    # =============================================================================
+    # CRITICAL FIX: SESSION STATE INITIALIZATION FLOW
+    # =============================================================================
+    # Streamlit Rule: Widget keys must be initialized BEFORE the widget is declared.
+    # However, we must prioritize CSV upload data over manual input defaults.
+    # 
+    # Flow:
+    # 1. Check if parsed_patient_data exists (from CSV upload)
+    # 2. If YES: ALWAYS override session state with CSV values (this ensures fresh uploads update widgets)
+    # 3. If NO: Only initialize if key doesn't exist (preserves manual user input across reruns)
+    # =============================================================================
     
-    # Initialize session state keys for all form widgets BEFORE the widgets are declared
-    # This follows Streamlit's best practices to avoid widget warnings
-    # NOTE: Defaults are only applied if no parsed CSV data exists for that field
-    if "prior_admissions_input" not in st.session_state:
-        st.session_state.prior_admissions_input = int(parsed_data.get('prior_admissions', 1))
-    if "comorbidity_count_input" not in st.session_state:
-        st.session_state.comorbidity_count_input = int(parsed_data.get('comorbidity_count', 3))
-    if "age_group_input" not in st.session_state:
-        # Convert age_numeric from CSV to age group index, or use default
-        if 'age_group_display' in parsed_data:
-            age_options = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"]
-            if parsed_data['age_group_display'] in age_options:
-                st.session_state.age_group_input = age_options.index(parsed_data['age_group_display'])
+    parsed_data = st.session_state.get('parsed_patient_data', {})
+    has_csv_data = len(parsed_data) > 0
+    
+    # Define age options for conversion
+    age_options = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"]
+    
+    # -------------------------------------------------------------------------
+    # STEP 1: If CSV data exists, ALWAYS update session state from CSV
+    # This ensures uploaded files always take precedence and widgets reflect new data
+    # -------------------------------------------------------------------------
+    if has_csv_data:
+        # prior_admissions: direct mapping from CSV
+        if 'prior_admissions' in parsed_data:
+            st.session_state.prior_admissions_input = int(parsed_data['prior_admissions'])
+        
+        # comorbidity_count: direct mapping from CSV
+        if 'comorbidity_count' in parsed_data:
+            st.session_state.comorbidity_count_input = int(parsed_data['comorbidity_count'])
+        
+        # age_group_input: convert age_numeric to age group index
+        if 'age_group_display' in parsed_data and parsed_data['age_group_display'] in age_options:
+            st.session_state.age_group_input = age_options.index(parsed_data['age_group_display'])
+        elif 'age_numeric' in parsed_data:
+            # Fallback: compute age_group_display from age_numeric
+            age = int(parsed_data['age_numeric'])
+            if age < 10:
+                st.session_state.age_group_input = 0
+            elif age < 20:
+                st.session_state.age_group_input = 1
+            elif age < 30:
+                st.session_state.age_group_input = 2
+            elif age < 40:
+                st.session_state.age_group_input = 3
+            elif age < 50:
+                st.session_state.age_group_input = 4
+            elif age < 60:
+                st.session_state.age_group_input = 5
+            elif age < 70:
+                st.session_state.age_group_input = 6
+            elif age < 80:
+                st.session_state.age_group_input = 7
+            elif age < 90:
+                st.session_state.age_group_input = 8
             else:
-                st.session_state.age_group_input = 6  # Default to 60-70
-        else:
-            st.session_state.age_group_input = 6  # Default to 60-70
-    if "medication_count_input" not in st.session_state:
-        st.session_state.medication_count_input = int(parsed_data.get('num_medications', 5))
-    if "discharge_diagnosis_input" not in st.session_state:
-        st.session_state.discharge_diagnosis_input = str(parsed_data.get('discharge_diagnosis', "250.01"))
-    if "high_risk_flag_input" not in st.session_state:
-        # Convert high_risk_flag from CSV (0/1) to display value ("No"/"Yes")
+                st.session_state.age_group_input = 9
+        
+        # medication_count: direct mapping from CSV num_medications
+        if 'num_medications' in parsed_data:
+            st.session_state.medication_count_input = int(parsed_data['num_medications'])
+        
+        # discharge_diagnosis: string conversion from CSV
+        if 'discharge_diagnosis' in parsed_data:
+            st.session_state.discharge_diagnosis_input = str(parsed_data['discharge_diagnosis'])
+        
+        # high_risk_flag_input: convert CSV value (0/1 or Yes/No) to index (0=No, 1=Yes)
         if 'high_risk_display' in parsed_data:
             st.session_state.high_risk_flag_input = 1 if parsed_data['high_risk_display'] == "Yes" else 0
         elif 'high_risk_flag' in parsed_data:
             flag_val = parsed_data['high_risk_flag']
             st.session_state.high_risk_flag_input = 1 if (flag_val == 1 or (isinstance(flag_val, str) and flag_val.lower() == 'yes')) else 0
-        else:
+        
+        # symptoms_multiselect: list from CSV parsing
+        if 'symptoms_list' in parsed_data:
+            st.session_state.symptoms_multiselect = parsed_data['symptoms_list']
+    
+    # -------------------------------------------------------------------------
+    # STEP 2: If NO CSV data, initialize defaults only if keys don't exist
+    # This preserves manual user input across reruns when no upload is present
+    # -------------------------------------------------------------------------
+    else:
+        if "prior_admissions_input" not in st.session_state:
+            st.session_state.prior_admissions_input = 1
+        if "comorbidity_count_input" not in st.session_state:
+            st.session_state.comorbidity_count_input = 3
+        if "age_group_input" not in st.session_state:
+            st.session_state.age_group_input = 6  # Default to 60-70
+        if "medication_count_input" not in st.session_state:
+            st.session_state.medication_count_input = 5
+        if "discharge_diagnosis_input" not in st.session_state:
+            st.session_state.discharge_diagnosis_input = "250.01"
+        if "high_risk_flag_input" not in st.session_state:
             st.session_state.high_risk_flag_input = 0
-    if "symptoms_multiselect" not in st.session_state:
-        st.session_state.symptoms_multiselect = parsed_data.get('symptoms_list', [])
+        if "symptoms_multiselect" not in st.session_state:
+            st.session_state.symptoms_multiselect = []
     
     # 6 Clinical Features from the dataset - using human-readable labels
-    # NOTE: Do NOT pass value=st.session_state[...] - let Streamlit manage widget state via key
+    # =============================================================================
+    # CRITICAL STREAMLIT RULE: Do NOT pass value=st.session_state[...] to widgets.
+    # Streamlit automatically manages widget values via the 'key' parameter.
+    # The widget will display whatever is in st.session_state[key] and update it on user interaction.
+    # =============================================================================
     prior_admissions = st.number_input(
         FEATURE_DISPLAY_NAMES.get('prior_admissions', "Prior Admissions (last 12 months)"),
         min_value=0,
@@ -603,6 +653,7 @@ with st.sidebar:
         help="Select all symptoms that apply"
     )
     
+    # Sync symptoms to current_symptoms for chat interface
     st.session_state.current_symptoms = selected_symptoms
 
 
@@ -637,22 +688,30 @@ with tab1:
     # Load expected feature columns from JSON file
     expected_features = load_feature_columns()
     
-    # Prepare input data
+    # Prepare input data - read from session state to ensure we use current widget values
+    # This guarantees manual slider/input changes immediately trigger correct ML inference
     age_mapping = {
         "0-10": 0, "10-20": 10, "20-30": 20, "30-40": 30, "40-50": 40,
         "50-60": 50, "60-70": 60, "70-80": 70, "80-90": 80, "90-100": 90
     }
-    age_encoded = age_mapping.get(age_group, 60)
+    age_encoded = age_mapping.get(age_options[st.session_state.age_group_input] if st.session_state.age_group_input < len(age_options) else "60-70", 60)
+    
+    # Get current values from session state (widgets update these automatically on user interaction)
+    curr_prior_admissions = st.session_state.prior_admissions_input
+    curr_comorbidity_count = st.session_state.comorbidity_count_input
+    curr_medication_count = st.session_state.medication_count_input
+    curr_high_risk_flag = "Yes" if st.session_state.high_risk_flag_input == 1 else "No"
+    curr_discharge_diagnosis = st.session_state.discharge_diagnosis_input
     
     # Calculate interaction features (as done in training)
-    age_comorbidity_interaction = age_encoded * comorbidity_count
-    medication_comorbidity_interaction = medication_count * comorbidity_count
-    admissions_comorbidity_interaction = prior_admissions * comorbidity_count
-    age_medication_interaction = age_encoded * medication_count
+    age_comorbidity_interaction = age_encoded * curr_comorbidity_count
+    medication_comorbidity_interaction = curr_medication_count * curr_comorbidity_count
+    admissions_comorbidity_interaction = curr_prior_admissions * curr_comorbidity_count
+    age_medication_interaction = age_encoded * curr_medication_count
     
     # Convert diagnosis to float
     try:
-        diagnosis_float = float(discharge_diagnosis)
+        diagnosis_float = float(curr_discharge_diagnosis)
     except ValueError:
         diagnosis_float = 250.01  # Default diabetes code
     
@@ -685,23 +744,23 @@ with tab1:
     patient_data['time_in_hospital'] = 4  # FIX: Use dataset median (4 days) instead of 5
     patient_data['num_lab_procedures'] = 44  # FIX: Use dataset median (44) instead of 50
     patient_data['num_procedures'] = 0  # FIX: Use dataset median (0) instead of 5 - most patients have no procedures
-    patient_data['num_medications'] = medication_count  # From user input
+    patient_data['num_medications'] = curr_medication_count  # From session state (widget value)
     patient_data['number_outpatient'] = 0  # Dataset mode - most patients have 0 outpatient visits
     patient_data['number_emergency'] = 0  # FIX: Default to 0, not prior_admissions // 2
-    patient_data['number_inpatient'] = prior_admissions  # From user input (maps to number_inpatient)
-    patient_data['number_diagnoses'] = max(comorbidity_count + 1, 1)  # At least primary diagnosis
+    patient_data['number_inpatient'] = curr_prior_admissions  # From session state (widget value)
+    patient_data['number_diagnoses'] = max(curr_comorbidity_count + 1, 1)  # At least primary diagnosis
     patient_data['diabetes_diag_count'] = 1  # At least 1 diabetes diagnosis
-    patient_data['comorbidity_count'] = comorbidity_count  # From user input
+    patient_data['comorbidity_count'] = curr_comorbidity_count  # From session state (widget value)
     patient_data['metformin_encoded'] = 1  # Most common diabetes medication
     patient_data['metformin_active'] = 1  # Most common active medication
     # repaglinide through citoglipton remain at baseline defaults from feature_defaults.json
     # FIX: Use actual medication status, not high_risk_flag as proxy
-    patient_data['insulin_encoded'] = 1 if high_risk_flag == "Yes" else 0
-    patient_data['insulin_active'] = 1 if high_risk_flag == "Yes" else 0
+    patient_data['insulin_encoded'] = 1 if curr_high_risk_flag == "Yes" else 0
+    patient_data['insulin_active'] = 1 if curr_high_risk_flag == "Yes" else 0
     # combination meds remain at baseline defaults
-    patient_data['total_medications'] = medication_count
-    patient_data['on_insulin'] = 1 if high_risk_flag == "Yes" else 0
-    patient_data['oral_medications'] = 1 if high_risk_flag == "No" else 0
+    patient_data['total_medications'] = curr_medication_count
+    patient_data['on_insulin'] = 1 if curr_high_risk_flag == "Yes" else 0
+    patient_data['oral_medications'] = 1 if curr_high_risk_flag == "No" else 0
     patient_data['change_encoded'] = 0  # Default - no medication change
     patient_data['diabetesMed_encoded'] = 1  # Default - on diabetes medication
     patient_data['age_numeric'] = age_encoded  # From user input
@@ -882,26 +941,31 @@ with tab1:
     patient_data['diabetes_med_intensity'] = patient_data['diabetes_diag_count'] * patient_data['total_medications']
     
     # Display input summary with human-readable labels
+    # CRITICAL FIX: Read directly from session state keys to ensure UI always shows current widget values
     st.markdown("### 📋 Patient Data Summary")
     
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Clinical Input Values")
-        # Create a human-readable summary instead of raw JSON
+        # Create a human-readable summary that reads DIRECTLY from session state
+        # This guarantees the displayed values ALWAYS match what the user sees in widgets
+        # and what will be used for ML inference on button click
         summary_data = {
-            FEATURE_DISPLAY_NAMES.get('prior_admissions', 'Prior Admissions'): prior_admissions,
-            FEATURE_DISPLAY_NAMES.get('comorbidity_count', 'Comorbidity Count'): comorbidity_count,
-            "Age Group": age_group,
-            FEATURE_DISPLAY_NAMES.get('num_medications', 'Medication Count'): medication_count,
-            FEATURE_DISPLAY_NAMES.get('discharge_diagnosis', 'Discharge Diagnosis'): discharge_diagnosis,
-            FEATURE_DISPLAY_NAMES.get('high_risk_flag', 'High Risk Flag'): high_risk_flag,
+            FEATURE_DISPLAY_NAMES.get('prior_admissions', 'Prior Admissions'): st.session_state.prior_admissions_input,
+            FEATURE_DISPLAY_NAMES.get('comorbidity_count', 'Comorbidity Count'): st.session_state.comorbidity_count_input,
+            "Age Group": age_options[st.session_state.age_group_input] if st.session_state.age_group_input < len(age_options) else "Unknown",
+            FEATURE_DISPLAY_NAMES.get('num_medications', 'Medication Count'): st.session_state.medication_count_input,
+            FEATURE_DISPLAY_NAMES.get('discharge_diagnosis', 'Discharge Diagnosis'): st.session_state.discharge_diagnosis_input,
+            FEATURE_DISPLAY_NAMES.get('high_risk_flag', 'High Risk Flag'): "Yes" if st.session_state.high_risk_flag_input == 1 else "No",
         }
         st.json(summary_data)
     
     with col2:
         st.subheader("Reported Symptoms")
-        if selected_symptoms:
-            symptoms_text = ", ".join(selected_symptoms)
+        # CRITICAL FIX: Read directly from session state to ensure symptoms display matches widget
+        current_syms = st.session_state.get('symptoms_multiselect', [])
+        if current_syms:
+            symptoms_text = ", ".join(current_syms)
             st.info(f"💬 {symptoms_text}")
         else:
             st.caption("No symptoms reported")
