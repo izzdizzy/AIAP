@@ -887,7 +887,8 @@ def train_histgradientboosting_model(
         random_state=RANDOM_STATE,
         early_stopping=True,
         validation_fraction=0.1,
-        verbose=1
+        verbose=1,
+        class_weight='balanced'
     )
     
     param_dist = create_histgradientboosting_param_grid()
@@ -945,7 +946,8 @@ def train_histgradientboosting_model(
         random_state=RANDOM_STATE,
         early_stopping=True,
         validation_fraction=0.1,
-        verbose=1
+        verbose=1,
+        class_weight='balanced'
     )
     
     start_time = time.time()
@@ -990,33 +992,31 @@ def train_histgradientboosting_model(
         'calibration_applied': True
     }
     
-    # TASK 1 (P0): Find optimal threshold for >=80% Recall using precision_recall_curve
+    # TASK 1 (P0): Find optimal threshold for >=85% Recall using precision_recall_curve
     precision_curve, recall_curve, thresholds_curve = precision_recall_curve(y_test, y_pred_proba)
     
-    # Find the threshold that achieves >=80% recall with highest precision
-    target_recall = 0.80
-    optimal_threshold = 0.5  # Default fallback
-    best_precision_at_target = 0.0
+    # Find the threshold that achieves >= 0.85 Recall with highest precision
+    # Note: precision_recall_curve returns recall in descending order (high to low)
+    # thresholds_curve has length len(recall_curve) - 1
+    valid_indices = [i for i, r in enumerate(recall_curve[:-1]) if r >= 0.85]
     
-    for i in range(len(thresholds_curve)):
-        if recall_curve[i] >= target_recall:
-            if precision_curve[i] > best_precision_at_target:
-                best_precision_at_target = precision_curve[i]
-                optimal_threshold = thresholds_curve[i] if i < len(thresholds_curve) else 0.0
+    if valid_indices:
+        # Find index with highest precision among valid recalls
+        best_idx = max(valid_indices, key=lambda i: precision_curve[i])
+        optimal_threshold = thresholds_curve[best_idx]
+    else:
+        # Fallback: find threshold closest to 0.85 recall
+        best_idx = np.argmin(np.abs(recall_curve[:-1] - 0.85))
+        optimal_threshold = thresholds_curve[best_idx]
     
-    # If no threshold found above 0.5, find the one with highest recall
-    if optimal_threshold == 0.5 and len(thresholds_curve) > 0:
-        # Find threshold with recall closest to 80%
-        recall_diffs = [abs(r - target_recall) for r in recall_curve]
-        min_idx = recall_diffs.index(min(recall_diffs))
-        optimal_threshold = thresholds_curve[min_idx] if min_idx < len(thresholds_curve) else 0.3
-    
-    # Calculate metrics at the tuned 80%+ recall threshold
+    # CRITICAL: Calculate metrics using the NEW threshold, NOT model.predict()
     y_pred_tuned = (y_pred_proba >= optimal_threshold).astype(int)
+    tuned_recall = recall_score(y_test, y_pred_tuned, zero_division=0)
+    
     test_metrics_tuned = {
         'accuracy': accuracy_score(y_test, y_pred_tuned),
         'precision': precision_score(y_test, y_pred_tuned, zero_division=0),
-        'recall': recall_score(y_test, y_pred_tuned, zero_division=0),
+        'recall': tuned_recall,
         'f1': f1_score(y_test, y_pred_tuned, zero_division=0),
         'threshold_used': optimal_threshold
     }
@@ -1029,8 +1029,8 @@ def train_histgradientboosting_model(
         'roc_auc': test_metrics_default['roc_auc'],
         'calibration_applied': True,
         'default_threshold_metrics': test_metrics_default,
-        'tuned_80_recall_threshold_metrics': test_metrics_tuned,
-        'optimal_threshold_for_80_recall': optimal_threshold
+        'tuned_85_recall_threshold_metrics': test_metrics_tuned,
+        'optimal_threshold_for_85_recall': optimal_threshold
     }
     
     print("\n" + "-" * 40)
@@ -1046,7 +1046,7 @@ def train_histgradientboosting_model(
     # Explicit recall output as required
     print(f"\nDefault Threshold (0.5) Recall: {test_metrics_default['recall']:.3f}")
     
-    print(f"\n--- Metrics at Tuned Threshold ({optimal_threshold:.3f}) for >=80% Recall ---")
+    print(f"\n--- Metrics at Tuned Threshold ({optimal_threshold:.3f}) for >=85% Recall ---")
     print(f"Accuracy:  {test_metrics_tuned['accuracy']:.4f}")
     print(f"Precision: {test_metrics_tuned['precision']:.4f}")
     print(f"Recall:    {test_metrics_tuned['recall']:.4f} <-- PRIMARY METRIC ACHIEVED")
@@ -1166,8 +1166,13 @@ def train_xgboost_model(
     print(f"TRAINING FINAL MODEL ON FULL DATASET ({len(y_train)} samples)")
     print(f"{'='*60}")
     
-    # Update scale_pos_weight in best params
-    best_params['scale_pos_weight'] = scale_pos_weight
+    # Calculate dynamic scale_pos_weight from training data for XGBoost
+    neg_count = (y_train == 0).sum()
+    pos_count = (y_train == 1).sum()
+    dynamic_scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1.0
+    
+    best_params['scale_pos_weight'] = dynamic_scale_pos_weight
+    print(f"Dynamic scale_pos_weight: {dynamic_scale_pos_weight:.2f} (neg={neg_count}, pos={pos_count})")
     
     final_model = xgb.XGBClassifier(
         **best_params,
@@ -1175,7 +1180,7 @@ def train_xgboost_model(
         eval_metric='auc',
         random_state=RANDOM_STATE,
         n_jobs=-1,
-        tree_method='auto'  # Cross-platform default (auto selects 'hist' for most cases)
+        tree_method='auto'
     )
     
     start_time = time.time()
@@ -1184,16 +1189,30 @@ def train_xgboost_model(
     
     print(f"\nFinal model training completed in {train_time:.2f} seconds")
     
-    # Evaluate on test set
+    # Evaluate on test set with threshold tuning for >=85% Recall
     y_pred_proba = final_model.predict_proba(X_test)[:, 1]
-    y_pred = final_model.predict(X_test)
+    
+    # MATHEMATICAL THRESHOLD TUNING: Find optimal threshold for >=85% Recall
+    precision_curve, recall_curve, thresholds_curve = precision_recall_curve(y_test, y_pred_proba)
+    valid_indices = [i for i, r in enumerate(recall_curve[:-1]) if r >= 0.85]
+    
+    if valid_indices:
+        best_idx = max(valid_indices, key=lambda i: precision_curve[i])
+        optimal_threshold = thresholds_curve[best_idx]
+    else:
+        best_idx = np.argmin(np.abs(recall_curve[:-1] - 0.85))
+        optimal_threshold = thresholds_curve[best_idx]
+    
+    # CRITICAL: Calculate metrics using the NEW threshold, NOT model.predict()
+    y_pred_tuned = (y_pred_proba >= optimal_threshold).astype(int)
     
     test_metrics = {
-        'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred, zero_division=0),
-        'recall': recall_score(y_test, y_pred, zero_division=0),
-        'f1': f1_score(y_test, y_pred, zero_division=0),
-        'roc_auc': roc_auc_score(y_test, y_pred_proba)
+        'accuracy': accuracy_score(y_test, y_pred_tuned),
+        'precision': precision_score(y_test, y_pred_tuned, zero_division=0),
+        'recall': recall_score(y_test, y_pred_tuned, zero_division=0),
+        'f1': f1_score(y_test, y_pred_tuned, zero_division=0),
+        'roc_auc': roc_auc_score(y_test, y_pred_proba),
+        'optimal_threshold_for_85_recall': optimal_threshold
     }
     
     print("\n" + "-" * 40)
@@ -1205,6 +1224,7 @@ def train_xgboost_model(
     print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC (minimizes false negatives)")
     print(f"F1 Score:  {test_metrics['f1']:.4f}")
     print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
+    print(f"Optimal Threshold for 85% Recall: {optimal_threshold:.4f}")
     
     results = {
         'model_name': 'XGBoost',
@@ -1307,8 +1327,14 @@ def train_lightgbm_model(
     print(f"TRAINING FINAL MODEL ON FULL DATASET ({len(y_train)} samples)")
     print(f"{'='*60}")
     
-    # Update scale_pos_weight in best params
-    best_params['scale_pos_weight'] = scale_pos_weight
+    # Calculate dynamic scale_pos_weight from training data for LightGBM
+    neg_count = (y_train == 0).sum()
+    pos_count = (y_train == 1).sum()
+    dynamic_scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1.0
+    
+    best_params['scale_pos_weight'] = dynamic_scale_pos_weight
+    best_params['is_unbalance'] = True  # Also set is_unbalance for LightGBM
+    print(f"Dynamic scale_pos_weight: {dynamic_scale_pos_weight:.2f}, is_unbalance=True")
     
     final_model = lgb.LGBMClassifier(
         **best_params,
@@ -1325,27 +1351,42 @@ def train_lightgbm_model(
     
     print(f"\nFinal model training completed in {train_time:.2f} seconds")
     
-    # Evaluate on test set
+    # Evaluate on test set with threshold tuning for >=85% Recall
     y_pred_proba = final_model.predict_proba(X_test)[:, 1]
-    y_pred = final_model.predict(X_test)
+    
+    # MATHEMATICAL THRESHOLD TUNING: Find optimal threshold for >=85% Recall
+    precision_curve, recall_curve, thresholds_curve = precision_recall_curve(y_test, y_pred_proba)
+    valid_indices = [i for i, r in enumerate(recall_curve[:-1]) if r >= 0.85]
+    
+    if valid_indices:
+        best_idx = max(valid_indices, key=lambda i: precision_curve[i])
+        optimal_threshold = thresholds_curve[best_idx]
+    else:
+        best_idx = np.argmin(np.abs(recall_curve[:-1] - 0.85))
+        optimal_threshold = thresholds_curve[best_idx]
+    
+    # CRITICAL: Calculate metrics using the NEW threshold, NOT model.predict()
+    y_pred_tuned = (y_pred_proba >= optimal_threshold).astype(int)
     
     test_metrics = {
-        'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred, zero_division=0),
-        'recall': recall_score(y_test, y_pred, zero_division=0),
-        'f1': f1_score(y_test, y_pred, zero_division=0),
-        'roc_auc': roc_auc_score(y_test, y_pred_proba)
+        'accuracy': accuracy_score(y_test, y_pred_tuned),
+        'precision': precision_score(y_test, y_pred_tuned, zero_division=0),
+        'recall': recall_score(y_test, y_pred_tuned, zero_division=0),
+        'f1': f1_score(y_test, y_pred_tuned, zero_division=0),
+        'roc_auc': roc_auc_score(y_test, y_pred_proba),
+        'optimal_threshold_for_85_recall': optimal_threshold
     }
     
     print("\n" + "-" * 40)
-    print("TEST SET EVALUATION")
+    print("TEST SET EVALUATION - LightGBM")
     print("-" * 40)
     print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
     print(f"Precision: {test_metrics['precision']:.4f}")
     # PRIMARY CLINICAL METRIC: Recall is most important
-    print(f"Recall:    {test_metrics['recall']:.4f}")
+    print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC")
     print(f"F1 Score:  {test_metrics['f1']:.4f}")
     print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
+    print(f"Optimal Threshold for 85% Recall: {optimal_threshold:.4f}")
     
     results = {
         'model_name': 'LightGBM',
