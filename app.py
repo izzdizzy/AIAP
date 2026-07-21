@@ -600,7 +600,7 @@ with tab1:
     # Now override with actual values from user input / parsed CSV data
     # Only the features that have valid values should be set
     patient_data['admission_type_id'] = 1  # Default value - elective admission
-    patient_data['discharge_disposition_id'] = 1  # Default - discharged to home
+    patient_data['discharge_disposition_id'] = 1  # Default - discharged to home (NOT 0, which is invalid)
     patient_data['admission_source_id'] = 1  # Default - physician referral
     patient_data['time_in_hospital'] = 5  # Default - 5 days
     patient_data['num_lab_procedures'] = 50  # Default average
@@ -609,7 +609,7 @@ with tab1:
     patient_data['number_outpatient'] = 0  # Default
     patient_data['number_emergency'] = prior_admissions // 2  # Estimate based on prior admissions
     patient_data['number_inpatient'] = prior_admissions  # From user input (maps to number_inpatient)
-    patient_data['number_diagnoses'] = comorbidity_count + 1  # At least primary diagnosis
+    patient_data['number_diagnoses'] = max(comorbidity_count + 1, 1)  # At least primary diagnosis (NOT 0)
     patient_data['diabetes_diag_count'] = 1  # At least 1 diabetes diagnosis
     patient_data['comorbidity_count'] = comorbidity_count  # From user input
     patient_data['metformin_encoded'] = 1  # Default - prescribed
@@ -625,22 +625,67 @@ with tab1:
     patient_data['diabetesMed_encoded'] = 1  # Default - on diabetes meds
     patient_data['age_numeric'] = age_encoded  # From user input
     patient_data['is_elderly'] = 1 if age_encoded >= 65 else 0
-    patient_data['total_prior_admissions'] = prior_admissions
-    patient_data['emergency_ratio'] = 0.3  # Default estimate
-    patient_data['inpatient_ratio'] = 0.7  # Default estimate
-    patient_data['long_stay'] = 0  # Default - not long stay
-    patient_data['total_procedures'] = 5  # Default
-    patient_data['high_lab_utilization'] = 0  # Default
-    patient_data['high_diagnosis_count'] = 1 if comorbidity_count > 5 else 0
-    patient_data['emergency_admission'] = 0  # Default
-    patient_data['not_home_discharge'] = 0  # Default - discharged home
-    patient_data['er_admission'] = 0  # Default
-    patient_data['age_comorbidity_interaction'] = age_comorbidity_interaction
-    patient_data['med_per_comorbidity'] = medication_count / max(comorbidity_count, 1)
-    patient_data['admissions_per_year'] = prior_admissions
-    patient_data['emerg_inpatient_combo'] = prior_admissions + (prior_admissions // 2)
-    patient_data['insulin_complexity'] = 1 if high_risk_flag == "Yes" else 0
-    patient_data['diabetes_med_intensity'] = 1  # Default
+    
+    # ================================================================
+    # TASK 1: RECALCULATE ENGINEERED FEATURES EXACTLY AS IN TRAIN_MODEL.PY
+    # ================================================================
+    # Calculate total_prior_admissions = sum of outpatient, emergency, inpatient
+    patient_data['total_prior_admissions'] = (
+        patient_data['number_outpatient'] + 
+        patient_data['number_emergency'] + 
+        patient_data['number_inpatient']
+    )
+    
+    # Handle division by zero for ratios
+    total_admissions = patient_data['total_prior_admissions']
+    if total_admissions == 0:
+        total_admissions = 1  # Prevent division by zero
+    
+    # Calculate inpatient_ratio = number_inpatient / total_prior_admissions
+    patient_data['inpatient_ratio'] = patient_data['number_inpatient'] / total_admissions
+    
+    # Calculate emergency_ratio = number_emergency / total_prior_admissions
+    patient_data['emergency_ratio'] = patient_data['number_emergency'] / total_admissions
+    
+    # Calculate long_stay = 1 if time_in_hospital > 7 else 0
+    patient_data['long_stay'] = 1 if patient_data['time_in_hospital'] > 7 else 0
+    
+    # Calculate total_procedures (same as num_procedures in this context)
+    patient_data['total_procedures'] = patient_data['num_procedures']
+    
+    # Calculate high_lab_utilization = 1 if num_lab_procedures > 100 else 0
+    patient_data['high_lab_utilization'] = 1 if patient_data['num_lab_procedures'] > 100 else 0
+    
+    # Calculate high_diagnosis_count = 1 if comorbidity_count > 5 else 0
+    patient_data['high_diagnosis_count'] = 1 if patient_data['comorbidity_count'] > 5 else 0
+    
+    # Calculate emergency_admission (based on admission_type_id == 4 for emergency)
+    patient_data['emergency_admission'] = 1 if patient_data['admission_type_id'] == 4 else 0
+    
+    # Calculate not_home_discharge = 1 if discharge_disposition_id != 1 else 0
+    patient_data['not_home_discharge'] = 1 if patient_data['discharge_disposition_id'] != 1 else 0
+    
+    # Calculate er_admission (based on admission_source_id == 4 for ER)
+    patient_data['er_admission'] = 1 if patient_data['admission_source_id'] == 4 else 0
+    
+    # Calculate interaction features EXACTLY as in train_model.py
+    # age_comorbidity_interaction = age_numeric * comorbidity_count
+    patient_data['age_comorbidity_interaction'] = patient_data['age_numeric'] * patient_data['comorbidity_count']
+    
+    # med_per_comorbidity = total_medications / max(comorbidity_count, 1)
+    patient_data['med_per_comorbidity'] = patient_data['total_medications'] / max(patient_data['comorbidity_count'], 1)
+    
+    # admissions_per_year = total_prior_admissions / (age_numeric + 1) [as per train_model.py line 573-575]
+    patient_data['admissions_per_year'] = patient_data['total_prior_admissions'] / (patient_data['age_numeric'] + 1)
+    
+    # emerg_inpatient_combo = number_emergency * number_inpatient [as per train_model.py line 579-581]
+    patient_data['emerg_inpatient_combo'] = patient_data['number_emergency'] * patient_data['number_inpatient']
+    
+    # insulin_complexity = on_insulin * total_medications [as per train_model.py line 585]
+    patient_data['insulin_complexity'] = patient_data['on_insulin'] * patient_data['total_medications']
+    
+    # diabetes_med_intensity = diabetes_diag_count * total_medications [as per train_model.py line 589-591]
+    patient_data['diabetes_med_intensity'] = patient_data['diabetes_diag_count'] * patient_data['total_medications']
     
     # If we have parsed CSV data, override the defaults with actual CSV values
     parsed_data = st.session_state.get('parsed_patient_data', {})
@@ -659,13 +704,13 @@ with tab1:
         # Handle special mappings from parsed data
         if 'prior_admissions' in parsed_data:
             patient_data['number_inpatient'] = int(parsed_data['prior_admissions'])
-            patient_data['total_prior_admissions'] = int(parsed_data['prior_admissions'])
+            # Note: total_prior_admissions will be recalculated below
         if 'num_medications' in parsed_data:
             patient_data['num_medications'] = int(parsed_data['num_medications'])
             patient_data['total_medications'] = int(parsed_data['num_medications'])
         if 'comorbidity_count' in parsed_data:
             patient_data['comorbidity_count'] = int(parsed_data['comorbidity_count'])
-            patient_data['number_diagnoses'] = int(parsed_data['comorbidity_count']) + 1
+            patient_data['number_diagnoses'] = max(int(parsed_data['comorbidity_count']) + 1, 1)
         if 'age_numeric' in parsed_data:
             patient_data['age_numeric'] = int(parsed_data['age_numeric'])
             patient_data['is_elderly'] = 1 if int(parsed_data['age_numeric']) >= 65 else 0
@@ -676,23 +721,18 @@ with tab1:
             patient_data['insulin_active'] = 1 if is_high_risk else 0
             patient_data['on_insulin'] = 1 if is_high_risk else 0
             patient_data['oral_medications'] = 1 if not is_high_risk else 0
-            patient_data['insulin_complexity'] = 1 if is_high_risk else 0
         if 'time_in_hospital' in parsed_data:
             patient_data['time_in_hospital'] = int(parsed_data['time_in_hospital'])
-            patient_data['long_stay'] = 1 if int(parsed_data['time_in_hospital']) > 7 else 0
         if 'num_lab_procedures' in parsed_data:
             patient_data['num_lab_procedures'] = int(parsed_data['num_lab_procedures'])
-            patient_data['high_lab_utilization'] = 1 if int(parsed_data['num_lab_procedures']) > 100 else 0
         if 'num_procedures' in parsed_data:
             patient_data['num_procedures'] = int(parsed_data['num_procedures'])
-            patient_data['total_procedures'] = int(parsed_data['num_procedures'])
         if 'number_outpatient' in parsed_data:
             patient_data['number_outpatient'] = int(parsed_data['number_outpatient'])
         if 'number_emergency' in parsed_data:
             patient_data['number_emergency'] = int(parsed_data['number_emergency'])
-            patient_data['emergency_ratio'] = int(parsed_data['number_emergency']) / max(prior_admissions, 1)
         if 'number_diagnoses' in parsed_data:
-            patient_data['number_diagnoses'] = int(parsed_data['number_diagnoses'])
+            patient_data['number_diagnoses'] = max(int(parsed_data['number_diagnoses']), 1)
         if 'diabetes_diag_count' in parsed_data:
             patient_data['diabetes_diag_count'] = int(parsed_data['diabetes_diag_count'])
         if 'metformin_encoded' in parsed_data:
@@ -708,11 +748,57 @@ with tab1:
         if 'diabetesMed_encoded' in parsed_data:
             patient_data['diabetesMed_encoded'] = int(parsed_data['diabetesMed_encoded'])
     
-    # Recalculate interaction features based on final values
+    # ================================================================
+    # TASK 1: RECALCULATE DERIVED FEATURES AFTER CSV OVERRIDE
+    # Must recalculate these after CSV data is applied to ensure consistency
+    # ================================================================
+    
+    # Recalculate total_prior_admissions from base components
+    patient_data['total_prior_admissions'] = (
+        patient_data['number_outpatient'] + 
+        patient_data['number_emergency'] + 
+        patient_data['number_inpatient']
+    )
+    
+    # Handle division by zero for ratios
+    total_admissions = patient_data['total_prior_admissions']
+    if total_admissions == 0:
+        total_admissions = 1  # Prevent division by zero
+    
+    # Recalculate inpatient_ratio = number_inpatient / total_prior_admissions
+    patient_data['inpatient_ratio'] = patient_data['number_inpatient'] / total_admissions
+    
+    # Recalculate emergency_ratio = number_emergency / total_prior_admissions
+    patient_data['emergency_ratio'] = patient_data['number_emergency'] / total_admissions
+    
+    # Recalculate long_stay = 1 if time_in_hospital > 7 else 0
+    patient_data['long_stay'] = 1 if patient_data['time_in_hospital'] > 7 else 0
+    
+    # Recalculate total_procedures
+    patient_data['total_procedures'] = patient_data['num_procedures']
+    
+    # Recalculate high_lab_utilization
+    patient_data['high_lab_utilization'] = 1 if patient_data['num_lab_procedures'] > 100 else 0
+    
+    # Recalculate high_diagnosis_count
+    patient_data['high_diagnosis_count'] = 1 if patient_data['comorbidity_count'] > 5 else 0
+    
+    # Recalculate emergency_admission
+    patient_data['emergency_admission'] = 1 if patient_data['admission_type_id'] == 4 else 0
+    
+    # Recalculate not_home_discharge
+    patient_data['not_home_discharge'] = 1 if patient_data['discharge_disposition_id'] != 1 else 0
+    
+    # Recalculate er_admission
+    patient_data['er_admission'] = 1 if patient_data['admission_source_id'] == 4 else 0
+    
+    # Recalculate interaction features EXACTLY as in train_model.py
     patient_data['age_comorbidity_interaction'] = patient_data['age_numeric'] * patient_data['comorbidity_count']
-    patient_data['med_per_comorbidity'] = patient_data['num_medications'] / max(patient_data['comorbidity_count'], 1)
-    patient_data['admissions_per_year'] = patient_data['total_prior_admissions']
-    patient_data['emerg_inpatient_combo'] = patient_data['number_inpatient'] + patient_data['number_emergency']
+    patient_data['med_per_comorbidity'] = patient_data['total_medications'] / max(patient_data['comorbidity_count'], 1)
+    patient_data['admissions_per_year'] = patient_data['total_prior_admissions'] / (patient_data['age_numeric'] + 1)
+    patient_data['emerg_inpatient_combo'] = patient_data['number_emergency'] * patient_data['number_inpatient']
+    patient_data['insulin_complexity'] = patient_data['on_insulin'] * patient_data['total_medications']
+    patient_data['diabetes_med_intensity'] = patient_data['diabetes_diag_count'] * patient_data['total_medications']
     
     # Display input summary with human-readable labels
     st.markdown("### 📋 Patient Data Summary")
@@ -927,25 +1013,34 @@ with tab1:
                 
                 st.success("✅ Risk assessment complete! Switch to the **Care Navigation** tab for personalized guidance.")
                 
-                # Raw Debug Info Section - shows exact ML model output and CSV feature mapping
+                # ================================================================
+                # TASK 3: EXACT DEBUG OUTPUT - Show ALL 82 features being fed to model
+                # ================================================================
                 with st.expander("🔧 Show Raw Debug Info", expanded=False):
                     st.markdown("**Raw Model Output:**")
                     st.code(f"Raw Probability: {result['risk_score']:.6f}")
                     st.code(f"Clinical Severity Score (raw_prob * 100): {result['risk_score'] * 100:.2f}")
                     
-                    st.markdown("**Non-Zero Features from Input Data:**")
-                    # Find features with non-zero values in the patient_data dict
-                    non_zero_features = {k: v for k, v in patient_data.items() if v != 0 and v is not None}
-                    if non_zero_features:
-                        debug_df = pd.DataFrame([
-                            {"Feature": FEATURE_DISPLAY_NAMES.get(k, k), "Key": k, "Value": v}
-                            for k, v in sorted(non_zero_features.items())
-                        ])
-                        st.dataframe(debug_df, use_container_width=True)
-                    else:
-                        st.info("No non-zero features found in input data.")
+                    st.markdown("**ALL 82 Features Being Fed to Model (Exact Order):**")
+                    # Display the complete patient_data dictionary with all 82 features
+                    # This allows verification that derived features like inpatient_ratio are calculated correctly
+                    all_features_df = pd.DataFrame([
+                        {"Feature Key": k, "Display Name": FEATURE_DISPLAY_NAMES.get(k, k), "Value": v}
+                        for k, v in patient_data.items()
+                    ])
+                    st.dataframe(all_features_df, use_container_width=True, height=500)
                     
-                    st.caption("This debug info helps verify that CSV column mapping is working correctly and high-risk features are reaching the model.")
+                    st.markdown("**Key Derived Feature Verification:**")
+                    st.write(f"- `number_inpatient`: {patient_data.get('number_inpatient', 'N/A')}")
+                    st.write(f"- `number_outpatient`: {patient_data.get('number_outpatient', 'N/A')}")
+                    st.write(f"- `number_emergency`: {patient_data.get('number_emergency', 'N/A')}")
+                    st.write(f"- `total_prior_admissions`: {patient_data.get('total_prior_admissions', 'N/A')}")
+                    st.write(f"- `inpatient_ratio` (should be 0 when number_inpatient=0): {patient_data.get('inpatient_ratio', 'N/A')}")
+                    st.write(f"- `emergency_ratio`: {patient_data.get('emergency_ratio', 'N/A')}")
+                    st.write(f"- `discharge_disposition_id` (must NOT be 0): {patient_data.get('discharge_disposition_id', 'N/A')}")
+                    st.write(f"- `number_diagnoses` (must NOT be 0): {patient_data.get('number_diagnoses', 'N/A')}")
+                    
+                    st.caption("This debug info shows the EXACT 82 features in order being passed to the ML model. Verify that derived features like `inpatient_ratio` are mathematically recalculated from base inputs, not hardcoded defaults.")
                 
             except Exception as e:
                 st.error(f"Error generating prediction: {str(e)}")
