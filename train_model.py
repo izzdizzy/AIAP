@@ -1370,6 +1370,30 @@ def main():
     X, feature_cols = select_features_for_modeling(df_engineered)
     print(f"Features shape: {X.shape}")
     
+    # Calculate baseline defaults for all features BEFORE train-test split
+    # Zero-filling causes distribution shifts. We use dataset medians/modes to provide 
+    # a 'normal' clinical background for partial CSV uploads.
+    print("\nCalculating feature baseline defaults (medians for numeric, modes for categorical)...")
+    feature_defaults = {}
+    for col in X.columns:
+        if X[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+            # Numeric columns: use median
+            feature_defaults[col] = float(X[col].median())
+        else:
+            # Categorical/binary columns: use mode
+            mode_val = X[col].mode().iloc[0] if not X[col].mode().empty else 0
+            # Try to convert to numeric if possible
+            try:
+                feature_defaults[col] = float(mode_val)
+            except (ValueError, TypeError):
+                feature_defaults[col] = str(mode_val)
+    
+    # Save feature defaults to JSON
+    defaults_path = OUTPUT_DIR / "feature_defaults.json"
+    with open(defaults_path, 'w') as f:
+        json.dump(feature_defaults, f, indent=2)
+    print(f"Saved {len(feature_defaults)} feature defaults to {defaults_path}")
+    
     # Step 5: Train-test split
     print("\n" + "-" * 40)
     print("Step 5: Train-Test Split")

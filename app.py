@@ -589,13 +589,23 @@ with tab1:
     
     # Build patient data dictionary with ALL expected features from feature_columns.json
     # This ensures the DataFrame matches exactly what the model expects.
-    # For any feature not present in the CSV/uploaded data, we explicitly set it to 0
-    # to prevent state bleed-over from previous uploads or manual inputs.
+    # For any feature not present in the CSV/uploaded data, we use dataset baselines
+    # (medians/modes) instead of zeros to prevent distribution shifts that cause 
+    # false high-risk predictions.
     patient_data = {}
     
-    # First, initialize ALL expected features to 0 (clean slate)
-    for feature in expected_features:
-        patient_data[feature] = 0
+    # First, initialize ALL expected features with baseline defaults from training
+    # This provides a realistic clinical background for partial CSV uploads
+    if predictor.feature_defaults:
+        for feature in expected_features:
+            if feature in predictor.feature_defaults:
+                patient_data[feature] = predictor.feature_defaults[feature]
+            else:
+                patient_data[feature] = 0  # Fallback if no default available
+    else:
+        # Fallback to zero initialization if defaults not available
+        for feature in expected_features:
+            patient_data[feature] = 0
     
     # Now override with actual values from user input / parsed CSV data
     # Only the features that have valid values should be set
@@ -614,10 +624,10 @@ with tab1:
     patient_data['comorbidity_count'] = comorbidity_count  # From user input
     patient_data['metformin_encoded'] = 1  # Default - prescribed
     patient_data['metformin_active'] = 1  # Default - active
-    # repaglinide through citoglipton remain 0 (default)
+    # repaglinide through citoglipton remain at baseline defaults
     patient_data['insulin_encoded'] = 1 if high_risk_flag == "Yes" else 0
     patient_data['insulin_active'] = 1 if high_risk_flag == "Yes" else 0
-    # combination meds remain 0 (default)
+    # combination meds remain at baseline defaults
     patient_data['total_medications'] = medication_count
     patient_data['on_insulin'] = 1 if high_risk_flag == "Yes" else 0
     patient_data['oral_medications'] = 1 if high_risk_flag == "No" else 0

@@ -43,6 +43,7 @@ except ImportError:
 DEFAULT_MODEL_PATH = Path("outputs/readmission_model.joblib")
 DEFAULT_FEATURE_COLUMNS_PATH = Path("outputs/feature_columns.json")
 DEFAULT_METADATA_PATH = Path("outputs/model_metadata.json")
+DEFAULT_FEATURE_DEFAULTS_PATH = Path("outputs/feature_defaults.json")
 
 
 # =============================================================================
@@ -63,7 +64,8 @@ class ReadmissionPredictor:
     def __init__(
         self,
         model_path: Path = DEFAULT_MODEL_PATH,
-        feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH
+        feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH,
+        feature_defaults_path: Path = DEFAULT_FEATURE_DEFAULTS_PATH
     ):
         """
         Initialize the predictor by loading the model and feature schema.
@@ -71,6 +73,7 @@ class ReadmissionPredictor:
         Args:
             model_path: Path to the saved .joblib model file
             feature_columns_path: Path to the feature columns JSON file
+            feature_defaults_path: Path to the feature defaults JSON file
             
         Raises:
             FileNotFoundError: If model or feature columns file not found
@@ -78,11 +81,13 @@ class ReadmissionPredictor:
         """
         self.model = None
         self.feature_columns = None
+        self.feature_defaults = None
         self.shap_explainer = None
         
         # Load model and feature schema
         self._load_model(model_path)
         self._load_feature_columns(feature_columns_path)
+        self._load_feature_defaults(feature_defaults_path)
         
         # Initialize SHAP explainer if available
         if SHAP_AVAILABLE and self.model is not None:
@@ -133,6 +138,33 @@ class ReadmissionPredictor:
         except Exception as e:
             raise Exception(f"Failed to load feature columns: {str(e)}")
     
+    def _load_feature_defaults(self, feature_defaults_path: Path) -> None:
+        """
+        Load the baseline default values for all features from JSON file.
+        
+        These defaults (medians for numeric, modes for categorical) are used
+        instead of zeros when aligning features to prevent distribution shifts
+        that cause false high-risk predictions.
+        
+        Args:
+            feature_defaults_path: Path to the feature defaults JSON file
+            
+        Raises:
+            FileNotFoundError: If feature defaults file does not exist
+        """
+        if not feature_defaults_path.exists():
+            raise FileNotFoundError(
+                f"Feature defaults file not found at {feature_defaults_path}. "
+                "Please run train_model.py first."
+            )
+        
+        try:
+            with open(feature_defaults_path, 'r') as f:
+                self.feature_defaults = json.load(f)
+            print(f"Feature defaults loaded: {len(self.feature_defaults)} baseline values")
+        except Exception as e:
+            raise Exception(f"Failed to load feature defaults: {str(e)}")
+    
     def _initialize_shap_explainer(self) -> None:
         """
         Initialize SHAP TreeExplainer for the loaded model.
@@ -151,8 +183,11 @@ class ReadmissionPredictor:
         This ensures that:
         - All expected features are present
         - Features are in the correct order
-        - Missing features are filled with zeros
+        - Missing features are filled with dataset medians/modes (not zeros)
         - Extra features are removed
+        
+        Using dataset baselines instead of zeros prevents distribution shifts
+        that cause false high-risk predictions for partial CSV uploads.
         
         Args:
             input_data: DataFrame with patient features
@@ -166,9 +201,13 @@ class ReadmissionPredictor:
         # Check which expected features are missing
         missing_features = set(self.feature_columns) - set(aligned_data.columns)
         
-        # Add missing features with zero values
+        # Add missing features with baseline default values (median/mode) instead of zeros
         for feature in missing_features:
-            aligned_data[feature] = 0
+            if self.feature_defaults and feature in self.feature_defaults:
+                aligned_data[feature] = self.feature_defaults[feature]
+            else:
+                # Fallback to 0 if no default available (should not happen)
+                aligned_data[feature] = 0
         
         # Remove extra features not in training data
         extra_features = set(aligned_data.columns) - set(self.feature_columns)
@@ -368,7 +407,8 @@ class ReadmissionPredictor:
 
 def load_predictor(
     model_path: Path = DEFAULT_MODEL_PATH,
-    feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH
+    feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH,
+    feature_defaults_path: Path = DEFAULT_FEATURE_DEFAULTS_PATH
 ) -> ReadmissionPredictor:
     """
     Convenience function to create a ReadmissionPredictor instance.
@@ -376,17 +416,19 @@ def load_predictor(
     Args:
         model_path: Path to the model file
         feature_columns_path: Path to feature columns file
+        feature_defaults_path: Path to feature defaults file
         
     Returns:
         ReadmissionPredictor instance
     """
-    return ReadmissionPredictor(model_path, feature_columns_path)
+    return ReadmissionPredictor(model_path, feature_columns_path, feature_defaults_path)
 
 
 def predict_readmission_risk(
     patient_data: Dict[str, Any],
     model_path: Path = DEFAULT_MODEL_PATH,
     feature_columns_path: Path = DEFAULT_FEATURE_COLUMNS_PATH,
+    feature_defaults_path: Path = DEFAULT_FEATURE_DEFAULTS_PATH,
     return_shap: bool = True
 ) -> Dict[str, Any]:
     """
@@ -396,12 +438,13 @@ def predict_readmission_risk(
         patient_data: Dictionary containing patient features
         model_path: Path to the model file
         feature_columns_path: Path to feature columns file
+        feature_defaults_path: Path to feature defaults file
         return_shap: Whether to include SHAP values
         
     Returns:
         Dictionary containing prediction results
     """
-    predictor = load_predictor(model_path, feature_columns_path)
+    predictor = load_predictor(model_path, feature_columns_path, feature_defaults_path)
     return predictor.predict(patient_data, return_shap=return_shap)
 
 

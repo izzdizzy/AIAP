@@ -229,7 +229,7 @@ def generate_patient_data(risk_level: str) -> dict:
         # Low risk patient profile:
         # - No/few prior admissions
         # - Low comorbidity count
-        # - Younger patient
+        # - Standard adult age (not pediatric outlier)
         # - Few medications
         # - Well-controlled diabetes
         return {
@@ -297,7 +297,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'oral_medications': 1,
             'change_encoded': 0,
             'diabetesMed_encoded': 1,
-            'age_numeric': 42,
+            'age_numeric': 55,  # Standard adult age [50-60) bin midpoint - not a pediatric outlier
             'is_elderly': 0,
             'total_prior_admissions': 0,
             'emergency_ratio': 0.0,
@@ -309,7 +309,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'emergency_admission': 0,
             'not_home_discharge': 0,
             'er_admission': 0,
-            'age_comorbidity_interaction': 42 * 2,
+            'age_comorbidity_interaction': 55 * 2,
             'med_per_comorbidity': 3 / 2,
             'admissions_per_year': 0,
             'emerg_inpatient_combo': 0,
