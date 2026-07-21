@@ -1,57 +1,22 @@
 # =============================================================================
-# BUG FIX SUMMARY - IT3100 Progress Review 2
+# Hospital Readmission Predictor - Main Streamlit Application
 # =============================================================================
-# CRITICAL STATE MANAGEMENT FIX - Streamlit st.session_state and Widget Binding
-# =============================================================================
-# PROBLEM: "Patient Data Summary" and "Clinical Input Values" sections were frozen
-# on default/stale values when CSV was uploaded or manual inputs were changed.
+# This is the main entry point for the Diabetes Care Navigation Assistant.
+# It provides a two-tab interface:
+# 1. Patient Risk Assessment: ML-based readmission risk prediction with SHAP analysis
+# 2. Care Navigation: Gen AI-powered personalized healthcare guidance
 #
-# ROOT CAUSE ANALYSIS:
-# 1. Session state initialization ran unconditionally BEFORE checking for CSV data,
-#    causing race conditions where defaults persisted over uploaded values.
-# 2. The "Clinical Input Values" display read from local widget variables instead of
-#    session state, causing it to show stale values after CSV uploads.
-# 3. Manual widget changes were not being reflected in the summary because the
-#    summary read from local variables captured at script start, not current state.
+# The app integrates:
+# - XGBoost model trained on UCI Diabetes dataset (optimized for 80-90% Recall)
+# - Clinical severity adjustment layer for medical red flags
+# - Google Gemini API for contextual care navigation advice
+# - Singapore healthcare context (CHAS, Healthier SG, Polyclinics)
 #
-# STREAMLIT STATE RULES FOLLOWED:
-# Rule 1: NEVER pass value=st.session_state[key] into widgets - causes lockups
-# Rule 2: ALWAYS initialize keys in session state BEFORE widget declaration
-# Rule 3: To update widgets from CSV, update st.session_state[key] directly
-# Rule 4: Avoid st.rerun() unless guarded by file-name check to prevent loops
+# Usage:
+#     streamlit run app.py
 #
-# FIX APPLIED:
-# 1. Split session state init into TWO paths:
-#    - IF CSV data exists: ALWAYS overwrite session state with parsed values
-#    - IF NO CSV data: Only initialize if key doesn't exist (preserves user input)
-# 2. "Clinical Input Values" now reads DIRECTLY from st.session_state keys
-# 3. ML inference patient_data construction now reads from st.session_state
-# 4. Added comprehensive comments explaining state flow
-#
-# CSV Column -> Session State Key Mapping Table:
-# | CSV Column          | Session State Key        | Widget Type      | Notes                    |
-# |---------------------|--------------------------|------------------|--------------------------|
-# | prior_admissions    | prior_admissions_input   | number_input     | Direct mapping           |
-# | comorbidity_count   | comorbidity_count_input  | number_input     | Direct mapping           |
-# | age_numeric         | age_group_input          | selectbox (index)| Converted to age bin     |
-# | num_medications     | medication_count_input   | number_input     | Direct mapping           |
-# | discharge_diagnosis | discharge_diagnosis_input| text_input       | String conversion        |
-# | high_risk_flag      | high_risk_flag_input     | selectbox (0/1)  | 1="Yes", 0="No"          |
-# | symptoms            | symptoms_multiselect     | multiselect      | Comma-split, validated   |
-#
-# Age Numeric to Age Group Mapping:
-# | age_numeric Range | age_group_display | age_group_input Index |
-# |-------------------|-------------------|-----------------------|
-# | 0-9               | "0-10"            | 0                     |
-# | 10-19             | "10-20"           | 1                     |
-# | 20-29             | "20-30"           | 2                     |
-# | 30-39             | "30-40"           | 3                     |
-# | 40-49             | "40-50"           | 4                     |
-# | 50-59             | "50-60"           | 5                     |
-# | 60-69             | "60-70"           | 6                     |
-# | 70-79             | "70-80"           | 7                     |
-# | 80-89             | "80-90"           | 8                     |
-# | 90+               | "90-100"          | 9                     |
+# Environment Variables:
+#     GEMINI_API_KEY: Required for Gen AI features
 # =============================================================================
 
 import os
@@ -72,256 +37,15 @@ from typing import Dict, Any, Optional
 
 from model import ReadmissionPredictor
 from gen_ai import CareNavigationAssistant
-
-
-# =============================================================================
-# CSV TO MODEL FEATURE MAPPING
-# =============================================================================
-# This dictionary provides explicit, strict mapping from CSV column names 
-# to the exact 82 model feature names expected by the trained model.
-# This ensures proper feature alignment during inference.
-# =============================================================================
-
-CSV_TO_MODEL_MAPPING = {
-    # Base admission features
-    'prior_admissions': 'total_prior_admissions',
-    'admission_type_id': 'admission_type_id',
-    'discharge_disposition_id': 'discharge_disposition_id',
-    'admission_source_id': 'admission_source_id',
-    
-    # Hospital stay features
-    'time_in_hospital': 'time_in_hospital',
-    'num_lab_procedures': 'num_lab_procedures',
-    'num_procedures': 'num_procedures',
-    
-    # Medication features
-    'num_medications': 'total_medications',
-    'medication_count': 'total_medications',
-    'total_medications': 'total_medications',
-    
-    # Visit count features
-    'number_outpatient': 'number_outpatient',
-    'outpatient_visits': 'number_outpatient',
-    'number_emergency': 'number_emergency',
-    'emergency_visits': 'number_emergency',
-    'number_inpatient': 'number_inpatient',
-    'inpatient_visits': 'number_inpatient',
-    'inpatient_admissions': 'number_inpatient',
-    
-    # Diagnosis features
-    'number_diagnoses': 'number_diagnoses',
-    'diagnoses_count': 'number_diagnoses',
-    'diabetes_diag_count': 'diabetes_diag_count',
-    'diabetes_diagnoses': 'diabetes_diag_count',
-    'comorbidity_count': 'comorbidity_count',
-    'comorbidities': 'comorbidity_count',
-    'num_comorbidities': 'comorbidity_count',
-    
-    # Age features
-    'age_numeric': 'age_numeric',
-    'age': 'age_numeric',
-    'patient_age': 'age_numeric',
-    
-    # Medication encoding features (individual drugs)
-    'metformin_encoded': 'metformin_encoded',
-    'metformin': 'metformin_encoded',
-    'metformin_active': 'metformin_active',
-    'repaglinide_encoded': 'repaglinide_encoded',
-    'repaglinide_active': 'repaglinide_active',
-    'nateglinide_encoded': 'nateglinide_encoded',
-    'nateglinide_active': 'nateglinide_active',
-    'chlorpropamide_encoded': 'chlorpropamide_encoded',
-    'chlorpropamide_active': 'chlorpropamide_active',
-    'glimepiride_encoded': 'glimepiride_encoded',
-    'glimepiride_active': 'glimepiride_active',
-    'acetohexamide_encoded': 'acetohexamide_encoded',
-    'acetohexamide_active': 'acetohexamide_active',
-    'glipizide_encoded': 'glipizide_encoded',
-    'glipizide_active': 'glipizide_active',
-    'glyburide_encoded': 'glyburide_encoded',
-    'glyburide_active': 'glyburide_active',
-    'tolbutamide_encoded': 'tolbutamide_encoded',
-    'tolbutamide_active': 'tolbutamide_active',
-    'pioglitazone_encoded': 'pioglitazone_encoded',
-    'pioglitazone_active': 'pioglitazone_active',
-    'rosiglitazone_encoded': 'rosiglitazone_encoded',
-    'rosiglitazone_active': 'rosiglitazone_active',
-    'acarbose_encoded': 'acarbose_encoded',
-    'acarbose_active': 'acarbose_active',
-    'miglitol_encoded': 'miglitol_encoded',
-    'miglitol_active': 'miglitol_active',
-    'troglitazone_encoded': 'troglitazone_encoded',
-    'troglitazone_active': 'troglitazone_active',
-    'tolazamide_encoded': 'tolazamide_encoded',
-    'tolazamide_active': 'tolazamide_active',
-    'examide_encoded': 'examide_encoded',
-    'examide_active': 'examide_active',
-    'citoglipton_encoded': 'citoglipton_encoded',
-    'citoglipton_active': 'citoglipton_active',
-    'insulin_encoded': 'insulin_encoded',
-    'insulin': 'insulin_encoded',
-    'insulin_active': 'insulin_active',
-    'insulin_therapy': 'on_insulin',
-    'on_insulin': 'on_insulin',
-    'glyburide-metformin_encoded': 'glyburide-metformin_encoded',
-    'glyburide-metformin_active': 'glyburide-metformin_active',
-    'glipizide-metformin_encoded': 'glipizide-metformin_encoded',
-    'glipizide-metformin_active': 'glipizide-metformin_active',
-    'glimepiride-pioglitazone_encoded': 'glimepiride-pioglitazone_encoded',
-    'glimepiride-pioglitazone_active': 'glimepiride-pioglitazone_active',
-    'metformin-rosiglitazone_encoded': 'metformin-rosiglitazone_encoded',
-    'metformin-rosiglitazone_active': 'metformin-rosiglitazone_active',
-    'metformin-pioglitazone_encoded': 'metformin-pioglitazone_encoded',
-    'metformin-pioglitazone_active': 'metformin-pioglitazone_active',
-    
-    # Derived medication features
-    'oral_medications': 'oral_medications',
-    'change_encoded': 'change_encoded',
-    'medication_change': 'change_encoded',
-    'diabetesMed_encoded': 'diabetesMed_encoded',
-    'diabetes_medication': 'diabetesMed_encoded',
-    
-    # num_medications maps to itself for consistency (also mapped to total_medications)
-    'num_medications': 'num_medications',
-    
-    # Age-derived features
-    'is_elderly': 'is_elderly',
-    
-    # Pre-computed engineered features (can be provided in CSV or calculated)
-    'total_prior_admissions': 'total_prior_admissions',
-    'emergency_ratio': 'emergency_ratio',
-    'inpatient_ratio': 'inpatient_ratio',
-    'long_stay': 'long_stay',
-    'total_procedures': 'total_procedures',
-    'high_lab_utilization': 'high_lab_utilization',
-    'high_diagnosis_count': 'high_diagnosis_count',
-    'emergency_admission': 'emergency_admission',
-    'not_home_discharge': 'not_home_discharge',
-    'er_admission': 'er_admission',
-    
-    # Interaction features
-    'age_comorbidity_interaction': 'age_comorbidity_interaction',
-    'med_per_comorbidity': 'med_per_comorbidity',
-    'admissions_per_year': 'admissions_per_year',
-    'emerg_inpatient_combo': 'emerg_inpatient_combo',
-    'insulin_complexity': 'insulin_complexity',
-    'diabetes_med_intensity': 'diabetes_med_intensity',
-    
-    # User-facing form fields (for manual input / simplified CSV)
-    'discharge_diagnosis': 'discharge_diagnosis',
-    'primary_diagnosis': 'discharge_diagnosis',
-    'diagnosis_code': 'discharge_diagnosis',
-    'high_risk_flag': 'high_risk_flag',
-    'high_risk': 'high_risk_flag',
-    'risk_flag': 'high_risk_flag',
-    'symptoms': 'symptoms',
-    'patient_symptoms': 'symptoms',
-    'reported_symptoms': 'symptoms',
-}
-
-
-# =============================================================================
-# FEATURE DISPLAY NAMES - HUMAN-READABLE LABELS FOR PATIENTS
-# =============================================================================
-
-FEATURE_DISPLAY_NAMES = {
-    # Core clinical features
-    'time_in_hospital': 'Days Spent in Hospital',
-    'num_lab_procedures': 'Number of Lab Tests',
-    'num_procedures': 'Number of Medical Procedures',
-    'num_medications': 'Total Medications Count',
-    'number_outpatient': 'Outpatient Visits',
-    'number_emergency': 'Emergency Room Visits',
-    'number_inpatient': 'Inpatient Admissions',
-    'number_diagnoses': 'Total Diagnoses Count',
-    'diabetes_diag_count': 'Diabetes-Related Diagnoses',
-    'comorbidity_count': 'Number of Other Health Conditions',
-    
-    # Medication features
-    'metformin_encoded': 'Metformin Prescribed',
-    'metformin_active': 'Metformin Active',
-    'repaglinide_encoded': 'Repaglinide Prescribed',
-    'repaglinide_active': 'Repaglinide Active',
-    'nateglinide_encoded': 'Nateglinide Prescribed',
-    'nateglinide_active': 'Nateglinide Active',
-    'chlorpropamide_encoded': 'Chlorpropamide Prescribed',
-    'chlorpropamide_active': 'Chlorpropamide Active',
-    'glimepiride_encoded': 'Glimepiride Prescribed',
-    'glimepiride_active': 'Glimepiride Active',
-    'acetohexamide_encoded': 'Acetohexamide Prescribed',
-    'acetohexamide_active': 'Acetohexamide Active',
-    'glipizide_encoded': 'Glipizide Prescribed',
-    'glipizide_active': 'Glipizide Active',
-    'glyburide_encoded': 'Glyburide Prescribed',
-    'glyburide_active': 'Glyburide Active',
-    'tolbutamide_encoded': 'Tolbutamide Prescribed',
-    'tolbutamide_active': 'Tolbutamide Active',
-    'pioglitazone_encoded': 'Pioglitazone Prescribed',
-    'pioglitazone_active': 'Pioglitazone Active',
-    'rosiglitazone_encoded': 'Rosiglitazone Prescribed',
-    'rosiglitazone_active': 'Rosiglitazone Active',
-    'acarbose_encoded': 'Acarbose Prescribed',
-    'acarbose_active': 'Acarbose Active',
-    'miglitol_encoded': 'Miglitol Prescribed',
-    'miglitol_active': 'Miglitol Active',
-    'troglitazone_encoded': 'Troglitazone Prescribed',
-    'troglitazone_active': 'Troglitazone Active',
-    'tolazamide_encoded': 'Tolazamide Prescribed',
-    'tolazamide_active': 'Tolazamide Active',
-    'examide_encoded': 'Examide Prescribed',
-    'examide_active': 'Examide Active',
-    'citoglipton_encoded': 'Citoglipton Prescribed',
-    'citoglipton_active': 'Citoglipton Active',
-    'insulin_encoded': 'Insulin Therapy',
-    'insulin_active': 'Insulin Active',
-    'glyburide-metformin_encoded': 'Glyburide-Metformin Prescribed',
-    'glyburide-metformin_active': 'Glyburide-Metformin Active',
-    'glipizide-metformin_encoded': 'Glipizide-Metformin Prescribed',
-    'glipizide-metformin_active': 'Glipizide-Metformin Active',
-    'glimepiride-pioglitazone_encoded': 'Glimepiride-Pioglitazone Prescribed',
-    'glimepiride-pioglitazone_active': 'Glimepiride-Pioglitazone Active',
-    'metformin-rosiglitazone_encoded': 'Metformin-Rosiglitazone Prescribed',
-    'metformin-rosiglitazone_active': 'Metformin-Rosiglitazone Active',
-    'metformin-pioglitazone_encoded': 'Metformin-Pioglitazone Prescribed',
-    'metformin-pioglitazone_active': 'Metformin-Pioglitazone Active',
-    
-    # Derived features
-    'total_medications': 'Total Medications',
-    'on_insulin': 'Currently on Insulin',
-    'oral_medications': 'Taking Oral Medications',
-    'change_encoded': 'Medication Change at Discharge',
-    'diabetesMed_encoded': 'Diabetes Medication Prescribed',
-    'age_numeric': 'Patient Age',
-    'is_elderly': 'Elderly Patient (65+)',
-    'total_prior_admissions': 'Total Prior Admissions',
-    'emergency_ratio': 'Emergency Visit Ratio',
-    'inpatient_ratio': 'Inpatient Stay Ratio',
-    'long_stay': 'Extended Hospital Stay',
-    'total_procedures': 'Total Procedures Performed',
-    'high_lab_utilization': 'High Lab Test Usage',
-    'high_diagnosis_count': 'Multiple Diagnoses',
-    'emergency_admission': 'Emergency Admission',
-    'not_home_discharge': 'Discharged to Non-Home Location',
-    'er_admission': 'ER Admission',
-    
-    # Interaction features
-    'age_comorbidity_interaction': 'Age × Health Conditions Interaction',
-    'med_per_comorbidity': 'Medications per Health Condition',
-    'admissions_per_year': 'Admissions per Year',
-    'emerg_inpatient_combo': 'Emergency + Inpatient Combined',
-    'insulin_complexity': 'Insulin Treatment Complexity',
-    'diabetes_med_intensity': 'Diabetes Medication Intensity',
-    
-    # Administrative features
-    'admission_type_id': 'Admission Type',
-    'discharge_disposition_id': 'Discharge Location',
-    'admission_source_id': 'Admission Source',
-    
-    # User-facing form fields
-    'prior_admissions': 'Previous Hospital Admissions (Last 12 Months)',
-    'discharge_diagnosis': 'Primary Discharge Diagnosis Code',
-    'high_risk_flag': 'High Risk Patient Flag',
-}
+from utils import (
+    FEATURE_DISPLAY_NAMES,
+    CSV_TO_MODEL_MAPPING,
+    SYMPTOM_OPTIONS,
+    calculate_clinical_adjustment,
+    parse_uploaded_file,
+    age_numeric_to_age_group,
+    validate_symptoms,
+)
 
 
 # =============================================================================
