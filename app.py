@@ -664,7 +664,7 @@ with tab1:
                 
                 with col2:
                     risk_cat = result['risk_category']
-                    color_map = {"Low": "green", "Medium": "orange", "High": "red"}
+                    color_map = {"Low": "green", "Moderate": "orange", "High": "red"}
                     st.metric(
                         "Risk Category",
                         risk_cat,
@@ -686,9 +686,9 @@ with tab1:
                     **Low Risk**: Continue current management plan. 
                     Maintain regular follow-ups with your healthcare provider and adhere to prescribed medications.
                     """)
-                elif result['risk_category'] == "Medium":
+                elif result['risk_category'] == "Moderate":
                     st.warning("""
-                    **Medium Risk**: Increased monitoring recommended. 
+                    **Moderate Risk**: Increased monitoring recommended. 
                     Consider scheduling a follow-up appointment to review your care plan and medication adherence.
                     """)
                 else:
@@ -860,10 +860,10 @@ with tab2:
                         risk_score = st.session_state.current_risk_score
                         
                         # Determine risk category
-                        if risk_score < 0.3:
+                        if risk_score < 0.20:
                             risk_category = "Low"
-                        elif risk_score < 0.6:
-                            risk_category = "Medium"
+                        elif risk_score < 0.40:
+                            risk_category = "Moderate"
                         else:
                             risk_category = "High"
                         
@@ -922,9 +922,9 @@ with tab2:
     
     with col3:
         if st.session_state.current_risk_score is not None:
-            if st.session_state.current_risk_score < 0.3:
+            if st.session_state.current_risk_score < 0.20:
                 st.success("**Risk Level:** LOW")
-            elif st.session_state.current_risk_score < 0.6:
+            elif st.session_state.current_risk_score < 0.40:
                 st.warning("**Risk Level:** MEDIUM")
             else:
                 st.error("**Risk Level:** HIGH")
