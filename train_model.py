@@ -728,10 +728,9 @@ def create_xgboost_param_grid() -> Dict[str, list]:
         'gamma': [0, 0.1, 0.2, 0.3, 0.4],
         'reg_alpha': [0, 0.1, 0.5, 1.0, 2.0],
         'reg_lambda': [1, 1.5, 2, 3, 4],
-        # scale_pos_weight: Aggressively favor minority class (readmissions)
-        # Higher values (up to 15) ensure the model prioritizes catching high-risk patients
-        # This is critical for clinical recall - missing a high-risk patient is far worse than a false positive
-        'scale_pos_weight': [5, 10, 15, 20]
+        # scale_pos_weight: Moderate class weight to handle imbalance naturally
+        # ROC-AUC optimization finds balanced parameters without aggressive weighting
+        'scale_pos_weight': [1, 2, 3]
     }
     
     return param_dist
@@ -754,10 +753,9 @@ def create_lightgbm_param_grid() -> Dict[str, list]:
         'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
         'reg_alpha': [0, 0.1, 0.5, 1.0],
         'reg_lambda': [1, 1.5, 2, 3],
-        # scale_pos_weight: Aggressively favor minority class (readmissions)
-        # Higher values ensure the model prioritizes catching high-risk patients
-        # This is critical for clinical recall - missing a high-risk patient is far worse than a false positive
-        'scale_pos_weight': [5, 10, 15, 20]
+        # scale_pos_weight: Moderate class weight to handle imbalance naturally
+        # ROC-AUC optimization finds balanced parameters without aggressive weighting
+        'scale_pos_weight': [1, 2, 3]
     }
     
     return param_dist
@@ -867,11 +865,10 @@ def train_histgradientboosting_model(
         estimator=base_hgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        # OPTIMIZING FOR RECALL: Clinically, false negatives (missing a high-risk patient) 
-        # are much worse than false positives. Optimizing for Recall ensures we minimize 
-        # false negatives, ensuring high-risk patients are flagged for intervention even 
-        # if it results in more false positives.
-        scoring='recall',
+        # OPTIMIZING FOR ROC-AUC: Primary benchmark metric for balanced classification performance.
+        # This ensures the model produces well-calibrated probabilities across all risk levels,
+        # enabling meaningful absolute threshold-based risk stratification in the UI.
+        scoring='roc_auc',
         cv=skf,
         verbose=2,  # Show progress for each fold
         n_jobs=-1,
@@ -887,9 +884,9 @@ def train_histgradientboosting_model(
     print(f"\n{'='*60}")
     print(f"BEST PARAMETERS FOUND ON SUBSET")
     print(f"{'='*60}")
-    # Note: best_score now reflects Recall (our primary clinical metric) instead of ROC-AUC
-    print(f"Best Recall from cross-validation: {best_score:.4f}")
-    print(f"(Recall is our primary metric to minimize false negatives)")
+    # Note: best_score now reflects ROC-AUC (our primary benchmark metric)
+    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
+    print(f"(ROC-AUC ensures well-calibrated probabilities for absolute thresholds)")
     print(f"Best parameters: {best_params}")
     
     # Step 2: Train final model on FULL training dataset with best parameters
@@ -1013,11 +1010,10 @@ def train_xgboost_model(
         estimator=base_xgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        # OPTIMIZING FOR RECALL: Clinically, false negatives (missing a high-risk patient) 
-        # are much worse than false positives. Optimizing for Recall ensures we minimize 
-        # false negatives, ensuring high-risk patients are flagged for intervention even 
-        # if it results in more false positives.
-        scoring='recall',
+        # OPTIMIZING FOR ROC-AUC: Primary benchmark metric for balanced classification performance.
+        # This ensures the model produces well-calibrated probabilities across all risk levels,
+        # enabling meaningful absolute threshold-based risk stratification in the UI.
+        scoring='roc_auc',
         cv=skf,
         verbose=1,
         n_jobs=-1,
@@ -1033,7 +1029,7 @@ def train_xgboost_model(
     print(f"\n{'='*60}")
     print(f"BEST PARAMETERS FOUND ON SUBSET")
     print(f"{'='*60}")
-    print(f"Best Recall from cross-validation: {best_score:.4f}")
+    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
     print(f"Best parameters: {best_params}")
     
     # Train final model on FULL dataset
@@ -1155,11 +1151,10 @@ def train_lightgbm_model(
         estimator=base_lgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        # OPTIMIZING FOR RECALL: Clinically, false negatives (missing a high-risk patient) 
-        # are much worse than false positives. Optimizing for Recall ensures we minimize 
-        # false negatives, ensuring high-risk patients are flagged for intervention even 
-        # if it results in more false positives.
-        scoring='recall',
+        # OPTIMIZING FOR ROC-AUC: Primary benchmark metric for balanced classification performance.
+        # This ensures the model produces well-calibrated probabilities across all risk levels,
+        # enabling meaningful absolute threshold-based risk stratification in the UI.
+        scoring='roc_auc',
         cv=skf,
         verbose=1,
         n_jobs=-1,
@@ -1175,7 +1170,7 @@ def train_lightgbm_model(
     print(f"\n{'='*60}")
     print(f"BEST PARAMETERS FOUND ON SUBSET (LightGBM)")
     print(f"{'='*60}")
-    print(f"Best Recall from cross-validation: {best_score:.4f}")
+    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
     print(f"Best parameters: {best_params}")
     
     # Train final model on FULL dataset
@@ -1459,53 +1454,9 @@ def main():
     print("-" * 40)
     save_model(best_model, MODEL_PATH)
     
-    # Calculate and save dynamic risk thresholds based on test set probability distribution
-    # Thresholds are dynamically calculated from the test set distribution to ensure 
-    # meaningful risk stratification even when the model is optimized for high Recall.
-    # We save MIN and MAX probabilities for Min-Max normalization in the app.
-    # The app will use Min-Max scaling to convert raw probabilities to 0-100 severity scores.
-    try:
-        # Get probability predictions on test set
-        test_probs = best_model.predict_proba(X_test_final)[:, 1]
-        
-        # Calculate absolute MIN and MAX probabilities for Min-Max scaling
-        min_prob = float(test_probs.min())
-        max_prob = float(test_probs.max())
-        
-        # Also calculate 33rd and 66th percentiles as fallback reference
-        threshold_33 = float(np.percentile(test_probs, 33))
-        threshold_66 = float(np.percentile(test_probs, 66))
-        
-        thresholds_data = {
-            'min_prob': min_prob,  # Minimum probability for Min-Max scaling
-            'max_prob': max_prob,  # Maximum probability for Min-Max scaling
-            'threshold_low_moderate': threshold_33,  # Fallback: 33rd percentile
-            'threshold_moderate_high': threshold_66,  # Fallback: 66th percentile
-            'description': 'Min-Max scaling parameters for Clinical Severity Score (0-100)',
-            'methodology': 'Severity = ((raw_prob - min_prob) / (max_prob - min_prob)) * 100, clamped to 0-100',
-            'urgency_thresholds': {
-                'routine_monitoring': '0-40',
-                'increased_surveillance': '41-75',
-                'immediate_intervention': '76-100'
-            },
-            'test_set_size': len(test_probs),
-            'prob_min': min_prob,
-            'prob_max': max_prob,
-            'prob_mean': float(test_probs.mean()),
-            'prob_median': float(np.median(test_probs))
-        }
-        
-        THRESHOLDS_PATH = OUTPUT_DIR / "thresholds.json"
-        with open(THRESHOLDS_PATH, 'w') as f:
-            json.dump(thresholds_data, f, indent=2)
-        print(f"Dynamic thresholds saved to: {THRESHOLDS_PATH}")
-        print(f"  - Min probability (for Min-Max scaling): {min_prob:.4f}")
-        print(f"  - Max probability (for Min-Max scaling): {max_prob:.4f}")
-        print(f"  - Low/Moderate threshold (33rd percentile, fallback): {threshold_33:.4f}")
-        print(f"  - Moderate/High threshold (66th percentile, fallback): {threshold_66:.4f}")
-    except Exception as e:
-        print(f"Warning: Could not calculate dynamic thresholds: {e}")
-        print("Will use default thresholds in app.py")
+    # Note: No thresholds.json needed - app.py now uses absolute probabilities
+    # The model is optimized for ROC-AUC, producing well-calibrated probabilities
+    # that can be directly converted to severity scores (raw_prob * 100).
     
     # Save metadata
     metadata = {

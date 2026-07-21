@@ -647,17 +647,18 @@ with tab1:
                 
                 # Store in session state for Tab 2
                 st.session_state.current_risk_score = result['risk_score']
-                st.session_state.clinical_severity_score = result.get('clinical_severity_score', result['risk_score'] * 100)
+                # Clinical Severity Score is now simply raw_probability * 100 (absolute scale)
+                st.session_state.clinical_severity_score = result['risk_score'] * 100
                 
                 # Display results
                 st.subheader("Patient Risk Assessment")
                 
-                # Clinical severity score display - using Min-Max normalized 0-100 scale
+                # Clinical severity score display - using absolute probability scale (0-100)
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    # Use the Clinical Severity Score from model (Min-Max normalized 0-100)
-                    severity_score = result.get('clinical_severity_score', result['risk_score'] * 100)
+                    # Use the Clinical Severity Score from model (raw_prob * 100)
+                    severity_score = result['risk_score'] * 100
                     st.metric(
                         "Clinical Severity Score",
                         f"{severity_score:.0f}/100",
@@ -672,7 +673,6 @@ with tab1:
                         "High": "Immediate Intervention"
                     }
                     urgency_level = urgency_mapping.get(result['risk_category'], result['risk_category'])
-                    color_map = {"Low": "green", "Moderate": "orange", "High": "red"}
                     st.metric(
                         "Urgency Level",
                         urgency_level,
@@ -689,9 +689,9 @@ with tab1:
                 
                 # Clinical philosophy explanation - critical for user understanding
                 st.info(
-                    "💡 **Clinical Philosophy:** This model is optimized for 100% Recall to ensure no at-risk patient is missed. "
-                    "Your score reflects clinical severity and urgency for intervention relative to the patient population, "
-                    "rather than an absolute mathematical probability."
+                    "**Clinical Philosophy:** This model is optimized for ROC-AUC to produce well-calibrated probabilities. "
+                    "Your score reflects the absolute predicted risk of 30-day readmission (e.g., a score of 15 means 15% predicted risk). "
+                    "Absolute thresholds are used for urgency classification."
                 )
                 
                 # Updated risk interpretation with clinical urgency framing
@@ -819,9 +819,7 @@ with tab1:
                 with st.expander("🔧 Show Raw Debug Info", expanded=False):
                     st.markdown("**Raw Model Output:**")
                     st.code(f"Raw Probability: {result['risk_score']:.6f}")
-                    st.code(f"Clinical Severity Score (Min-Max normalized): {result.get('clinical_severity_score', 'N/A'):.2f}" if result.get('clinical_severity_score') else "Clinical Severity Score: N/A")
-                    st.code(f"Min Prob (from training): {result.get('min_prob', 'N/A'):.4f}" if result.get('min_prob') is not None else "Min Prob: N/A")
-                    st.code(f"Max Prob (from training): {result.get('max_prob', 'N/A'):.4f}" if result.get('max_prob') is not None else "Max Prob: N/A")
+                    st.code(f"Clinical Severity Score (raw_prob * 100): {result['risk_score'] * 100:.2f}")
                     
                     st.markdown("**Non-Zero Features from Input Data:**")
                     # Find features with non-zero values in the patient_data dict
@@ -900,11 +898,11 @@ with tab2:
                         risk_score = st.session_state.current_risk_score
                         severity_score = st.session_state.get('clinical_severity_score', risk_score * 100)
                         
-                        # Determine risk category using Clinical Severity Score thresholds (0-100 scale)
-                        # 0-40: Low (Routine), 41-75: Moderate (Increased Surveillance), 76-100: High (Immediate)
-                        if severity_score <= 40:
+                        # Determine risk category using absolute thresholds (0-100 scale)
+                        # 0-30: Routine Monitoring, 31-60: Increased Surveillance, 61-100: Immediate Intervention
+                        if severity_score <= 30:
                             risk_category = "Low"
-                        elif severity_score <= 75:
+                        elif severity_score <= 60:
                             risk_category = "Moderate"
                         else:
                             risk_category = "High"
@@ -949,7 +947,7 @@ with tab2:
     with col1:
         if st.session_state.current_risk_score is not None:
             # Get the Clinical Severity Score from session state or calculate it
-            # The score is now Min-Max normalized (0-100) in the model
+            # The score is now simply raw_probability * 100 (absolute scale)
             severity_score = st.session_state.get('clinical_severity_score', st.session_state.current_risk_score * 100)
             st.metric(
                 label="Clinical Severity Score",
@@ -968,14 +966,14 @@ with tab2:
     
     with col3:
         if st.session_state.current_risk_score is not None:
-            # Use Clinical Severity Score thresholds (0-100 scale)
-            # 0-40: Routine Monitoring, 41-75: Increased Surveillance, 76-100: Immediate Intervention
+            # Use absolute thresholds (0-100 scale)
+            # 0-30: Routine Monitoring, 31-60: Increased Surveillance, 61-100: Immediate Intervention
             severity_score = st.session_state.get('clinical_severity_score', st.session_state.current_risk_score * 100)
             
             # Map to clinical urgency levels based on 0-100 severity scale
-            if severity_score <= 40:
+            if severity_score <= 30:
                 st.success("**Urgency Level:** ROUTINE MONITORING")
-            elif severity_score <= 75:
+            elif severity_score <= 60:
                 st.warning("**Urgency Level:** INCREASED SURVEILLANCE")
             else:
                 st.error("**Urgency Level:** IMMEDIATE INTERVENTION")

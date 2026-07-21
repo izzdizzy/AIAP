@@ -43,18 +43,14 @@ except ImportError:
 DEFAULT_MODEL_PATH = Path("outputs/readmission_model.joblib")
 DEFAULT_FEATURE_COLUMNS_PATH = Path("outputs/feature_columns.json")
 DEFAULT_METADATA_PATH = Path("outputs/model_metadata.json")
-DEFAULT_THRESHOLDS_PATH = Path("outputs/thresholds.json")
 
-# Default percentile-based thresholds (fallback if thresholds.json not found)
-# These will be overwritten by dynamic thresholds from the trained model
-# Note: These are placeholder values; actual thresholds are calculated from test set distribution
-DEFAULT_THRESHOLD_LOW_MODERATE = 0.33  # Placeholder: 33rd percentile
-DEFAULT_THRESHOLD_MODERATE_HIGH = 0.66  # Placeholder: 66th percentile
-
-# Default Min-Max scaling parameters (fallback if thresholds.json not found)
-# Used for Clinical Severity Score calculation (0-100 scale)
-DEFAULT_MIN_PROB = 0.0  # Fallback minimum probability
-DEFAULT_MAX_PROB = 1.0  # Fallback maximum probability
+# Absolute thresholds for risk categorization (ROC-AUC optimized model)
+# These thresholds are applied to raw probabilities (0-1 scale)
+# 0-0.30: Low Risk (Routine Monitoring)
+# 0.31-0.60: Moderate Risk (Increased Surveillance)  
+# 0.61-1.0: High Risk (Immediate Intervention)
+DEFAULT_THRESHOLD_LOW_MODERATE = 0.30
+DEFAULT_THRESHOLD_MODERATE_HIGH = 0.60
 
 
 # =============================================================================
