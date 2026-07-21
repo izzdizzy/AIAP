@@ -251,6 +251,7 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
     Parse uploaded Excel or CSV file and extract patient features.
     
     Returns a dictionary of feature values that can be used to pre-fill the form.
+    Also calculates data completeness percentage for confidence assessment.
     """
     try:
         if uploaded_file.name.endswith('.csv'):
@@ -267,6 +268,11 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
         
         # Get the first row as patient data
         patient_row = df.iloc[0]
+        
+        # Count total columns provided vs expected model features
+        expected_feature_count = 82  # Full model feature count
+        provided_columns = len(df.columns)
+        data_completeness_pct = (provided_columns / expected_feature_count) * 100
         
         # Map common column names to our expected features
         # This handles variations in column naming
@@ -294,16 +300,30 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
         }
         
         extracted_data = {}
+        columns_provided_count = 0
         
         for target_feature, possible_names in feature_mapping.items():
             for col_name in possible_names:
                 if col_name in df.columns:
                     value = patient_row[col_name]
+                    columns_provided_count += 1
                     # Handle NaN values
                     if pd.isna(value):
                         value = 0
                     extracted_data[target_feature] = value
                     break
+        
+        # Calculate actual data completeness based on key clinical features
+        key_clinical_features = [
+            'prior_admissions', 'comorbidity_count', 'age_numeric', 
+            'num_medications', 'time_in_hospital', 'number_diagnoses'
+        ]
+        features_provided = sum(1 for f in key_clinical_features if f in extracted_data)
+        data_completeness_pct = (features_provided / len(key_clinical_features)) * 100
+        
+        # Store completeness info for UI display
+        extracted_data['data_completeness_pct'] = data_completeness_pct
+        extracted_data['is_low_completeness'] = data_completeness_pct < 20.0
         
         # Special handling for age group conversion
         if 'age_numeric' in extracted_data:
@@ -462,6 +482,10 @@ with st.sidebar:
                     st.session_state['parsed_patient_data'] = parsed_data
                     st.session_state['processed_file_name'] = uploaded_file.name
                     
+                    # Store completeness info for prediction-time adjustment
+                    st.session_state['data_completeness_pct'] = parsed_data.get('data_completeness_pct', 100.0)
+                    st.session_state['data_completeness_low'] = parsed_data.get('is_low_completeness', False)
+                    
                     st.success(f"✅ Successfully loaded data from {uploaded_file.name}")
                     
                     # Show preview with human-readable labels
@@ -469,8 +493,9 @@ with st.sidebar:
                         # Display with friendly names where available
                         friendly_data = {}
                         for key, value in parsed_data.items():
-                            display_name = FEATURE_DISPLAY_NAMES.get(key, key)
-                            friendly_data[display_name] = value
+                            if key not in ['data_completeness_pct', 'is_low_completeness']:
+                                display_name = FEATURE_DISPLAY_NAMES.get(key, key)
+                                friendly_data[display_name] = value
                         st.json(friendly_data)
                     
                     # Trigger a single rerun to ensure widgets render with fresh state
@@ -979,16 +1004,33 @@ with tab1:
                 # Get prediction
                 result = predictor.predict(patient_data, return_shap=True)
                 
-                # Store in session state for Tab 2
-                st.session_state.current_risk_score = result['risk_score']
-                # Clinical Severity Score is now simply raw_probability * 100 (absolute scale)
-                st.session_state.clinical_severity_score = result['risk_score'] * 100
+                # Store raw probability from calibrated model
+                raw_risk_score = result['risk_score']
+                
+                # Check data completeness for confidence adjustment
+                is_low_completeness = st.session_state.get('data_completeness_low', False)
+                baseline_readmission_rate = 0.11  # Dataset baseline (~11%)
+                
+                # Apply completeness penalty if data is insufficient
+                if is_low_completeness:
+                    # Pull severity toward baseline (11%) when data is <20% complete
+                    # This prevents median-imputed features from artificially inflating risk
+                    completeness_factor = st.session_state.get('data_completeness_pct', 10.0) / 20.0
+                    adjusted_risk_score = (raw_risk_score * completeness_factor) + \
+                                         (baseline_readmission_rate * (1 - completeness_factor))
+                    st.session_state.current_risk_score = adjusted_risk_score
+                    st.session_state.clinical_severity_score = adjusted_risk_score * 100
+                    st.session_state.is_low_confidence = True
+                else:
+                    st.session_state.current_risk_score = raw_risk_score
+                    st.session_state.clinical_severity_score = raw_risk_score * 100
+                    st.session_state.is_low_confidence = False
                 
                 # Calculate risk_category locally based on raw probability thresholds
-                raw_probability = result['risk_score']
-                if raw_probability <= 0.30:
+                risk_score_for_categorization = st.session_state.current_risk_score
+                if risk_score_for_categorization <= 0.30:
                     risk_category = "Low"
-                elif raw_probability <= 0.60:
+                elif risk_score_for_categorization <= 0.60:
                     risk_category = "Moderate"
                 else:
                     risk_category = "High"
@@ -1001,7 +1043,7 @@ with tab1:
                 
                 with col1:
                     # Use the Clinical Severity Score from model (raw_prob * 100)
-                    severity_score = result['risk_score'] * 100
+                    severity_score = st.session_state.clinical_severity_score
                     st.metric(
                         "Clinical Severity Score",
                         f"{severity_score:.0f}/100",
@@ -1015,7 +1057,13 @@ with tab1:
                         "Moderate": "Increased Surveillance",
                         "High": "Immediate Intervention"
                     }
-                    urgency_level = urgency_mapping.get(risk_category, risk_category)
+                    
+                    # Override urgency text for low-confidence predictions
+                    if st.session_state.is_low_confidence:
+                        urgency_level = "Requires More Data - Estimate Only"
+                    else:
+                        urgency_level = urgency_mapping.get(risk_category, risk_category)
+                    
                     st.metric(
                         "Urgency Level",
                         urgency_level,
@@ -1024,9 +1072,16 @@ with tab1:
                     )
                 
                 with col3:
+                    # Display confidence level
+                    confidence_pct = st.session_state.get('data_completeness_pct', 100.0)
+                    if st.session_state.is_low_confidence:
+                        confidence_display = f"Low ({confidence_pct:.0f}%)"
+                    else:
+                        confidence_display = f"High ({min(confidence_pct, 100):.0f}%)"
+                    
                     st.metric(
-                        "Prediction",
-                        result['prediction_label'],
+                        "Confidence Level",
+                        confidence_display,
                         delta=None
                     )
                 

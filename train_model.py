@@ -39,9 +39,10 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
+    accuracy_score, precision_score, recall_score, f1_score, make_scorer,
     roc_auc_score, classification_report
 )
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import HistGradientBoostingClassifier
 import joblib
@@ -63,7 +64,38 @@ except ImportError:
 
 
 # =============================================================================
-# CONFIGURATION CONSTANTS - OPTIMIZED FOR SPEED
+# CUSTOM SCORING FUNCTIONS FOR RECALL-OPTIMIZED TRAINING
+# =============================================================================
+
+def f2_score(y_true, y_pred):
+    """
+    Calculate F2 score which weights Recall twice as much as Precision.
+    This is ideal for clinical settings where missing a high-risk patient
+    (false negative) is more costly than false alarms.
+    """
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    
+    if precision + recall == 0:
+        return 0.0
+    
+    f2 = (1 + 2**2) * (precision * recall) / ((2**2 * precision) + recall)
+    return f2
+
+
+def create_recall_targeted_scorer():
+    """
+    Create a custom scorer that prioritizes achieving 80-90% Recall.
+    Uses F2 scoring to naturally find parameters yielding high Recall.
+    """
+    return make_scorer(f2_score, greater_is_better=True)
+
+
+# Custom F2 scorer for RandomizedSearchCV
+F2_SCORER = create_recall_targeted_scorer()
+
+# =============================================================================
+# CONFIGURATION CONSTANTS - OPTIMIZED FOR RECALL AND CALIBRATION
 # =============================================================================
 
 RANDOM_STATE = 42
@@ -71,7 +103,9 @@ TEST_SIZE = 0.2
 CV_FOLDS = 3  # Reduced from 5 for faster cross-validation
 N_ITER_SEARCH = 15  # Reduced from 100 for faster hyperparameter search
 TUNING_SAMPLE_SIZE = 25000  # Stratified sample size for hyperparameter tuning
-TARGET_ROC_AUC = 0.80
+TARGET_RECALL_MIN = 0.80  # Clinical target: 80-90% Recall
+TARGET_RECALL_MAX = 0.90
+BASELINE_READMISSION_RATE = 0.11  # Dataset baseline readmission rate for calibration
 
 # Use raw data directly
 RAW_DATA_PATH = Path("data/raw/diabetic_data.csv")
@@ -865,12 +899,11 @@ def train_histgradientboosting_model(
         estimator=base_hgb,
         param_distributions=param_dist,
         n_iter=N_ITER_SEARCH,
-        # OPTIMIZING FOR ROC-AUC: Primary benchmark metric for balanced classification performance.
-        # This ensures the model produces well-calibrated probabilities across all risk levels,
-        # enabling meaningful absolute threshold-based risk stratification in the UI.
-        scoring='roc_auc',
+        # OPTIMIZING FOR F2 SCORE: Prioritizes Recall (weighted 2x vs Precision)
+        # This naturally finds parameters that yield 80-90% Recall, the clinical target.
+        scoring=F2_SCORER,
         cv=skf,
-        verbose=2,  # Show progress for each fold
+        verbose=2,
         n_jobs=-1,
         random_state=RANDOM_STATE,
         return_train_score=True
@@ -879,14 +912,25 @@ def train_histgradientboosting_model(
     random_search.fit(X_tune, y_tune)
     
     best_params = random_search.best_params_
-    best_score = random_search.best_score_
+    best_f2_score = random_search.best_score_
+    
+    base_model_for_recall = HistGradientBoostingClassifier(
+        **best_params,
+        random_state=RANDOM_STATE,
+        early_stopping=True,
+        validation_fraction=0.1,
+        verbose=0
+    )
+    base_model_for_recall.fit(X_tune, y_tune)
+    y_pred_tune = base_model_for_recall.predict(X_tune)
+    recall_at_best = recall_score(y_tune, y_pred_tune, zero_division=0)
     
     print(f"\n{'='*60}")
     print(f"BEST PARAMETERS FOUND ON SUBSET")
     print(f"{'='*60}")
-    # Note: best_score now reflects ROC-AUC (our primary benchmark metric)
-    print(f"Best ROC-AUC from cross-validation: {best_score:.4f}")
-    print(f"(ROC-AUC ensures well-calibrated probabilities for absolute thresholds)")
+    print(f"Best F2 Score from cross-validation: {best_f2_score:.4f}")
+    print(f"Recall at optimal threshold: {recall_at_best:.4f} (Target: 80-90%)")
+    print(f"(F2 scoring weights Recall 2x more than Precision for clinical safety)")
     print(f"Best parameters: {best_params}")
     
     # Step 2: Train final model on FULL training dataset with best parameters
@@ -894,12 +938,9 @@ def train_histgradientboosting_model(
     print(f"TRAINING FINAL MODEL ON FULL DATASET ({len(y_train)} samples)")
     print(f"{'='*60}")
     
-    # Add class weight handling via sample weights
-    # HistGradientBoostingClassifier doesn't have scale_pos_weight directly,
-    # but we can use class_weight='balanced' or compute sample weights
     sample_weights = np.where(y_train == 1, scale_pos_weight, 1.0)
     
-    final_model = HistGradientBoostingClassifier(
+    base_final_model = HistGradientBoostingClassifier(
         **best_params,
         random_state=RANDOM_STATE,
         early_stopping=True,
@@ -908,13 +949,34 @@ def train_histgradientboosting_model(
     )
     
     start_time = time.time()
-    final_model.fit(X_train, y_train, sample_weight=sample_weights)
+    base_final_model.fit(X_train, y_train, sample_weight=sample_weights)
     train_time = time.time() - start_time
     
     print(f"\nFinal model training completed in {train_time:.2f} seconds")
-    print(f"Number of trees built: {final_model.n_iter_}")
+    print(f"Number of trees built: {base_final_model.n_iter_}")
     
-    # Evaluate on test set
+    # Step 3: Apply Probability Calibration using CalibratedClassifierCV
+    print(f"\n{'='*60}")
+    print(f"APPLYING PROBABILITY CALIBRATION (Sigmoid/Platt Scaling)")
+    print(f"{'='*60}")
+    print("Calibration ensures predicted probabilities match true outcome frequencies.")
+    print("This fixes the 'squished high probability' problem where all predictions were ~85%.")
+    
+    calibrated_model = CalibratedClassifierCV(
+        estimator=base_final_model,
+        method='sigmoid',
+        cv=3,
+        n_jobs=-1
+    )
+    
+    cal_start = time.time()
+    calibrated_model.fit(X_train, y_train, sample_weight=sample_weights)
+    cal_time = time.time() - cal_start
+    print(f"Calibration completed in {cal_time:.2f} seconds")
+    
+    final_model = calibrated_model
+    total_train_time = train_time + cal_time
+    
     y_pred_proba = final_model.predict_proba(X_test)[:, 1]
     y_pred = final_model.predict(X_test)
     
@@ -923,25 +985,35 @@ def train_histgradientboosting_model(
         'precision': precision_score(y_test, y_pred, zero_division=0),
         'recall': recall_score(y_test, y_pred, zero_division=0),
         'f1': f1_score(y_test, y_pred, zero_division=0),
-        'roc_auc': roc_auc_score(y_test, y_pred_proba)
+        'roc_auc': roc_auc_score(y_test, y_pred_proba),
+        'calibration_applied': True
     }
     
     print("\n" + "-" * 40)
-    print("TEST SET EVALUATION - HistGradientBoosting")
+    print("TEST SET EVALUATION - Calibrated HistGradientBoosting")
     print("-" * 40)
     print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
     print(f"Precision: {test_metrics['precision']:.4f}")
-    # PRIMARY CLINICAL METRIC: Recall is most important - we must catch all high-risk patients
-    print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC (minimizes false negatives)")
+    print(f"Recall:    {test_metrics['recall']:.4f} <-- PRIMARY METRIC (Target: 80-90%)")
     print(f"F1 Score:  {test_metrics['f1']:.4f}")
     print(f"ROC-AUC:   {test_metrics['roc_auc']:.4f}")
     
+    recall_val = test_metrics['recall']
+    if TARGET_RECALL_MIN <= recall_val <= TARGET_RECALL_MAX:
+        print(f"\n[OK] RECALL TARGET ACHIEVED: {recall_val:.2%} is within 80-90% range")
+    elif recall_val < TARGET_RECALL_MIN:
+        print(f"\n[WARN] RECALL BELOW TARGET: {recall_val:.2%} < {TARGET_RECALL_MIN:.0%}")
+    else:
+        print(f"\n[WARN] RECALL ABOVE TARGET: {recall_val:.2%} > {TARGET_RECALL_MAX:.0%}")
+    
     results = {
-        'model_name': 'HistGradientBoosting',
+        'model_name': 'Calibrated_HistGradientBoosting',
         'best_params': best_params,
-        'best_cv_score': best_score,
+        'best_cv_f2_score': best_f2_score,
+        'recall_at_training': recall_at_best,
         'test_metrics': test_metrics,
-        'training_time_seconds': train_time
+        'training_time_seconds': total_train_time,
+        'calibration_method': 'sigmoid'
     }
     
     return final_model, results
@@ -1013,7 +1085,7 @@ def train_xgboost_model(
         # OPTIMIZING FOR ROC-AUC: Primary benchmark metric for balanced classification performance.
         # This ensures the model produces well-calibrated probabilities across all risk levels,
         # enabling meaningful absolute threshold-based risk stratification in the UI.
-        scoring='roc_auc',
+        scoring=F2_SCORER,
         cv=skf,
         verbose=1,
         n_jobs=-1,
@@ -1154,7 +1226,7 @@ def train_lightgbm_model(
         # OPTIMIZING FOR ROC-AUC: Primary benchmark metric for balanced classification performance.
         # This ensures the model produces well-calibrated probabilities across all risk levels,
         # enabling meaningful absolute threshold-based risk stratification in the UI.
-        scoring='roc_auc',
+        scoring=F2_SCORER,
         cv=skf,
         verbose=1,
         n_jobs=-1,

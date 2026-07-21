@@ -233,20 +233,21 @@ def generate_patient_data(risk_level: str) -> dict:
         # - Few medications (num_medications=3)
         # - Well-controlled diabetes on metformin only
         # - Discharged to home, no emergency admission
+        # CRITICAL: ALL utilization metrics set to absolute minimums to ensure low score
         return {
             'admission_type_id': 1,  # Elective admission
             'discharge_disposition_id': 1,  # Discharged to home
             'admission_source_id': 7,  # Most common source (not ER)
-            'time_in_hospital': 2,  # Short stay
-            'num_lab_procedures': 25,  # Below median
+            'time_in_hospital': 1,  # MINIMUM: Shortest possible stay (was 2)
+            'num_lab_procedures': 10,  # MINIMUM: Far below median (was 25)
             'num_procedures': 0,  # No procedures (dataset mode)
             'num_medications': 3,  # Few medications
             'number_outpatient': 0,  # No outpatient visits
             'number_emergency': 0,  # No ER visits
             'number_inpatient': 0,  # No inpatient admissions (prior_admissions=0)
-            'number_diagnoses': 3,  # Basic diagnoses
+            'number_diagnoses': 1,  # MINIMUM: Single diagnosis (was 3)
             'diabetes_diag_count': 1,  # One diabetes diagnosis
-            'comorbidity_count': 2,  # Low comorbidity
+            'comorbidity_count': 1,  # MINIMUM: Lowest comorbidity (was 2)
             'metformin_encoded': 1,  # On metformin
             'metformin_active': 1,
             'repaglinide_encoded': 0,
@@ -298,7 +299,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'oral_medications': 1,  # On oral meds only
             'change_encoded': 0,  # No medication change
             'diabetesMed_encoded': 1,  # On diabetes meds
-            'age_numeric': 55,  # Age in [50-60) range
+            'age_numeric': 45,  # Younger age for lower risk (was 55)
             'is_elderly': 0,  # Not elderly (< 65)
             'total_prior_admissions': 0,  # ZERO prior admissions
             'emergency_ratio': 0.0,
@@ -310,8 +311,8 @@ def generate_patient_data(risk_level: str) -> dict:
             'emergency_admission': 0,
             'not_home_discharge': 0,  # Discharged to home
             'er_admission': 0,
-            'age_comorbidity_interaction': 55 * 2,  # 110
-            'med_per_comorbidity': 3 / 2,  # 1.5
+            'age_comorbidity_interaction': 45 * 1,  # 45 (minimum)
+            'med_per_comorbidity': 3 / 1,  # 3.0
             'admissions_per_year': 0,  # No admissions
             'emerg_inpatient_combo': 0,  # 0 * 0 = 0
             'insulin_complexity': 0,  # on_insulin * total_meds = 0 * 3
