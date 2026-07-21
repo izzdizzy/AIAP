@@ -273,14 +273,6 @@ For partial CSV uploads (<20% of key clinical features provided):
 | **python-dotenv** | Environment variable management |
 | **openpyxl** | Excel file support |
 
-## Screenshots
-
-> *Add screenshots here after running the application*
-
-1. **Risk Assessment Tab**: Show clinical severity score, urgency level, SHAP analysis
-2. **Care Navigation Tab**: Display chat interface with AI-generated advice
-3. **CSV Upload**: Demonstrate file upload and data preview
-4. **Sidebar**: Manual input form with 6 clinical features
 
 ## Important Notes
 
@@ -299,10 +291,4 @@ For partial CSV uploads (<20% of key clinical features provided):
 - **Transparency**: SHAP analysis provides explainability for each prediction
 - **Privacy**: No patient data is stored or transmitted externally (except Gen AI API calls)
 
-## License
-
-[Add license information here]
-
-## Contact
-
-[Add contact information here]
+#
