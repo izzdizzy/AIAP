@@ -171,7 +171,7 @@ RISK SCORE INTERPRETATION:
             temperature=0.2,  # Low temperature for deterministic, non-repetitive outputs
             top_p=0.9,
             top_k=40,
-            max_output_tokens=512,
+            max_output_tokens=1024,  # Increased from 512 to prevent premature truncation
             candidate_count=1
         )
         

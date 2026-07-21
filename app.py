@@ -283,11 +283,44 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
         if 'symptoms' in extracted_data:
             symptoms_str = str(extracted_data['symptoms'])
             if symptoms_str and symptoms_str.lower() != 'nan' and symptoms_str.strip():
-                # Split by comma and strip whitespace
-                symptom_list = [s.strip() for s in symptoms_str.split(',')]
-                # Title case each symptom for matching
-                symptom_list = [s.title() for s in symptom_list if s.strip()]
-                extracted_data['symptoms_list'] = symptom_list
+                # Split by comma and strip whitespace to get individual symptoms
+                raw_symptom_list = [s.strip() for s in symptoms_str.split(',')]
+                
+                # Define the valid symptom options that match the multiselect widget
+                # These must exactly match the options defined in app.py symptom_options list
+                # Note: We use lower() for case-insensitive comparison since .title() 
+                # converts "frequent urination" to "Frequent Urination" (not "Frequent urination")
+                valid_symptom_options_lower = [
+                    "fatigue", "frequent urination", "excessive thirst",
+                    "blurred vision", "slow-healing sores", "tingling in hands/feet",
+                    "increased hunger", "unexplained weight loss", "dry skin",
+                    "frequent infections", "irritability", "nausea",
+                    "headache", "dizziness", "shortness of breath",
+                    "chest pain", "swelling in legs", "vision changes"
+                ]
+                
+                # Original symptom options for proper display (matching multiselect widget)
+                valid_symptom_options_display = [
+                    "Fatigue", "Frequent urination", "Excessive thirst",
+                    "Blurred vision", "Slow-healing sores", "Tingling in hands/feet",
+                    "Increased hunger", "Unexplained weight loss", "Dry skin",
+                    "Frequent infections", "Irritability", "Nausea",
+                    "Headache", "Dizziness", "Shortness of breath",
+                    "Chest pain", "Swelling in legs", "Vision changes"
+                ]
+                
+                # Filter to only include symptoms that match the available options
+                # Use lower() for case-insensitive matching, then map back to display format
+                valid_symptoms_list = []
+                for symptom in raw_symptom_list:
+                    if symptom:  # Skip empty strings
+                        symptom_lower = symptom.lower()
+                        if symptom_lower in valid_symptom_options_lower:
+                            # Find the index and get the properly formatted display version
+                            idx = valid_symptom_options_lower.index(symptom_lower)
+                            valid_symptoms_list.append(valid_symptom_options_display[idx])
+                
+                extracted_data['symptoms_list'] = valid_symptoms_list
         
         return extracted_data
         
