@@ -517,32 +517,32 @@ with st.sidebar:
         if 'comorbidity_count' in parsed_data:
             st.session_state.comorbidity_count_input = int(parsed_data['comorbidity_count'])
         
-        # age_group_input: convert age_numeric to age group index
+        # age_group_input: store the actual age group STRING (not index) since selectbox returns string
         if 'age_group_display' in parsed_data and parsed_data['age_group_display'] in age_options:
-            st.session_state.age_group_input = age_options.index(parsed_data['age_group_display'])
+            st.session_state.age_group_input = parsed_data['age_group_display']
         elif 'age_numeric' in parsed_data:
             # Fallback: compute age_group_display from age_numeric
             age = int(parsed_data['age_numeric'])
             if age < 10:
-                st.session_state.age_group_input = 0
+                st.session_state.age_group_input = "0-10"
             elif age < 20:
-                st.session_state.age_group_input = 1
+                st.session_state.age_group_input = "10-20"
             elif age < 30:
-                st.session_state.age_group_input = 2
+                st.session_state.age_group_input = "20-30"
             elif age < 40:
-                st.session_state.age_group_input = 3
+                st.session_state.age_group_input = "30-40"
             elif age < 50:
-                st.session_state.age_group_input = 4
+                st.session_state.age_group_input = "40-50"
             elif age < 60:
-                st.session_state.age_group_input = 5
+                st.session_state.age_group_input = "50-60"
             elif age < 70:
-                st.session_state.age_group_input = 6
+                st.session_state.age_group_input = "60-70"
             elif age < 80:
-                st.session_state.age_group_input = 7
+                st.session_state.age_group_input = "70-80"
             elif age < 90:
-                st.session_state.age_group_input = 8
+                st.session_state.age_group_input = "80-90"
             else:
-                st.session_state.age_group_input = 9
+                st.session_state.age_group_input = "90-100"
         
         # medication_count: direct mapping from CSV num_medications
         if 'num_medications' in parsed_data:
@@ -573,7 +573,7 @@ with st.sidebar:
         if "comorbidity_count_input" not in st.session_state:
             st.session_state.comorbidity_count_input = 3
         if "age_group_input" not in st.session_state:
-            st.session_state.age_group_input = 6  # Default to 60-70
+            st.session_state.age_group_input = "60-70"  # Default to 60-70 (string, matching selectbox options)
         if "medication_count_input" not in st.session_state:
             st.session_state.medication_count_input = 5
         if "discharge_diagnosis_input" not in st.session_state:
@@ -694,7 +694,7 @@ with tab1:
         "0-10": 0, "10-20": 10, "20-30": 20, "30-40": 30, "40-50": 40,
         "50-60": 50, "60-70": 60, "70-80": 70, "80-90": 80, "90-100": 90
     }
-    age_encoded = age_mapping.get(age_options[st.session_state.age_group_input] if st.session_state.age_group_input < len(age_options) else "60-70", 60)
+    age_encoded = age_mapping.get(st.session_state.age_group_input, 60)
     
     # Get current values from session state (widgets update these automatically on user interaction)
     curr_prior_admissions = st.session_state.prior_admissions_input
@@ -953,7 +953,7 @@ with tab1:
         summary_data = {
             FEATURE_DISPLAY_NAMES.get('prior_admissions', 'Prior Admissions'): st.session_state.prior_admissions_input,
             FEATURE_DISPLAY_NAMES.get('comorbidity_count', 'Comorbidity Count'): st.session_state.comorbidity_count_input,
-            "Age Group": age_options[st.session_state.age_group_input] if st.session_state.age_group_input < len(age_options) else "Unknown",
+            "Age Group": st.session_state.age_group_input,
             FEATURE_DISPLAY_NAMES.get('num_medications', 'Medication Count'): st.session_state.medication_count_input,
             FEATURE_DISPLAY_NAMES.get('discharge_diagnosis', 'Discharge Diagnosis'): st.session_state.discharge_diagnosis_input,
             FEATURE_DISPLAY_NAMES.get('high_risk_flag', 'High Risk Flag'): "Yes" if st.session_state.high_risk_flag_input == 1 else "No",
