@@ -56,6 +56,7 @@ class CareNavigationAssistant:
     """
     
     # System prompt that enforces Singapore healthcare context with strict formatting rules
+    # Updated to explicitly forbid repetition and prevent infinite loops
     SYSTEM_PROMPT = """
 You are a Care Navigation Assistant for diabetic patients in Singapore. Your role is to provide 
 personalized, actionable healthcare advice based on hospital readmission risk predictions and 
@@ -85,6 +86,14 @@ CRITICAL CONTEXT - SINGAPORE HEALTHCARE SYSTEM:
    - Go to A&E for urgent but non-life-threatening conditions
    - Visit GP or polyclinic for routine care and medication refills
 
+STRICT ANTI-REPETITION RULES - CRITICAL TO FOLLOW:
+1. NEVER repeat content from previous responses - each response must be unique
+2. NEVER include disclaimers, headers, or metadata blocks - these are handled by the UI
+3. NEVER say things like "As mentioned before" or "To reiterate" - always provide fresh information
+4. DO NOT output any section headers like "=== CARE NAVIGATION ADVICE ===" or timestamps
+5. DO NOT include medical disclaimers - they are displayed separately in the UI
+6. Each response should directly answer the user's current question only
+
 STRICT FORMATTING RULES - MUST FOLLOW:
 1. DO NOT use markdown headers (#, ##, ###) under any circumstances. These create huge fonts in the UI.
 2. Use bold text (**text**) for section titles instead of headers.
@@ -109,16 +118,12 @@ YOUR RESPONSE GUIDELINES:
 7. Specify when to seek immediate medical attention vs routine follow-up
 8. Never diagnose - always recommend consulting a healthcare professional
 9. Be concise and avoid repetition - get straight to the point
+10. CRITICAL: Each response must be stateless and self-contained - do not reference prior conversation
 
 RISK SCORE INTERPRETATION:
 - Low Risk (< 0.4): Continue current management, routine follow-ups
 - Medium Risk (0.4 - 0.7): Increase monitoring, consider medication review
 - High Risk (> 0.7): Urgent follow-up recommended, assess medication adherence, check for complications
-
-IMPORTANT DISCLAIMERS TO INCLUDE:
-- This is AI-generated guidance, not medical advice
-- Always consult your doctor for medical decisions
-- In emergencies, call 995 or go to the nearest A&E
 """
 
     def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.5-flash"):
@@ -161,12 +166,12 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
             system_instruction=self.SYSTEM_PROMPT.strip()
         )
         
-        # Generation configuration for balanced responses
+        # Generation configuration with low temperature to prevent looping and ensure consistency
         self.generation_config = genai.types.GenerationConfig(
-            temperature=0.7,  # Balanced creativity vs consistency
+            temperature=0.2,  # Low temperature for deterministic, non-repetitive outputs
             top_p=0.9,
             top_k=40,
-            max_output_tokens=1024,
+            max_output_tokens=512,
             candidate_count=1
         )
         
@@ -249,18 +254,21 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
         patient_symptoms: List[str],
         ml_risk_score: float,
         risk_category: Optional[str] = None,
-        additional_info: Optional[Dict[str, Any]] = None,
+        user_question: str = "Please provide care navigation advice based on my current health status.",
         max_retries: int = 3,
         retry_delay: float = 2.0
     ) -> str:
         """
         Generate personalized care navigation advice using Gemini AI.
         
+        CRITICAL: This function is completely stateless. It does NOT receive or use
+        any chat history. Each call is independent with only the current context.
+        
         Args:
             patient_symptoms: List of patient-reported symptoms
             ml_risk_score: Float value between 0 and 1 representing readmission risk
             risk_category: Optional string category. If None, will be derived from risk_score
-            additional_info: Optional dictionary with additional patient context
+            user_question: The user's current question (default provides general advice)
             max_retries: Maximum number of retry attempts for API calls (default: 3)
             retry_delay: Delay in seconds between retries (default: 2.0)
         
@@ -287,19 +295,39 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
         if risk_category not in valid_categories:
             raise ValueError(f"risk_category must be one of: {valid_categories}")
         
-        # Format the prompt
-        user_prompt = self._format_patient_context(
-            patient_symptoms=patient_symptoms,
-            ml_risk_score=ml_risk_score,
-            risk_category=risk_category,
-            additional_info=additional_info
+        # Build a minimal, focused prompt with ONLY current context
+        # DO NOT include any chat history - this causes repetition loops
+        prompt_parts = []
+        
+        # Current symptoms
+        if patient_symptoms:
+            symptoms_str = ", ".join(patient_symptoms) if isinstance(patient_symptoms, list) else str(patient_symptoms)
+            prompt_parts.append(f"Patient Symptoms: {symptoms_str}")
+        else:
+            prompt_parts.append("Patient Symptoms: None reported")
+        
+        # Risk assessment
+        prompt_parts.append(f"Readmission Risk Score: {ml_risk_score:.2f} ({ml_risk_score*100:.1f}%)")
+        prompt_parts.append(f"Risk Category: {risk_category}")
+        
+        # User's current question
+        prompt_parts.append(f"\nPatient Question: {user_question}")
+        
+        # Clear instruction to answer the specific question
+        prompt_parts.append(
+            "\nProvide a concise, direct answer to the patient's question above. "
+            "Include relevant guidance about their risk level and symptoms. "
+            "Do NOT repeat disclaimers or metadata - those are handled by the UI. "
+            "Do NOT reference previous conversations."
         )
+        
+        user_prompt = "\n".join(prompt_parts)
         
         # Attempt API call with retry logic
         last_exception = None
         for attempt in range(max_retries):
             try:
-                # Generate response
+                # Generate response - completely stateless, no chat history
                 response = self.model.generate_content(
                     contents=user_prompt,
                     generation_config=self.generation_config
@@ -309,14 +337,8 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
                 if response and response.text:
                     advice_text = response.text.strip()
                     
-                    # Add timestamp and disclaimer
-                    full_response = self._add_disclaimer_and_metadata(
-                        advice=advice_text,
-                        risk_score=ml_risk_score,
-                        risk_category=risk_category
-                    )
-                    
-                    return full_response
+                    # Return raw advice text - UI handles disclaimers separately
+                    return advice_text
                 else:
                     raise RuntimeError("Empty response received from API")
             

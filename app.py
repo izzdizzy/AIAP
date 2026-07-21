@@ -234,6 +234,7 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
             'on_insulin': ['on_insulin', 'insulin_therapy'],
             'change_encoded': ['change_encoded', 'medication_change'],
             'diabetesMed_encoded': ['diabetesMed_encoded', 'diabetes_medication'],
+            'symptoms': ['symptoms', 'patient_symptoms', 'reported_symptoms'],
         }
         
         extracted_data = {}
@@ -278,6 +279,16 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
             flag_val = extracted_data['high_risk_flag']
             extracted_data['high_risk_display'] = "Yes" if flag_val == 1 or (isinstance(flag_val, str) and flag_val.lower() == 'yes') else "No"
         
+        # Handle symptoms column - split by comma and map to symptom options
+        if 'symptoms' in extracted_data:
+            symptoms_str = str(extracted_data['symptoms'])
+            if symptoms_str and symptoms_str.lower() != 'nan' and symptoms_str.strip():
+                # Split by comma and strip whitespace
+                symptom_list = [s.strip() for s in symptoms_str.split(',')]
+                # Title case each symptom for matching
+                symptom_list = [s.title() for s in symptom_list if s.strip()]
+                extracted_data['symptoms_list'] = symptom_list
+        
         return extracted_data
         
     except Exception as e:
@@ -306,31 +317,8 @@ with st.sidebar:
     if uploaded_file is not None:
         parsed_data = parse_uploaded_file(uploaded_file)
         if parsed_data:
-            # CRITICAL FIX: Explicitly overwrite session state for all widget keys
-            # This ensures the form immediately reflects the uploaded data
-            
-            # Clear any previous parsed data first
-            if 'parsed_patient_data' in st.session_state:
-                del st.session_state['parsed_patient_data']
-            
-            # Store new parsed data
+            # Store parsed data in session state - widgets will read from this during initialization
             st.session_state['parsed_patient_data'] = parsed_data
-            
-            # EXPLICITLY overwrite widget session state keys to force UI update
-            if 'prior_admissions' in parsed_data:
-                st.session_state['prior_admissions_input'] = int(parsed_data['prior_admissions'])
-            if 'comorbidity_count' in parsed_data:
-                st.session_state['comorbidity_count_input'] = int(parsed_data['comorbidity_count'])
-            if 'num_medications' in parsed_data:
-                st.session_state['medication_count_input'] = int(parsed_data['num_medications'])
-            if 'discharge_diagnosis' in parsed_data:
-                st.session_state['discharge_diagnosis_input'] = str(parsed_data['discharge_diagnosis'])
-            if 'age_group_display' in parsed_data:
-                age_options = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"]
-                if parsed_data['age_group_display'] in age_options:
-                    st.session_state['age_group_input'] = age_options.index(parsed_data['age_group_display'])
-            if 'high_risk_display' in parsed_data:
-                st.session_state['high_risk_flag_input'] = 1 if parsed_data['high_risk_display'] == "Yes" else 0
             
             st.success(f"✅ Successfully loaded data from {uploaded_file.name}")
             
@@ -346,18 +334,50 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("Clinical Features")
     
-    # Initialize form fields from session state or use defaults
-    if 'parsed_patient_data' not in st.session_state:
-        st.session_state['parsed_patient_data'] = {}
+    # Initialize session state keys for all form widgets BEFORE the widgets are declared
+    # This follows Streamlit's best practices to avoid widget warnings
+    if "prior_admissions_input" not in st.session_state:
+        st.session_state.prior_admissions_input = 1
+    if "comorbidity_count_input" not in st.session_state:
+        st.session_state.comorbidity_count_input = 3
+    if "age_group_input" not in st.session_state:
+        st.session_state.age_group_input = 6  # Default to 60-70
+    if "medication_count_input" not in st.session_state:
+        st.session_state.medication_count_input = 5
+    if "discharge_diagnosis_input" not in st.session_state:
+        st.session_state.discharge_diagnosis_input = "250.01"
+    if "high_risk_flag_input" not in st.session_state:
+        st.session_state.high_risk_flag_input = 0
+    if "symptoms_multiselect" not in st.session_state:
+        st.session_state.symptoms_multiselect = []
     
-    parsed_data = st.session_state['parsed_patient_data']
+    # Handle uploaded file data - update session state before widgets render
+    parsed_data = st.session_state.get('parsed_patient_data', {})
+    if parsed_data:
+        if 'prior_admissions' in parsed_data:
+            st.session_state.prior_admissions_input = int(parsed_data['prior_admissions'])
+        if 'comorbidity_count' in parsed_data:
+            st.session_state.comorbidity_count_input = int(parsed_data['comorbidity_count'])
+        if 'num_medications' in parsed_data:
+            st.session_state.medication_count_input = int(parsed_data['num_medications'])
+        if 'discharge_diagnosis' in parsed_data:
+            st.session_state.discharge_diagnosis_input = str(parsed_data['discharge_diagnosis'])
+        if 'age_group_display' in parsed_data:
+            age_options = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"]
+            if parsed_data['age_group_display'] in age_options:
+                st.session_state.age_group_input = age_options.index(parsed_data['age_group_display'])
+        if 'high_risk_display' in parsed_data:
+            st.session_state.high_risk_flag_input = 1 if parsed_data['high_risk_display'] == "Yes" else 0
+        # Handle symptoms from uploaded file
+        if 'symptoms_list' in parsed_data:
+            st.session_state.symptoms_multiselect = parsed_data['symptoms_list']
     
     # 6 Clinical Features from the dataset - using human-readable labels
+    # NOTE: Do NOT pass value=st.session_state[...] - let Streamlit manage widget state via key
     prior_admissions = st.number_input(
         FEATURE_DISPLAY_NAMES.get('prior_admissions', "Prior Admissions (last 12 months)"),
         min_value=0,
         max_value=50,
-        value=int(parsed_data.get('prior_admissions', 1)) if 'prior_admissions' in parsed_data else 1,
         key="prior_admissions_input",
         help="Number of hospital admissions in the past 12 months"
     )
@@ -366,22 +386,13 @@ with st.sidebar:
         FEATURE_DISPLAY_NAMES.get('comorbidity_count', "Comorbidity Count"),
         min_value=0,
         max_value=20,
-        value=int(parsed_data.get('comorbidity_count', 3)) if 'comorbidity_count' in parsed_data else 3,
         key="comorbidity_count_input",
         help="Number of co-existing medical conditions"
     )
     
-    # Age group with pre-filled value from uploaded file
-    default_age_index = 6  # Default to 60-70
-    if 'age_group_display' in parsed_data:
-        age_options = ["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"]
-        if parsed_data['age_group_display'] in age_options:
-            default_age_index = age_options.index(parsed_data['age_group_display'])
-    
     age_group = st.selectbox(
         "Age Group",
         options=["0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"],
-        index=default_age_index,
         key="age_group_input",
         help="Patient age group (mapped to dataset encoding)"
     )
@@ -390,27 +401,19 @@ with st.sidebar:
         FEATURE_DISPLAY_NAMES.get('num_medications', "Medication Count"),
         min_value=0,
         max_value=50,
-        value=int(parsed_data.get('num_medications', 5)) if 'num_medications' in parsed_data else 5,
         key="medication_count_input",
         help="Number of medications prescribed"
     )
     
     discharge_diagnosis = st.text_input(
         FEATURE_DISPLAY_NAMES.get('discharge_diagnosis', "Discharge Diagnosis (ICD Code)"),
-        value=str(parsed_data.get('discharge_diagnosis', "250.01")) if 'discharge_diagnosis' in parsed_data else "250.01",
         key="discharge_diagnosis_input",
         help="Primary diagnosis code at discharge (e.g., 250.01 for diabetes)"
     )
     
-    # High risk flag with pre-filled value
-    default_risk_index = 0
-    if 'high_risk_display' in parsed_data:
-        default_risk_index = 1 if parsed_data['high_risk_display'] == "Yes" else 0
-    
     high_risk_flag = st.selectbox(
         FEATURE_DISPLAY_NAMES.get('high_risk_flag', "High Risk Flag"),
         options=["No", "Yes"],
-        index=default_risk_index,
         key="high_risk_flag_input",
         help="Whether patient is flagged as high risk"
     )
@@ -431,7 +434,6 @@ with st.sidebar:
     selected_symptoms = st.multiselect(
         "Current Symptoms",
         options=symptom_options,
-        default=[],
         key="symptoms_multiselect",
         help="Select all symptoms that apply"
     )
@@ -663,7 +665,7 @@ with tab1:
                     and adjust treatment plan.
                     """)
                 
-                # SHAP Analysis with human-readable feature names
+                # SHAP Analysis with human-readable feature names and high-contrast visualization
                 if 'feature_importance' in result and result['feature_importance']:
                     st.markdown("### 🔍 Key Risk Factors (SHAP Analysis)")
                     
@@ -674,20 +676,74 @@ with tab1:
                         lambda x: FEATURE_DISPLAY_NAMES.get(x, x)
                     )
                     
-                    # Display top factors with friendly names
+                    # Create a high-contrast matplotlib bar chart for SHAP values
+                    import matplotlib.pyplot as plt
+                    
+                    # Set up the figure with explicit white background and dark text
+                    fig, ax = plt.subplots(figsize=(10, 6), facecolor='white')
+                    ax.set_facecolor('white')
+                    
+                    # Get top 10 features by absolute importance
+                    top_n = min(10, len(importance_df))
+                    top_features = importance_df.nlargest(top_n, 'importance')
+                    
+                    # Create color palette: deep red for positive (increasing risk), deep blue for negative (decreasing risk)
+                    colors = []
+                    for _, row in top_features.iterrows():
+                        shap_val = row.get('shap_value', 0)
+                        if shap_val >= 0:
+                            colors.append('#D32F2F')  # Deep red for positive/risk-increasing
+                        else:
+                            colors.append('#1976D2')  # Deep blue for negative/risk-decreasing
+                    
+                    # Create horizontal bar chart with high contrast
+                    y_pos = range(len(top_features))
+                    ax.barh(y_pos, top_features['importance'], color=colors, edgecolor='black', linewidth=0.5)
+                    
+                    # Set labels with dark gray/black color for readability
+                    ax.set_yticks(y_pos)
+                    ax.set_yticklabels(top_features['display_name'], fontsize=11, color='#212121')
+                    ax.set_xlabel('SHAP Importance Value', fontsize=12, color='#212121', fontweight='bold')
+                    ax.set_title('Key Risk Factors Contributing to Readmission Risk', fontsize=14, color='#212121', fontweight='bold')
+                    
+                    # Invert y-axis to show highest importance at top
+                    ax.invert_yaxis()
+                    
+                    # Add grid lines for better readability
+                    ax.grid(axis='x', linestyle='--', alpha=0.3, color='#424242')
+                    
+                    # Ensure tight layout
+                    plt.tight_layout()
+                    
+                    # Display the plot in Streamlit
+                    st.pyplot(fig, bbox_inches='tight')
+                    
+                    # Also display text summary
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write("**Top Contributing Factors:**")
-                        for i, row in importance_df.head(5).iterrows():
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f0f2f6; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #4CAF50;">
-                                    <strong>{row['display_name']}</strong><br/>
-                                    <small style="color: #666;">({row['feature']})</small>: {row['importance']:.4f}
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
+                        for i, (_, row) in enumerate(top_features.head(5).iterrows()):
+                            # Color-code based on risk direction
+                            if row.get('shap_value', 0) >= 0:
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #FFEBEE; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #D32F2F;">
+                                        <strong>{row['display_name']}</strong><br/>
+                                        <small style="color: #666;">({row['feature']})</small>: {row['importance']:.4f}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                            else:
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #E3F2FD; padding: 8px; margin: 5px 0; border-radius: 5px; border-left: 4px solid #1976D2;">
+                                        <strong>{row['display_name']}</strong><br/>
+                                        <small style="color: #666;">({row['feature']})</small>: {row['importance']:.4f}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
                     
                     with col2:
                         st.write("**Positive/Negative Impact:**")
@@ -749,7 +805,7 @@ with tab2:
     user_input = st.chat_input("Type your question here...")
     
     if user_input:
-        # Add user message to history
+        # Add user message to history (for display only)
         st.session_state.chat_history.append({
             "role": "user",
             "content": user_input
@@ -766,11 +822,11 @@ with tab2:
             else:
                 with st.spinner("Generating personalized guidance..."):
                     try:
-                        # Map symptoms to match what user sees
+                        # Get current symptoms and risk score
                         symptom_list = st.session_state.current_symptoms
+                        risk_score = st.session_state.current_risk_score
                         
                         # Determine risk category
-                        risk_score = st.session_state.current_risk_score
                         if risk_score < 0.3:
                             risk_category = "Low"
                         elif risk_score < 0.6:
@@ -778,28 +834,19 @@ with tab2:
                         else:
                             risk_category = "High"
                         
-                        # Create a summarized patient profile for the AI
-                        # Only pass current query + patient profile, NOT full chat history
-                        # This prevents infinite loops and repetition
-                        patient_profile = {
-                            'symptoms': symptom_list,
-                            'risk_score': risk_score,
-                            'risk_category': risk_category
-                        }
-                        
-                        # Generate advice using Gen AI
-                        # Pass only the current user query and summarized patient profile
+                        # Generate advice using Gen AI - completely stateless call
+                        # Only pass current context, NOT chat history
                         advice = assistant.generate_advice(
                             patient_symptoms=symptom_list,
                             ml_risk_score=risk_score,
                             risk_category=risk_category,
-                            additional_info=patient_profile
+                            user_question=user_input
                         )
                         
                         # Display response
                         st.markdown(advice)
                         
-                        # Add to chat history
+                        # Add to chat history (for display only)
                         st.session_state.chat_history.append({
                             "role": "assistant",
                             "content": advice

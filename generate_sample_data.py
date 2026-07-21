@@ -324,7 +324,16 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
     This includes only the key features that doctors would typically have in discharge summaries.
     
     The app's parse_uploaded_file function will map these to the full feature set.
+    
+    Updated to include a 'symptoms' column with realistic diabetes symptoms based on risk level.
     """
+    # Define realistic symptom profiles based on risk level
+    symptom_profiles = {
+        "high": "Fatigue, Frequent urination, Blurred vision, Slow-healing sores, Tingling in hands/feet, Excessive thirst",
+        "moderate": "Fatigue, Frequent urination, Mild thirst, Occasional blurred vision",
+        "low": "None, Mild thirst"
+    }
+    
     # Simplified features that are commonly available in discharge summaries
     simplified = {
         'patient_id': f"PATIENT_{risk_level.upper()}_001",
@@ -348,6 +357,7 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
         'on_insulin': patient_data['on_insulin'],
         'change_encoded': patient_data['change_encoded'],
         'diabetesMed_encoded': patient_data['diabetesMed_encoded'],
+        'symptoms': symptom_profiles.get(risk_level, "None"),  # Add symptoms column
     }
     return simplified
 
