@@ -946,8 +946,7 @@ def train_histgradientboosting_model(
         random_state=RANDOM_STATE,
         early_stopping=True,
         validation_fraction=0.1,
-        verbose=1,
-        class_weight='balanced'
+        verbose=1
     )
     
     start_time = time.time()
