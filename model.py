@@ -178,6 +178,33 @@ class ReadmissionPredictor:
             print(f"Warning: Failed to initialize SHAP explainer: {str(e)}")
             self.shap_explainer = None
     
+    def _load_optimal_threshold(self) -> None:
+        """
+        Load the optimal threshold from the model metadata file.
+        
+        This threshold is used to optimize recall for readmission prediction.
+        If the metadata file is not found or the threshold is not specified,
+        the default threshold of 0.5 is used.
+        """
+        if DEFAULT_METADATA_PATH.exists():
+            try:
+                with open(DEFAULT_METADATA_PATH, 'r', encoding='utf-8') as f:
+                    metadata = json.load(f)
+                
+                # Try to get the optimal threshold from metadata
+                if 'optimal_threshold_for_80_recall' in metadata:
+                    self.optimal_threshold = metadata['optimal_threshold_for_80_recall']
+                    print(f"Optimal threshold loaded: {self.optimal_threshold}")
+                elif 'results' in metadata and 'optimal_threshold_for_80_recall' in metadata['results']:
+                    self.optimal_threshold = metadata['results']['optimal_threshold_for_80_recall']
+                    print(f"Optimal threshold loaded: {self.optimal_threshold}")
+                else:
+                    print(f"Using default threshold: {self.optimal_threshold}")
+            except Exception as e:
+                print(f"Warning: Failed to load optimal threshold: {str(e)}. Using default: {self.optimal_threshold}")
+        else:
+            print(f"Metadata file not found. Using default threshold: {self.optimal_threshold}")
+    
     def _align_features(self, input_data: pd.DataFrame) -> pd.DataFrame:
         """
         Align input features to match the training data schema.
