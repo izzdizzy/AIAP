@@ -51,6 +51,11 @@ DEFAULT_THRESHOLDS_PATH = Path("outputs/thresholds.json")
 DEFAULT_THRESHOLD_LOW_MODERATE = 0.33  # Placeholder: 33rd percentile
 DEFAULT_THRESHOLD_MODERATE_HIGH = 0.66  # Placeholder: 66th percentile
 
+# Default Min-Max scaling parameters (fallback if thresholds.json not found)
+# Used for Clinical Severity Score calculation (0-100 scale)
+DEFAULT_MIN_PROB = 0.0  # Fallback minimum probability
+DEFAULT_MAX_PROB = 1.0  # Fallback maximum probability
+
 
 # =============================================================================
 # MODEL INFERENCE CLASS
@@ -89,10 +94,15 @@ class ReadmissionPredictor:
         self.feature_columns = None
         self.shap_explainer = None
         
-        # Dynamic risk thresholds for percentile-based categorization
+        # Dynamic risk thresholds for percentile-based categorization (fallback)
         # These ensure meaningful risk stratification even when model is optimized for high Recall
         self.threshold_low_moderate = DEFAULT_THRESHOLD_LOW_MODERATE
         self.threshold_moderate_high = DEFAULT_THRESHOLD_MODERATE_HIGH
+        
+        # Min-Max scaling parameters for Clinical Severity Score (0-100 scale)
+        # Used to stretch the model's tightly clustered probabilities into a full 0-100 range
+        self.min_prob = DEFAULT_MIN_PROB
+        self.max_prob = DEFAULT_MAX_PROB
         
         # Load model and feature schema
         self._load_model(model_path)
@@ -150,19 +160,22 @@ class ReadmissionPredictor:
     
     def _load_thresholds(self, thresholds_path: Path) -> None:
         """
-        Load dynamic risk thresholds from JSON file.
+        Load dynamic risk thresholds and Min-Max scaling parameters from JSON file.
         
         These thresholds are calculated from the test set probability distribution
         during model training to ensure meaningful risk stratification even when
         the model is optimized for high Recall (100% Recall optimization inflates
         all probability scores, so relative percentile-based categorization is used).
         
+        The min_prob and max_prob values are used for Min-Max normalization to convert
+        raw probabilities into a 0-100 Clinical Severity Score.
+        
         Args:
             thresholds_path: Path to the thresholds JSON file
             
         Note:
             If the file doesn't exist or cannot be loaded, falls back to default
-            percentile-based thresholds (33rd and 66th percentiles).
+            percentile-based thresholds (33rd and 66th percentiles) and Min-Max params.
             
         Clinical Context:
             When the model is re-optimized for 100% Recall to minimize false negatives
@@ -170,6 +183,10 @@ class ReadmissionPredictor:
             Using hardcoded thresholds like "Low < 20%, High > 40%" would classify ALL
             patients as High Risk. Instead, we use relative percentiles from the training
             data distribution to ensure meaningful risk stratification.
+            
+            For the Clinical Severity Score, we use Min-Max scaling to stretch the
+            tightly clustered probabilities across the full 0-100 range, ensuring
+            proper differentiation between patients at different risk levels.
         """
         if not thresholds_path.exists():
             print(f"Thresholds file not found at {thresholds_path}. Using default thresholds.")
@@ -179,14 +196,21 @@ class ReadmissionPredictor:
             with open(thresholds_path, 'r') as f:
                 thresholds_data = json.load(f)
             
+            # Load percentile-based thresholds (fallback for backward compatibility)
             self.threshold_low_moderate = thresholds_data.get(
                 'threshold_low_moderate', DEFAULT_THRESHOLD_LOW_MODERATE
             )
             self.threshold_moderate_high = thresholds_data.get(
                 'threshold_moderate_high', DEFAULT_THRESHOLD_MODERATE_HIGH
             )
+            
+            # Load Min-Max scaling parameters for Clinical Severity Score
+            self.min_prob = thresholds_data.get('min_prob', DEFAULT_MIN_PROB)
+            self.max_prob = thresholds_data.get('max_prob', DEFAULT_MAX_PROB)
+            
             print(f"Dynamic thresholds loaded: Low/Moderate={self.threshold_low_moderate:.4f}, "
                   f"Moderate/High={self.threshold_moderate_high:.4f}")
+            print(f"Min-Max scaling params: min_prob={self.min_prob:.4f}, max_prob={self.max_prob:.4f}")
         except Exception as e:
             print(f"Warning: Failed to load thresholds ({e}). Using default thresholds.")
     
@@ -298,16 +322,31 @@ class ReadmissionPredictor:
         prediction = self.model.predict(clean_df)[0]
         risk_score = self.model.predict_proba(clean_df)[0][1]
         
-        # Categorize risk
-        risk_category = self._categorize_risk(risk_score)
+        # Calculate Clinical Severity Score using Min-Max normalization (0-100 scale)
+        # This stretches the model's tightly clustered probabilities across the full range
+        # Formula: severity = ((raw_prob - min_prob) / (max_prob - min_prob)) * 100
+        if self.max_prob > self.min_prob:
+            clinical_severity_score = ((risk_score - self.min_prob) / (self.max_prob - self.min_prob)) * 100
+            # Clamp to 0-100 range to handle edge cases
+            clinical_severity_score = max(0.0, min(100.0, clinical_severity_score))
+        else:
+            # Fallback if max == min (degenerate case)
+            clinical_severity_score = 50.0
+        
+        # Categorize risk based on Clinical Severity Score thresholds (0-100 scale)
+        # 0-40: Routine Monitoring, 41-75: Increased Surveillance, 76-100: Immediate Intervention
+        risk_category = self._categorize_risk_by_severity(clinical_severity_score)
         
         # Compile result
         result = {
             'risk_score': float(risk_score),
             'risk_percentage': float(risk_score * 100),
+            'clinical_severity_score': float(clinical_severity_score),  # New: 0-100 scale
             'risk_category': risk_category,
             'prediction': int(prediction),
-            'prediction_label': 'Readmitted' if prediction == 1 else 'Not Readmitted'
+            'prediction_label': 'Readmitted' if prediction == 1 else 'Not Readmitted',
+            'min_prob': float(self.min_prob),  # Debug info for app
+            'max_prob': float(self.max_prob)   # Debug info for app
         }
         
         # Compute SHAP values if requested and available
@@ -369,6 +408,32 @@ class ReadmissionPredictor:
         if risk_score < self.threshold_low_moderate:
             return "Low"
         elif risk_score < self.threshold_moderate_high:
+            return "Moderate"
+        else:
+            return "High"
+    
+    def _categorize_risk_by_severity(self, severity_score: float) -> str:
+        """
+        Categorize risk based on Clinical Severity Score (0-100 scale).
+        
+        Uses fixed thresholds on the normalized 0-100 severity scale:
+        - Routine Monitoring (Low): 0-40
+        - Increased Surveillance (Moderate): 41-75
+        - Immediate Intervention (High): 76-100
+        
+        This ensures that patients with the highest relative probabilities are
+        correctly flagged for immediate intervention, regardless of the raw
+        probability clustering from the ML model.
+        
+        Args:
+            severity_score: Clinical Severity Score (0-100)
+            
+        Returns:
+            String risk category ("Low", "Moderate", or "High")
+        """
+        if severity_score <= 40:
+            return "Low"
+        elif severity_score <= 75:
             return "Moderate"
         else:
             return "High"

@@ -1462,26 +1462,35 @@ def main():
     # Calculate and save dynamic risk thresholds based on test set probability distribution
     # Thresholds are dynamically calculated from the test set distribution to ensure 
     # meaningful risk stratification even when the model is optimized for high Recall.
-    # This uses percentile-based categorization:
-    #   - Low Risk: Bottom 33% of probability distribution
-    #   - Moderate Risk: Middle 33%
-    #   - High Risk: Top 33%
+    # We save MIN and MAX probabilities for Min-Max normalization in the app.
+    # The app will use Min-Max scaling to convert raw probabilities to 0-100 severity scores.
     try:
         # Get probability predictions on test set
         test_probs = best_model.predict_proba(X_test_final)[:, 1]
         
-        # Calculate 33rd and 66th percentiles
+        # Calculate absolute MIN and MAX probabilities for Min-Max scaling
+        min_prob = float(test_probs.min())
+        max_prob = float(test_probs.max())
+        
+        # Also calculate 33rd and 66th percentiles as fallback reference
         threshold_33 = float(np.percentile(test_probs, 33))
         threshold_66 = float(np.percentile(test_probs, 66))
         
         thresholds_data = {
-            'threshold_low_moderate': threshold_33,  # Below this = Low risk
-            'threshold_moderate_high': threshold_66,  # Above this = High risk
-            'description': 'Percentile-based thresholds for risk categorization',
-            'methodology': 'Low: <33rd percentile, Moderate: 33rd-66th percentile, High: >66th percentile',
+            'min_prob': min_prob,  # Minimum probability for Min-Max scaling
+            'max_prob': max_prob,  # Maximum probability for Min-Max scaling
+            'threshold_low_moderate': threshold_33,  # Fallback: 33rd percentile
+            'threshold_moderate_high': threshold_66,  # Fallback: 66th percentile
+            'description': 'Min-Max scaling parameters for Clinical Severity Score (0-100)',
+            'methodology': 'Severity = ((raw_prob - min_prob) / (max_prob - min_prob)) * 100, clamped to 0-100',
+            'urgency_thresholds': {
+                'routine_monitoring': '0-40',
+                'increased_surveillance': '41-75',
+                'immediate_intervention': '76-100'
+            },
             'test_set_size': len(test_probs),
-            'prob_min': float(test_probs.min()),
-            'prob_max': float(test_probs.max()),
+            'prob_min': min_prob,
+            'prob_max': max_prob,
             'prob_mean': float(test_probs.mean()),
             'prob_median': float(np.median(test_probs))
         }
@@ -1490,8 +1499,10 @@ def main():
         with open(THRESHOLDS_PATH, 'w') as f:
             json.dump(thresholds_data, f, indent=2)
         print(f"Dynamic thresholds saved to: {THRESHOLDS_PATH}")
-        print(f"  - Low/Moderate threshold (33rd percentile): {threshold_33:.4f}")
-        print(f"  - Moderate/High threshold (66th percentile): {threshold_66:.4f}")
+        print(f"  - Min probability (for Min-Max scaling): {min_prob:.4f}")
+        print(f"  - Max probability (for Min-Max scaling): {max_prob:.4f}")
+        print(f"  - Low/Moderate threshold (33rd percentile, fallback): {threshold_33:.4f}")
+        print(f"  - Moderate/High threshold (66th percentile, fallback): {threshold_66:.4f}")
     except Exception as e:
         print(f"Warning: Could not calculate dynamic thresholds: {e}")
         print("Will use default thresholds in app.py")

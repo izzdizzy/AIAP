@@ -647,16 +647,17 @@ with tab1:
                 
                 # Store in session state for Tab 2
                 st.session_state.current_risk_score = result['risk_score']
+                st.session_state.clinical_severity_score = result.get('clinical_severity_score', result['risk_score'] * 100)
                 
                 # Display results
                 st.subheader("Patient Risk Assessment")
                 
-                # Clinical severity score display - reframed from probability to relative severity
+                # Clinical severity score display - using Min-Max normalized 0-100 scale
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    # Convert risk score to 0-100 Clinical Severity Scale
-                    severity_score = result['risk_score'] * 100
+                    # Use the Clinical Severity Score from model (Min-Max normalized 0-100)
+                    severity_score = result.get('clinical_severity_score', result['risk_score'] * 100)
                     st.metric(
                         "Clinical Severity Score",
                         f"{severity_score:.0f}/100",
@@ -814,6 +815,28 @@ with tab1:
                 
                 st.success("✅ Risk assessment complete! Switch to the **Care Navigation** tab for personalized guidance.")
                 
+                # Raw Debug Info Section - shows exact ML model output and CSV feature mapping
+                with st.expander("🔧 Show Raw Debug Info", expanded=False):
+                    st.markdown("**Raw Model Output:**")
+                    st.code(f"Raw Probability: {result['risk_score']:.6f}")
+                    st.code(f"Clinical Severity Score (Min-Max normalized): {result.get('clinical_severity_score', 'N/A'):.2f}" if result.get('clinical_severity_score') else "Clinical Severity Score: N/A")
+                    st.code(f"Min Prob (from training): {result.get('min_prob', 'N/A'):.4f}" if result.get('min_prob') is not None else "Min Prob: N/A")
+                    st.code(f"Max Prob (from training): {result.get('max_prob', 'N/A'):.4f}" if result.get('max_prob') is not None else "Max Prob: N/A")
+                    
+                    st.markdown("**Non-Zero Features from Input Data:**")
+                    # Find features with non-zero values in the patient_data dict
+                    non_zero_features = {k: v for k, v in patient_data.items() if v != 0 and v is not None}
+                    if non_zero_features:
+                        debug_df = pd.DataFrame([
+                            {"Feature": FEATURE_DISPLAY_NAMES.get(k, k), "Key": k, "Value": v}
+                            for k, v in sorted(non_zero_features.items())
+                        ])
+                        st.dataframe(debug_df, use_container_width=True)
+                    else:
+                        st.info("No non-zero features found in input data.")
+                    
+                    st.caption("This debug info helps verify that CSV column mapping is working correctly and high-risk features are reaching the model.")
+                
             except Exception as e:
                 st.error(f"Error generating prediction: {str(e)}")
                 import traceback
@@ -875,25 +898,13 @@ with tab2:
                         # Get current symptoms and risk score
                         symptom_list = st.session_state.current_symptoms
                         risk_score = st.session_state.current_risk_score
+                        severity_score = st.session_state.get('clinical_severity_score', risk_score * 100)
                         
-                        # Determine risk category using the same dynamic thresholds as model.py
-                        # Import predictor to get the actual thresholds
-                        from model import ReadmissionPredictor, DEFAULT_THRESHOLD_LOW_MODERATE, DEFAULT_THRESHOLD_MODERATE_HIGH
-                        
-                        # Try to load predictor to get dynamic thresholds, fallback to defaults
-                        try:
-                            predictor_temp = ReadmissionPredictor()
-                            threshold_low = predictor_temp.threshold_low_moderate
-                            threshold_high = predictor_temp.threshold_moderate_high
-                        except Exception:
-                            # Fallback to default percentile-based thresholds
-                            threshold_low = DEFAULT_THRESHOLD_LOW_MODERATE
-                            threshold_high = DEFAULT_THRESHOLD_MODERATE_HIGH
-                        
-                        # Categorize using dynamic thresholds
-                        if risk_score < threshold_low:
+                        # Determine risk category using Clinical Severity Score thresholds (0-100 scale)
+                        # 0-40: Low (Routine), 41-75: Moderate (Increased Surveillance), 76-100: High (Immediate)
+                        if severity_score <= 40:
                             risk_category = "Low"
-                        elif risk_score < threshold_high:
+                        elif severity_score <= 75:
                             risk_category = "Moderate"
                         else:
                             risk_category = "High"
@@ -937,8 +948,9 @@ with tab2:
     
     with col1:
         if st.session_state.current_risk_score is not None:
-            # Convert to Clinical Severity Score (0-100 scale)
-            severity_score = st.session_state.current_risk_score * 100
+            # Get the Clinical Severity Score from session state or calculate it
+            # The score is now Min-Max normalized (0-100) in the model
+            severity_score = st.session_state.get('clinical_severity_score', st.session_state.current_risk_score * 100)
             st.metric(
                 label="Clinical Severity Score",
                 value=f"{severity_score:.0f}/100",
@@ -956,31 +968,14 @@ with tab2:
     
     with col3:
         if st.session_state.current_risk_score is not None:
-            # Use dynamic percentile-based thresholds from the trained model
-            # Import predictor to get the actual thresholds
-            from model import ReadmissionPredictor, DEFAULT_THRESHOLD_LOW_MODERATE, DEFAULT_THRESHOLD_MODERATE_HIGH
+            # Use Clinical Severity Score thresholds (0-100 scale)
+            # 0-40: Routine Monitoring, 41-75: Increased Surveillance, 76-100: Immediate Intervention
+            severity_score = st.session_state.get('clinical_severity_score', st.session_state.current_risk_score * 100)
             
-            # Try to load predictor to get dynamic thresholds, fallback to defaults
-            try:
-                predictor_temp = ReadmissionPredictor()
-                threshold_low = predictor_temp.threshold_low_moderate
-                threshold_high = predictor_temp.threshold_moderate_high
-            except Exception:
-                # Fallback to default percentile-based thresholds
-                threshold_low = DEFAULT_THRESHOLD_LOW_MODERATE
-                threshold_high = DEFAULT_THRESHOLD_MODERATE_HIGH
-            
-            # Map to clinical urgency levels
-            urgency_mapping = {
-                "Low": "Routine Monitoring",
-                "Moderate": "Increased Surveillance", 
-                "High": "Immediate Intervention"
-            }
-            
-            # Categorize using dynamic thresholds
-            if st.session_state.current_risk_score < threshold_low:
+            # Map to clinical urgency levels based on 0-100 severity scale
+            if severity_score <= 40:
                 st.success("**Urgency Level:** ROUTINE MONITORING")
-            elif st.session_state.current_risk_score < threshold_high:
+            elif severity_score <= 75:
                 st.warning("**Urgency Level:** INCREASED SURVEILLANCE")
             else:
                 st.error("**Urgency Level:** IMMEDIATE INTERVENTION")
