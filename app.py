@@ -75,6 +75,152 @@ from gen_ai import CareNavigationAssistant
 
 
 # =============================================================================
+# CSV TO MODEL FEATURE MAPPING
+# =============================================================================
+# This dictionary provides explicit, strict mapping from CSV column names 
+# to the exact 82 model feature names expected by the trained model.
+# This ensures proper feature alignment during inference.
+# =============================================================================
+
+CSV_TO_MODEL_MAPPING = {
+    # Base admission features
+    'prior_admissions': 'total_prior_admissions',
+    'admission_type_id': 'admission_type_id',
+    'discharge_disposition_id': 'discharge_disposition_id',
+    'admission_source_id': 'admission_source_id',
+    
+    # Hospital stay features
+    'time_in_hospital': 'time_in_hospital',
+    'num_lab_procedures': 'num_lab_procedures',
+    'num_procedures': 'num_procedures',
+    
+    # Medication features
+    'num_medications': 'total_medications',
+    'medication_count': 'total_medications',
+    'total_medications': 'total_medications',
+    
+    # Visit count features
+    'number_outpatient': 'number_outpatient',
+    'outpatient_visits': 'number_outpatient',
+    'number_emergency': 'number_emergency',
+    'emergency_visits': 'number_emergency',
+    'number_inpatient': 'number_inpatient',
+    'inpatient_visits': 'number_inpatient',
+    'inpatient_admissions': 'number_inpatient',
+    
+    # Diagnosis features
+    'number_diagnoses': 'number_diagnoses',
+    'diagnoses_count': 'number_diagnoses',
+    'diabetes_diag_count': 'diabetes_diag_count',
+    'diabetes_diagnoses': 'diabetes_diag_count',
+    'comorbidity_count': 'comorbidity_count',
+    'comorbidities': 'comorbidity_count',
+    'num_comorbidities': 'comorbidity_count',
+    
+    # Age features
+    'age_numeric': 'age_numeric',
+    'age': 'age_numeric',
+    'patient_age': 'age_numeric',
+    
+    # Medication encoding features (individual drugs)
+    'metformin_encoded': 'metformin_encoded',
+    'metformin': 'metformin_encoded',
+    'metformin_active': 'metformin_active',
+    'repaglinide_encoded': 'repaglinide_encoded',
+    'repaglinide_active': 'repaglinide_active',
+    'nateglinide_encoded': 'nateglinide_encoded',
+    'nateglinide_active': 'nateglinide_active',
+    'chlorpropamide_encoded': 'chlorpropamide_encoded',
+    'chlorpropamide_active': 'chlorpropamide_active',
+    'glimepiride_encoded': 'glimepiride_encoded',
+    'glimepiride_active': 'glimepiride_active',
+    'acetohexamide_encoded': 'acetohexamide_encoded',
+    'acetohexamide_active': 'acetohexamide_active',
+    'glipizide_encoded': 'glipizide_encoded',
+    'glipizide_active': 'glipizide_active',
+    'glyburide_encoded': 'glyburide_encoded',
+    'glyburide_active': 'glyburide_active',
+    'tolbutamide_encoded': 'tolbutamide_encoded',
+    'tolbutamide_active': 'tolbutamide_active',
+    'pioglitazone_encoded': 'pioglitazone_encoded',
+    'pioglitazone_active': 'pioglitazone_active',
+    'rosiglitazone_encoded': 'rosiglitazone_encoded',
+    'rosiglitazone_active': 'rosiglitazone_active',
+    'acarbose_encoded': 'acarbose_encoded',
+    'acarbose_active': 'acarbose_active',
+    'miglitol_encoded': 'miglitol_encoded',
+    'miglitol_active': 'miglitol_active',
+    'troglitazone_encoded': 'troglitazone_encoded',
+    'troglitazone_active': 'troglitazone_active',
+    'tolazamide_encoded': 'tolazamide_encoded',
+    'tolazamide_active': 'tolazamide_active',
+    'examide_encoded': 'examide_encoded',
+    'examide_active': 'examide_active',
+    'citoglipton_encoded': 'citoglipton_encoded',
+    'citoglipton_active': 'citoglipton_active',
+    'insulin_encoded': 'insulin_encoded',
+    'insulin': 'insulin_encoded',
+    'insulin_active': 'insulin_active',
+    'insulin_therapy': 'on_insulin',
+    'on_insulin': 'on_insulin',
+    'glyburide-metformin_encoded': 'glyburide-metformin_encoded',
+    'glyburide-metformin_active': 'glyburide-metformin_active',
+    'glipizide-metformin_encoded': 'glipizide-metformin_encoded',
+    'glipizide-metformin_active': 'glipizide-metformin_active',
+    'glimepiride-pioglitazone_encoded': 'glimepiride-pioglitazone_encoded',
+    'glimepiride-pioglitazone_active': 'glimepiride-pioglitazone_active',
+    'metformin-rosiglitazone_encoded': 'metformin-rosiglitazone_encoded',
+    'metformin-rosiglitazone_active': 'metformin-rosiglitazone_active',
+    'metformin-pioglitazone_encoded': 'metformin-pioglitazone_encoded',
+    'metformin-pioglitazone_active': 'metformin-pioglitazone_active',
+    
+    # Derived medication features
+    'oral_medications': 'oral_medications',
+    'change_encoded': 'change_encoded',
+    'medication_change': 'change_encoded',
+    'diabetesMed_encoded': 'diabetesMed_encoded',
+    'diabetes_medication': 'diabetesMed_encoded',
+    
+    # num_medications maps to itself for consistency (also mapped to total_medications)
+    'num_medications': 'num_medications',
+    
+    # Age-derived features
+    'is_elderly': 'is_elderly',
+    
+    # Pre-computed engineered features (can be provided in CSV or calculated)
+    'total_prior_admissions': 'total_prior_admissions',
+    'emergency_ratio': 'emergency_ratio',
+    'inpatient_ratio': 'inpatient_ratio',
+    'long_stay': 'long_stay',
+    'total_procedures': 'total_procedures',
+    'high_lab_utilization': 'high_lab_utilization',
+    'high_diagnosis_count': 'high_diagnosis_count',
+    'emergency_admission': 'emergency_admission',
+    'not_home_discharge': 'not_home_discharge',
+    'er_admission': 'er_admission',
+    
+    # Interaction features
+    'age_comorbidity_interaction': 'age_comorbidity_interaction',
+    'med_per_comorbidity': 'med_per_comorbidity',
+    'admissions_per_year': 'admissions_per_year',
+    'emerg_inpatient_combo': 'emerg_inpatient_combo',
+    'insulin_complexity': 'insulin_complexity',
+    'diabetes_med_intensity': 'diabetes_med_intensity',
+    
+    # User-facing form fields (for manual input / simplified CSV)
+    'discharge_diagnosis': 'discharge_diagnosis',
+    'primary_diagnosis': 'discharge_diagnosis',
+    'diagnosis_code': 'discharge_diagnosis',
+    'high_risk_flag': 'high_risk_flag',
+    'high_risk': 'high_risk_flag',
+    'risk_flag': 'high_risk_flag',
+    'symptoms': 'symptoms',
+    'patient_symptoms': 'symptoms',
+    'reported_symptoms': 'symptoms',
+}
+
+
+# =============================================================================
 # FEATURE DISPLAY NAMES - HUMAN-READABLE LABELS FOR PATIENTS
 # =============================================================================
 
@@ -274,49 +420,38 @@ def parse_uploaded_file(uploaded_file) -> Optional[Dict[str, Any]]:
         provided_columns = len(df.columns)
         data_completeness_pct = (provided_columns / expected_feature_count) * 100
         
-        # Map common column names to our expected features
-        # This handles variations in column naming
-        feature_mapping = {
-            'prior_admissions': ['prior_admissions', 'num_prior_admissions', 'previous_admissions', 'admissions'],
-            'comorbidity_count': ['comorbidity_count', 'comorbidities', 'num_comorbidities'],
-            'age_numeric': ['age_numeric', 'age', 'patient_age'],
-            'num_medications': ['num_medications', 'medication_count', 'medications', 'total_medications'],
-            'discharge_diagnosis': ['discharge_diagnosis', 'primary_diagnosis', 'diagnosis_code'],
-            'high_risk_flag': ['high_risk_flag', 'high_risk', 'risk_flag'],
-            'time_in_hospital': ['time_in_hospital', 'hospital_days', 'length_of_stay'],
-            'num_lab_procedures': ['num_lab_procedures', 'lab_procedures', 'lab_tests'],
-            'num_procedures': ['num_procedures', 'procedures'],
-            'number_outpatient': ['number_outpatient', 'outpatient_visits'],
-            'number_emergency': ['number_emergency', 'emergency_visits'],
-            'number_inpatient': ['number_inpatient', 'inpatient_visits'],
-            'number_diagnoses': ['number_diagnoses', 'diagnoses_count'],
-            'diabetes_diag_count': ['diabetes_diag_count', 'diabetes_diagnoses'],
-            'metformin_encoded': ['metformin_encoded', 'metformin'],
-            'insulin_encoded': ['insulin_encoded', 'insulin'],
-            'on_insulin': ['on_insulin', 'insulin_therapy'],
-            'change_encoded': ['change_encoded', 'medication_change'],
-            'diabetesMed_encoded': ['diabetesMed_encoded', 'diabetes_medication'],
-            'symptoms': ['symptoms', 'patient_symptoms', 'reported_symptoms'],
-        }
-        
         extracted_data = {}
         columns_provided_count = 0
         
-        for target_feature, possible_names in feature_mapping.items():
-            for col_name in possible_names:
-                if col_name in df.columns:
-                    value = patient_row[col_name]
-                    columns_provided_count += 1
-                    # Handle NaN values
-                    if pd.isna(value):
-                        value = 0
-                    extracted_data[target_feature] = value
-                    break
+        # TASK 1: Use explicit CSV_TO_MODEL_MAPPING dictionary for strict column mapping
+        # Iterate through the mapping and apply CSV values to exact model feature names
+        for csv_col, model_feature in CSV_TO_MODEL_MAPPING.items():
+            if csv_col in df.columns:
+                value = patient_row[csv_col]
+                columns_provided_count += 1
+                # Handle NaN values
+                if pd.isna(value):
+                    value = 0
+                extracted_data[model_feature] = value
+        
+        # Special handling for 'prior_admissions' which maps to 'total_prior_admissions'
+        # but also needs to set number_inpatient for derived feature calculation
+        if 'prior_admissions' in df.columns:
+            val = patient_row['prior_admissions']
+            if not pd.isna(val):
+                extracted_data['number_inpatient'] = int(val)
+        
+        # Special handling for 'num_medications' which maps to 'total_medications'
+        # but we also need num_medications for consistency
+        if 'num_medications' in df.columns:
+            val = patient_row['num_medications']
+            if not pd.isna(val):
+                extracted_data['num_medications'] = int(val)
         
         # Calculate actual data completeness based on key clinical features
         key_clinical_features = [
-            'prior_admissions', 'comorbidity_count', 'age_numeric', 
-            'num_medications', 'time_in_hospital', 'number_diagnoses'
+            'total_prior_admissions', 'comorbidity_count', 'age_numeric', 
+            'total_medications', 'time_in_hospital', 'number_diagnoses'
         ]
         features_provided = sum(1 for f in key_clinical_features if f in extracted_data)
         data_completeness_pct = (features_provided / len(key_clinical_features)) * 100
@@ -853,9 +988,10 @@ with tab1:
     patient_data['diabetes_med_intensity'] = patient_data['diabetes_diag_count'] * patient_data['total_medications']
     
     # If we have parsed CSV data, override the defaults with actual CSV values
+    # TASK 2: Apply CSV values using the explicit model feature names from CSV_TO_MODEL_MAPPING
     parsed_data = st.session_state.get('parsed_patient_data', {})
     if parsed_data:
-        # Map CSV columns directly to expected features
+        # Map CSV columns directly to expected features using exact model feature names
         # Only set values for features that exist in both the CSV and expected_features
         for feature in expected_features:
             if feature in parsed_data:
@@ -866,13 +1002,13 @@ with tab1:
                 else:
                     patient_data[feature] = csv_value
         
-        # Handle special mappings from parsed data
-        if 'prior_admissions' in parsed_data:
-            patient_data['number_inpatient'] = int(parsed_data['prior_admissions'])
-            # Note: total_prior_admissions will be recalculated below
+        # Handle special mappings from parsed data - using model feature names
+        # Note: prior_admissions is mapped to total_prior_admissions by CSV_TO_MODEL_MAPPING
+        # but we also need number_inpatient set separately
+        if 'number_inpatient' in parsed_data:
+            patient_data['number_inpatient'] = int(parsed_data['number_inpatient'])
         if 'num_medications' in parsed_data:
             patient_data['num_medications'] = int(parsed_data['num_medications'])
-            patient_data['total_medications'] = int(parsed_data['num_medications'])
         if 'comorbidity_count' in parsed_data:
             patient_data['comorbidity_count'] = int(parsed_data['comorbidity_count'])
             patient_data['number_diagnoses'] = max(int(parsed_data['comorbidity_count']) + 1, 1)

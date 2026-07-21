@@ -325,9 +325,13 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
     Create a simplified version of patient data for Excel upload.
     This includes only the key features that doctors would typically have in discharge summaries.
     
-    The app's parse_uploaded_file function will map these to the full feature set.
+    The app's parse_uploaded_file function will map these to the full feature set using
+    the explicit CSV_TO_MODEL_MAPPING dictionary defined in app.py.
     
     Updated to include a 'symptoms' column with realistic diabetes symptoms based on risk level.
+    
+    TASK 3: Column names now EXACTLY match the keys in CSV_TO_MODEL_MAPPING dictionary
+    to ensure perfect compatibility with the app's CSV parsing logic.
     """
     # Define realistic symptom profiles based on risk level
     symptom_profiles = {
@@ -337,14 +341,16 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
     }
     
     # Simplified features that are commonly available in discharge summaries
+    # Column names MUST exactly match CSV_TO_MODEL_MAPPING keys in app.py
     simplified = {
         'patient_id': f"PATIENT_{risk_level.upper()}_001",
         'risk_profile': f"{risk_level.capitalize()} Risk Patient",
-        'prior_admissions': patient_data['total_prior_admissions'],
+        # Use exact column names from CSV_TO_MODEL_MAPPING
+        'prior_admissions': patient_data['number_inpatient'],  # Maps to total_prior_admissions + sets number_inpatient
         'comorbidity_count': patient_data['comorbidity_count'],
         'age_numeric': patient_data['age_numeric'],
-        'num_medications': patient_data['num_medications'],
-        'discharge_diagnosis': 250.01,  # Diabetes mellitus type 2
+        'num_medications': patient_data['num_medications'],  # Maps to total_medications
+        'discharge_diagnosis': 250.01,  # Diabetes mellitus type 2 (user-facing field, not mapped to model)
         'high_risk_flag': 1 if risk_level == "high" else 0,
         'time_in_hospital': patient_data['time_in_hospital'],
         'num_lab_procedures': patient_data['num_lab_procedures'],
