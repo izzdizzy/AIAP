@@ -108,14 +108,14 @@ IMPORTANT DISCLAIMERS TO INCLUDE:
 - In emergencies, call 995 or go to the nearest A&E
 """
 
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.5-flash"):
         """
         Initialize the Care Navigation Assistant.
         
         Args:
             api_key: Google Gemini API key. If None, will attempt to read from 
                     GEMINI_API_KEY environment variable.
-            model_name: Name of the Gemini model to use. Default is "gemini-1.5-flash"
+            model_name: Name of the Gemini model to use. Default is "gemini-2.0-flash"
                        for faster response times.
         
         Raises:

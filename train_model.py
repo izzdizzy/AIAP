@@ -900,7 +900,7 @@ def train_histgradientboosting_model(
     train_time = time.time() - start_time
     
     print(f"\nFinal model training completed in {train_time:.2f} seconds")
-    print(f"Number of trees built: {final_model.n_trees_}")
+    print(f"Number of trees built: {final_model.n_iter_}")
     
     # Evaluate on test set
     y_pred_proba = final_model.predict_proba(X_test)[:, 1]
