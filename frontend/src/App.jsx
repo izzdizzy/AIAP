@@ -67,7 +67,8 @@ function App() {
         setPatientData({ form: formData, prediction: predictionData });
       }
 
-      setActiveTab('navigation');
+      // Keep user on Risk Assessment tab to view clinical severity score and SHAP analysis
+      // Do NOT auto-switch to navigation tab - let user explore results first
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || 'Failed to process patient data. Please try again.');
     } finally {

@@ -156,6 +156,8 @@ CSV_TO_MODEL_MAPPING: Dict[str, str] = {
     'symptoms': 'symptoms',
     'patient_symptoms': 'symptoms',
     'reported_symptoms': 'symptoms',
+    'chas_tier': 'chas_tier',
+    'chas_plan': 'chas_tier',
 }
 
 
@@ -393,6 +395,18 @@ def parse_uploaded_file_bytes(file_bytes: bytes, file_name: str) -> Dict[str, An
                 extracted_data['symptoms_list'] = []
         else:
             extracted_data['symptoms_list'] = []
+        
+        # Handle CHAS Tier column - pass through as-is if present
+        if 'chas_tier' in extracted_data:
+            chas_val = str(extracted_data['chas_tier']).strip()
+            # Validate against known CHAS tiers
+            valid_tiers = ['Blue', 'Orange', 'Pioneer', 'Merdeka', 'None']
+            if chas_val not in valid_tiers:
+                # Default to None if invalid value
+                extracted_data['chas_tier'] = 'None'
+        else:
+            # Default to None if not provided
+            extracted_data['chas_tier'] = 'None'
         
         return extracted_data
         

@@ -330,6 +330,7 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
     the explicit CSV_TO_MODEL_MAPPING dictionary defined in app.py.
     
     Updated to include a 'symptoms' column with realistic diabetes symptoms based on risk level.
+    Updated to include a 'chas_tier' column with Singapore healthcare context values.
     
     TASK 3: Column names now EXACTLY match the keys in CSV_TO_MODEL_MAPPING dictionary
     to ensure perfect compatibility with the app's CSV parsing logic.
@@ -339,6 +340,16 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
         "high": "Fatigue, Frequent urination, Blurred vision, Slow-healing sores, Tingling in hands/feet, Excessive thirst",
         "moderate": "Fatigue, Frequent urination, Mild thirst, Occasional blurred vision",
         "low": "None, Mild thirst"
+    }
+    
+    # Define CHAS Tier assignments based on patient profile (Singapore healthcare context)
+    # High risk (elderly, age 75): Pioneer or Merdeka tiers
+    # Moderate risk (middle-aged, age 55): Blue or Orange tiers
+    # Low risk (younger, age 45): None or Blue tiers
+    chas_tier_profiles = {
+        "high": "Pioneer",      # Elderly patients (age 75) get Pioneer tier
+        "moderate": "Blue",     # Middle-aged patients (age 55) get Blue tier
+        "low": "None"           # Younger patients (age 45) get None tier
     }
     
     # Simplified features that are commonly available in discharge summaries
@@ -367,6 +378,7 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
         'change_encoded': patient_data['change_encoded'],
         'diabetesMed_encoded': patient_data['diabetesMed_encoded'],
         'symptoms': symptom_profiles.get(risk_level, "None"),  # Add symptoms column
+        'chas_tier': chas_tier_profiles.get(risk_level, "None"),  # Add CHAS Tier column for Gen AI context
     }
     return simplified
 

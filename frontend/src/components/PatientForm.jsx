@@ -146,6 +146,25 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
       if (result.success && result.patient_data) {
         const data = result.patient_data;
         
+        // Parse symptoms from CSV - handle both string (comma-separated) and array formats
+        let parsedSymptoms = [];
+        if (data.symptoms_list && Array.isArray(data.symptoms_list)) {
+          // Backend already parsed symptoms into array
+          parsedSymptoms = data.symptoms_list;
+        } else if (data.symptoms && Array.isArray(data.symptoms)) {
+          // Direct symptoms array
+          parsedSymptoms = data.symptoms;
+        } else if (data.symptoms && typeof data.symptoms === 'string') {
+          // Comma-separated string - parse it
+          const symptomStrings = data.symptoms.split(',').map(s => s.trim()).filter(s => s);
+          // Map to exact symptom button labels (case-insensitive matching)
+          parsedSymptoms = symptomStrings.map(inputSymptom => {
+            const normalizedInput = inputSymptom.toLowerCase();
+            const match = symptomsList.find(symptom => symptom.toLowerCase() === normalizedInput);
+            return match || inputSymptom;
+          });
+        }
+        
         // Map parsed CSV data to form fields with strict null/undefined checks
         // This mapping aligns with the backend's CSV_TO_MODEL_MAPPING in utils.py
         setFormData(prev => ({
@@ -188,14 +207,16 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           discharge_disposition_id: data.discharge_disposition_id != null ? String(data.discharge_disposition_id) : prev.discharge_disposition_id,
           admission_source_id: data.admission_source_id != null ? String(data.admission_source_id) : prev.admission_source_id,
           
+          // CHAS Tier mapping
+          chas_tier: data.chas_tier != null ? String(data.chas_tier) : prev.chas_tier,
+          
           // Medication flags - ensure boolean conversion is safe
           metformin_encoded: (data.metformin_encoded === 1 || data.metformin_encoded === true) ? true : prev.metformin_encoded,
           insulin_encoded: (data.insulin_encoded === 1 || data.insulin_encoded === true) ? true : prev.insulin_encoded,
           on_insulin: (data.on_insulin === 1 || data.on_insulin === true) ? true : prev.on_insulin,
           
-          // Symptoms from CSV (if provided as comma-separated list) - ensure it's an array
-          symptoms: Array.isArray(data.symptoms_list) ? data.symptoms_list : 
-                   (Array.isArray(data.symptoms) ? data.symptoms : prev.symptoms)
+          // Symptoms from CSV - use parsed array, default to empty array if no symptoms
+          symptoms: parsedSymptoms
         }));
 
         setUploadStatus({
