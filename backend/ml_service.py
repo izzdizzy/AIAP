@@ -146,9 +146,13 @@ class MLService:
                 with open(DEFAULT_THRESHOLD_PATH, 'r', encoding='utf-8') as f:
                     threshold_data = json.load(f)
                 
-                if 'optimal_threshold_for_80_recall' in threshold_data:
-                    self.optimal_threshold = threshold_data['optimal_threshold_for_80_recall']
+                if 'optimal_threshold_for_85_recall' in threshold_data:
+                    self.optimal_threshold = threshold_data['optimal_threshold_for_85_recall']
                     print(f"[MLService] Optimal threshold loaded from threshold.json: {self.optimal_threshold}")
+                    return
+                elif 'optimal_threshold_for_80_recall' in threshold_data:
+                    self.optimal_threshold = threshold_data['optimal_threshold_for_80_recall']
+                    print(f"[MLService] Optimal threshold loaded from threshold.json (legacy 80%): {self.optimal_threshold}")
                     return
             except Exception as e:
                 print(f"[MLService] Warning: Failed to load threshold from threshold.json: {str(e)}")
@@ -160,13 +164,19 @@ class MLService:
                 with open(metadata_path, 'r', encoding='utf-8') as f:
                     metadata = json.load(f)
                 
-                # Try to get the optimal threshold from metadata
-                if 'optimal_threshold_for_80_recall' in metadata:
-                    self.optimal_threshold = metadata['optimal_threshold_for_80_recall']
-                    print(f"[MLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
-                elif 'results' in metadata and 'optimal_threshold_for_85_recall' in metadata['results']:
+                # Try to get the optimal threshold from metadata (prefer 85% recall)
+                if 'results' in metadata and 'optimal_threshold_for_85_recall' in metadata['results']:
                     self.optimal_threshold = metadata['results']['optimal_threshold_for_85_recall']
-                    print(f"[MLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
+                    print(f"[MLService] Optimal threshold loaded from metadata (85% recall): {self.optimal_threshold}")
+                elif 'optimal_threshold_for_85_recall' in metadata:
+                    self.optimal_threshold = metadata['optimal_threshold_for_85_recall']
+                    print(f"[MLService] Optimal threshold loaded from metadata (85% recall): {self.optimal_threshold}")
+                elif 'results' in metadata and 'optimal_threshold_for_80_recall' in metadata['results']:
+                    self.optimal_threshold = metadata['results']['optimal_threshold_for_80_recall']
+                    print(f"[MLService] Optimal threshold loaded from metadata (legacy 80% recall): {self.optimal_threshold}")
+                elif 'optimal_threshold_for_80_recall' in metadata:
+                    self.optimal_threshold = metadata['optimal_threshold_for_80_recall']
+                    print(f"[MLService] Optimal threshold loaded from metadata (legacy 80% recall): {self.optimal_threshold}")
                 else:
                     print(f"[MLService] Using default threshold: {self.optimal_threshold}")
             except Exception as e:

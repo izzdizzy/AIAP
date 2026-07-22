@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import os
+import pandas as pd
 
 # Import Pydantic models
 from models import (
@@ -285,7 +286,7 @@ async def get_model_information():
     Returns information about the trained model including:
     - Model type and feature count
     - ROC-AUC and recall metrics
-    - Optimal threshold for 80%+ recall
+    - Optimal threshold for 85%+ recall
     - Dataset benchmark citations
     
     This endpoint allows the frontend to display model transparency information.

@@ -6,14 +6,14 @@ This script handles the complete ML training pipeline:
 1. Loading the UCI Diabetes 130-US dataset
 2. Preprocessing and feature engineering
 3. Training HistGradientBoosting/XGBoost model
-4. Tuning threshold for 80%+ Recall using precision_recall_curve
+4. Tuning threshold for 85%+ Recall using precision_recall_curve
 5. Applying Clinical Logic Post-Processing layer
 6. Saving all artifacts to backend/artifacts/ directory
 
 Artifacts saved:
 - model.joblib: Trained XGBoost model
 - scaler.pkl: Feature scaler (if used)
-- threshold.json: Optimal threshold for 80%+ recall
+- threshold.json: Optimal threshold for 85% recall
 - feature_columns.json: Expected feature column order
 - feature_defaults.json: Baseline default values for missing features
 - model_metadata.json: Model performance metrics and metadata
@@ -287,10 +287,10 @@ def calculate_clinical_adjustment(features_dict: Dict[str, Any]) -> int:
 def find_optimal_threshold_for_recall(
     y_true: np.ndarray,
     y_proba: np.ndarray,
-    target_recall: float = 0.80
+    target_recall: float = 0.85
 ) -> Tuple[float, Dict[str, float]]:
     """
-    Find optimal classification threshold to achieve target recall (80%+).
+    Find optimal classification threshold to achieve target recall (85%+).
     
     Uses precision-recall curve to find the highest threshold that maintains
     at least the target recall rate. This maximizes precision while ensuring
@@ -299,7 +299,7 @@ def find_optimal_threshold_for_recall(
     Args:
         y_true: Ground truth binary labels
         y_proba: Predicted probabilities for positive class
-        target_recall: Target recall rate (default: 0.80 for 80%)
+        target_recall: Target recall rate (default: 0.85 for 85%)
         
     Returns:
         Tuple of (optimal_threshold, metrics_dict)
@@ -345,7 +345,7 @@ def train_model(
     output_dir: str,
     test_size: float = 0.2,
     random_state: int = 42,
-    target_recall: float = 0.80
+    target_recall: float = 0.85
 ) -> Dict[str, Any]:
     """
     Complete training pipeline for hospital readmission prediction model.
@@ -355,7 +355,7 @@ def train_model(
         output_dir: Directory to save model artifacts
         test_size: Fraction of data to use for testing
         random_state: Random seed for reproducibility
-        target_recall: Target recall rate for threshold tuning
+        target_recall: Target recall rate for threshold tuning (default: 0.85 for 85%)
         
     Returns:
         Dictionary containing training results and metrics
@@ -498,7 +498,7 @@ def train_model(
     print(f"  Recall: {default_metrics['recall']:.4f}")
     print(f"  F1 Score: {default_metrics['f1']:.4f}")
     
-    # Find optimal threshold for 80%+ recall
+    # Find optimal threshold for 85%+ recall
     optimal_threshold, threshold_metrics = find_optimal_threshold_for_recall(
         y_test, y_proba, target_recall=target_recall
     )
@@ -534,7 +534,7 @@ def train_model(
     
     # Save threshold
     threshold_data = {
-        'optimal_threshold_for_80_recall': float(optimal_threshold),
+        'optimal_threshold_for_85_recall': float(optimal_threshold),
         'target_recall': target_recall,
         'metrics_at_threshold': {
             'precision': float(threshold_metrics['precision']),
@@ -570,7 +570,7 @@ def train_model(
                 'f1': float(default_metrics['f1']),
                 'roc_auc': float(default_metrics['roc_auc'])
             },
-            'optimal_threshold_for_80_recall': float(optimal_threshold),
+            'optimal_threshold_for_85_recall': float(optimal_threshold),
             'threshold_metrics': {
                 'precision': float(threshold_metrics['precision']),
                 'recall': float(threshold_metrics['recall']),
@@ -607,7 +607,7 @@ def train_model(
     print(f"\nPerformance (Default Threshold):")
     print(f"  ROC-AUC: {default_metrics['roc_auc']:.4f}")
     print(f"  Recall: {default_metrics['recall']:.4f}")
-    print(f"\nPerformance (Optimal Threshold for 80%+ Recall):")
+    print(f"\nPerformance (Optimal Threshold for 85%+ Recall):")
     print(f"  Threshold: {optimal_threshold:.4f}")
     print(f"  Recall: {threshold_metrics['recall']:.4f}")
     print(f"  Precision: {threshold_metrics['precision']:.4f}")
@@ -665,8 +665,8 @@ def main():
     parser.add_argument(
         '--target-recall',
         type=float,
-        default=0.80,
-        help='Target recall rate for threshold tuning (default: 0.80)'
+        default=0.85,
+        help='Target recall rate for threshold tuning (default: 0.85)'
     )
     
     args = parser.parse_args()

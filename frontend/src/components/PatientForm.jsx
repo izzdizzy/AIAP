@@ -86,10 +86,15 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
     }
   }, [file, onFileUpload]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
     setUploadStatus(null);
+    
+    // Automatically upload and parse file when selected
+    if (selectedFile) {
+      await handleFileUpload(selectedFile);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -115,16 +120,19 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
   /**
    * Handle file upload and parse CSV/XLSX to auto-fill form fields
    * Maps CSV columns to form fields using backend's CSV_TO_MODEL_MAPPING
+   * @param {File} fileToUpload - Optional file parameter for automatic upload
    */
-  const handleFileUpload = async () => {
-    if (!file) {
+  const handleFileUpload = async (fileToUpload = null) => {
+    const fileForUpload = fileToUpload || file;
+    
+    if (!fileForUpload) {
       setUploadStatus({ type: 'error', message: 'Please select a file first.' });
       return;
     }
 
     try {
       const formDataObj = new FormData();
-      formDataObj.append('file', file);
+      formDataObj.append('file', fileForUpload);
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -218,27 +226,18 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* File Upload Section */}
+      {/* File Upload Section - Auto-uploads on file selection */}
       <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
         <label className="block text-sm font-medium text-gray-300 mb-2">
-          Upload Patient File (.csv, .xlsx)
+          Upload Patient File (.csv, .xlsx) - Auto-parses on selection
         </label>
-        <div className="flex gap-2">
-          <input
-            type="file"
-            accept=".csv,.xlsx"
-            onChange={handleFileChange}
-            className="flex-1 px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500 text-sm"
-          />
-          <button
-            type="button"
-            onClick={handleFileUpload}
-            disabled={!file || loading}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm whitespace-nowrap"
-          >
-            Parse & Fill
-          </button>
-        </div>
+        <input
+          type="file"
+          accept=".csv,.xlsx"
+          onChange={handleFileChange}
+          disabled={loading}
+          className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500 text-sm disabled:opacity-50"
+        />
         {file && (
           <p className="mt-1 text-xs text-gray-400">Selected: {file.name}</p>
         )}
