@@ -17,7 +17,7 @@ from typing import List, Optional
 import os
 
 # Import Pydantic models
-from .models import (
+from models import (
     PatientData,
     PredictionResponse,
     SHAPValue,
@@ -28,9 +28,9 @@ from .models import (
 )
 
 # Import services
-from .ml_service import get_ml_service, MLService
-from .genai_service import get_genai_service, GenAIService
-from .utils import parse_uploaded_file_bytes
+from ml_service import get_ml_service, MLService
+from genai_service import get_genai_service, GenAIService
+from utils import parse_uploaded_file_bytes
 
 
 # =============================================================================

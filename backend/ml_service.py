@@ -223,7 +223,7 @@ class MLService:
             - shap_values: SHAP analysis (if requested)
         """
         # Import clinical adjustment function
-        from .utils import calculate_clinical_adjustment
+        from utils import calculate_clinical_adjustment
         
         # Convert dict to DataFrame
         if isinstance(patient_data, dict):
