@@ -21,8 +21,10 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent  # /workspace (since script is in /workspace/Samples/)
 
-# Construct all file paths using PROJECT_ROOT
-FEATURE_COLUMNS_PATH = PROJECT_ROOT / "outputs" / "feature_columns.json"
+# Standardized artifact paths - strictly read from outputs/ directory at project root
+ARTIFACTS_DIR = PROJECT_ROOT / "outputs"
+FEATURE_COLUMNS_PATH = ARTIFACTS_DIR / "feature_columns.json"
+FEATURE_DEFAULTS_PATH = ARTIFACTS_DIR / "feature_defaults.json"
 OUTPUT_DIR = SCRIPT_DIR  # Save CSVs and Excel files in the Samples directory
 
 
@@ -53,21 +55,23 @@ def generate_patient_data(risk_level: str) -> dict:
     """
     
     if risk_level == "high":
-        # High risk patient profile:
-        # - Multiple prior admissions
-        # - High comorbidity count
-        # - Elderly
-        # - Many medications
-        # - Insulin therapy
+        # HIGH RISK PROFILE - Must predict "Readmitted" and score 80-100
+        # Values explicitly cross clinical adjustment thresholds in utils.py:
+        # - number_inpatient >= 3 (triggers +15 points)
+        # - number_emergency >= 3 (triggers +10 points)
+        # - num_lab_procedures >= 60 (triggers +10 points)
+        # - num_medications >= 15 (triggers +10 points)
+        # - age_numeric >= 70 (triggers +5 points)
+        # Total clinical adjustment bonus: +50 points
         return {
             'admission_type_id': 1,
             'discharge_disposition_id': 1,
             'admission_source_id': 1,
-            'time_in_hospital': 7,
-            'num_lab_procedures': 80,
+            'time_in_hospital': 8,
+            'num_lab_procedures': 70,
             'num_procedures': 8,
             'num_medications': 18,
-            'number_outpatient': 5,
+            'number_outpatient': 10,
             'number_emergency': 4,
             'number_inpatient': 5,
             'number_diagnoses': 9,
@@ -126,42 +130,37 @@ def generate_patient_data(risk_level: str) -> dict:
             'diabetesMed_encoded': 1,
             'age_numeric': 75,
             'is_elderly': 1,
-            'total_prior_admissions': 5,
-            'emergency_ratio': 0.44,
-            'inpatient_ratio': 0.56,
+            'total_prior_admissions': 19,
+            'emergency_ratio': 0.21,
+            'inpatient_ratio': 0.26,
             'long_stay': 1,
-            'total_procedures': 8,
+            'total_procedures': 78,
             'high_lab_utilization': 1,
             'high_diagnosis_count': 1,
-            'emergency_admission': 1,
+            'emergency_admission': 0,
             'not_home_discharge': 0,
-            'er_admission': 1,
+            'er_admission': 0,
             'age_comorbidity_interaction': 75 * 8,
             'med_per_comorbidity': 18 / 8,
-            'admissions_per_year': 5,
-            'emerg_inpatient_combo': 9,
+            'admissions_per_year': 19 / 3,
+            'emerg_inpatient_combo': 20,
             'insulin_complexity': 1,
             'diabetes_med_intensity': 2,
         }
     
     elif risk_level == "moderate":
-        # Moderate risk patient profile:
-        # TASK 1: Strictly defined per requirements
-        # - age_numeric=55, age_group="[50-60)"
-        # - time_in_hospital=4, num_lab_procedures=45
-        # - prior_admissions=2, comorbidity_count=4
-        # - num_medications=8, chas_tier="Orange"
-        # - symptoms="Fatigue, Frequent urination"
+        # MODERATE RISK PROFILE - Must predict "Readmitted" or borderline, score 40-70
+        # Values are below clinical adjustment thresholds but show moderate risk indicators
         return {
             'admission_type_id': 1,
             'discharge_disposition_id': 1,
             'admission_source_id': 1,
-            'time_in_hospital': 4,
+            'time_in_hospital': 5,
             'num_lab_procedures': 45,
             'num_procedures': 3,
-            'num_medications': 8,
+            'num_medications': 10,
             'number_outpatient': 2,
-            'number_emergency': 1,
+            'number_emergency': 2,
             'number_inpatient': 2,
             'number_diagnoses': 5,
             'diabetes_diag_count': 2,
@@ -212,39 +211,34 @@ def generate_patient_data(risk_level: str) -> dict:
             'metformin-rosiglitazone_active': 0,
             'metformin-pioglitazone_encoded': 0,
             'metformin-pioglitazone_active': 0,
-            'total_medications': 8,
+            'total_medications': 10,
             'on_insulin': 0,
             'oral_medications': 1,
             'change_encoded': 0,
             'diabetesMed_encoded': 1,
-            'age_numeric': 55,
+            'age_numeric': 60,
             'is_elderly': 0,
-            'total_prior_admissions': 2,
+            'total_prior_admissions': 6,
             'emergency_ratio': 0.33,
-            'inpatient_ratio': 0.40,
+            'inpatient_ratio': 0.33,
             'long_stay': 0,
-            'total_procedures': 3,
+            'total_procedures': 48,
             'high_lab_utilization': 0,
             'high_diagnosis_count': 0,
             'emergency_admission': 0,
             'not_home_discharge': 0,
             'er_admission': 0,
-            'age_comorbidity_interaction': 55 * 4,
-            'med_per_comorbidity': 8 / 4,
-            'admissions_per_year': 2,
-            'emerg_inpatient_combo': 3,
+            'age_comorbidity_interaction': 60 * 4,
+            'med_per_comorbidity': 10 / 4,
+            'admissions_per_year': 6 / 3,
+            'emerg_inpatient_combo': 4,
             'insulin_complexity': 0,
             'diabetes_med_intensity': 1,
         }
     
     else:  # low risk
-        # Low risk patient profile:
-        # TASK 1: Strictly defined per requirements
-        # - age_numeric=45, age_group="[40-50)"
-        # - time_in_hospital=2, num_lab_procedures=15
-        # - prior_admissions=0, comorbidity_count=1
-        # - num_medications=2, chas_tier="None"
-        # - symptoms="Mild thirst"
+        # LOW RISK PROFILE - Must predict "Not Readmitted", score 0-30
+        # All values are minimal, no clinical adjustment triggers
         return {
             'admission_type_id': 1,  # Elective admission
             'discharge_disposition_id': 1,  # Discharged to home
@@ -316,7 +310,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'emergency_ratio': 0.0,
             'inpatient_ratio': 0.0,
             'long_stay': 0,
-            'total_procedures': 0,
+            'total_procedures': 15,
             'high_lab_utilization': 0,
             'high_diagnosis_count': 0,
             'emergency_admission': 0,

@@ -8,18 +8,16 @@ This script handles the complete ML training pipeline:
 3. Training HistGradientBoosting/XGBoost model
 4. Tuning threshold for 85%+ Recall using precision_recall_curve
 5. Applying Clinical Logic Post-Processing layer
-6. Saving all artifacts to backend/artifacts/ directory
+6. Saving all artifacts to outputs/ directory at project root
 
 Artifacts saved:
-- model.joblib: Trained XGBoost model
-- scaler.pkl: Feature scaler (if used)
-- threshold.json: Optimal threshold for 85%+ recall
+- readmission_model.joblib: Trained XGBoost model
 - feature_columns.json: Expected feature column order
 - feature_defaults.json: Baseline default values for missing features
 - model_metadata.json: Model performance metrics and metadata
 
 Usage:
-    python backend/scripts/train.py --data-path data/raw/diabetic_data.csv --output-dir backend/artifacts
+    python backend/scripts/train.py --data-path data/raw/diabetic_data.csv --output-dir outputs
 """
 
 import argparse
@@ -548,8 +546,8 @@ def train_model(
     print("STEP 8: SAVING ARTIFACTS")
     print("=" * 70)
     
-    # Save model
-    model_path = output_path / "model.joblib"
+    # Save model with standardized name readmission_model.joblib
+    model_path = output_path / "readmission_model.joblib"
     joblib.dump(model, model_path)
     print(f"Model saved to: {model_path}")
     
@@ -680,8 +678,8 @@ def main():
     parser.add_argument(
         '--output-dir',
         type=str,
-        default='backend/artifacts',
-        help='Directory to save model artifacts'
+        default='outputs',
+        help='Directory to save model artifacts (default: outputs at project root)'
     )
     parser.add_argument(
         '--test-size',
