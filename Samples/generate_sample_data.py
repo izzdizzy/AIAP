@@ -20,7 +20,7 @@ from pathlib import Path
 
 def load_feature_columns() -> list:
     """Load expected feature columns from JSON file."""
-    feature_columns_path = Path("outputs/feature_columns.json")
+    feature_columns_path = Path("backend/artifacts/feature_columns.json")
     if not feature_columns_path.exists():
         print(f"Error: Feature columns file not found at {feature_columns_path}")
         print("Please ensure the model has been trained first.")
