@@ -17,16 +17,27 @@ import pandas as pd
 import json
 from pathlib import Path
 
+# Robust path resolution using the script's actual location, not CWD
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent  # /workspace (since script is in /workspace/Samples/)
+
+# Construct all file paths using PROJECT_ROOT
+FEATURE_COLUMNS_PATH = PROJECT_ROOT / "outputs" / "feature_columns.json"
+OUTPUT_DIR = SCRIPT_DIR  # Save CSVs and Excel files in the Samples directory
+
 
 def load_feature_columns() -> list:
     """Load expected feature columns from JSON file."""
-    feature_columns_path = Path("backend/artifacts/feature_columns.json")
-    if not feature_columns_path.exists():
-        print(f"Error: Feature columns file not found at {feature_columns_path}")
+    print(f"Script directory: {SCRIPT_DIR}")
+    print(f"Project root: {PROJECT_ROOT}")
+    print(f"Checking for feature columns at: {FEATURE_COLUMNS_PATH.absolute()}")
+    
+    if not FEATURE_COLUMNS_PATH.exists():
+        print(f"Error: Feature columns file not found at {FEATURE_COLUMNS_PATH}")
         print("Please ensure the model has been trained first.")
         return []
     
-    with open(feature_columns_path, 'r', encoding='utf-8') as f:
+    with open(FEATURE_COLUMNS_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
@@ -420,18 +431,18 @@ def main():
         df_full = pd.DataFrame([patient_data])
         df_simplified = pd.DataFrame([simplified_data])
         
-        # Save full data (for reference/testing)
-        full_filename = f"patient_{risk_level}_risk_full.xlsx"
+        # Save full data (for reference/testing) - use OUTPUT_DIR for robust path
+        full_filename = OUTPUT_DIR / f"patient_{risk_level}_risk_full.xlsx"
         df_full.to_excel(full_filename, index=False)
         print(f"  Created: {full_filename} (full feature set)")
         
-        # Save simplified data (for actual upload testing)
-        simplified_filename = f"patient_{risk_level}_risk.xlsx"
+        # Save simplified data (for actual upload testing) - use OUTPUT_DIR for robust path
+        simplified_filename = OUTPUT_DIR / f"patient_{risk_level}_risk.xlsx"
         df_simplified.to_excel(simplified_filename, index=False)
         print(f"  Created: {simplified_filename} (simplified for upload)")
         
-        # Also create CSV versions
-        csv_filename = f"patient_{risk_level}_risk.csv"
+        # Also create CSV versions - use OUTPUT_DIR for robust path
+        csv_filename = OUTPUT_DIR / f"patient_{risk_level}_risk.csv"
         df_simplified.to_csv(csv_filename, index=False)
         print(f"  Created: {csv_filename} (CSV format)")
     
