@@ -368,7 +368,7 @@ def train_model(
     print("=" * 70)
     
     # Create output directory using pathlib
-    output_path = Path(output_dir)
+    output_path = PROJECT_ROOT / output_dir
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"\nOutput directory: {output_path}")
     

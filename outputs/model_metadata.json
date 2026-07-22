@@ -1,40 +1,45 @@
 {
-  "training_date": "2026-07-22T07:10:25.260908",
-  "dataset_path": "data\\raw\\diabetic_data.csv",
+  "model_type": "XGBClassifier",
   "feature_count": 82,
   "training_samples": 81412,
   "test_samples": 20354,
-  "scale_pos_weight_used": 7.960158485582214,
-  "tuning_sample_size": 25000,
-  "cv_folds": 3,
-  "n_iter_search": 15,
-  "best_model_name": "XGBoost",
-  "results": {
-    "model_name": "XGBoost",
-    "best_params": {
-      "subsample": 0.8,
-      "scale_pos_weight": 7.960158485582214,
-      "reg_lambda": 1,
-      "reg_alpha": 0.1,
-      "n_estimators": 600,
-      "min_child_weight": 5,
-      "max_depth": 8,
-      "learning_rate": 0.1,
-      "gamma": 0,
-      "colsample_bytree": 0.9,
-      "colsample_bylevel": 0.7
-    },
-    "best_cv_score": 0.0883919699776476,
-    "test_metrics": {
-      "accuracy": 0.33433231797189744,
-      "precision": 0.12788702652764947,
-      "recall": 0.8533685601056803,
-      "f1": 0.2224390243902439,
-      "roc_auc": 0.6228246955492401,
-      "optimal_threshold_for_85_recall": 0.12223026156425476
-    },
-    "training_time_seconds": 5.623483657836914
+  "train_date": "2026-07-22T16:38:35.908146",
+  "xgb_params": {
+    "objective": "binary:logistic",
+    "eval_metric": "auc",
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "n_estimators": 200,
+    "min_child_weight": 3,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "scale_pos_weight": 7.960158485582214,
+    "random_state": 42,
+    "n_jobs": -1
   },
-  "total_training_time_seconds": 165.0630989074707,
-  "optimal_threshold_for_80_recall": 0.3
+  "results": {
+    "test_metrics": {
+      "accuracy": 0.6789820182765058,
+      "precision": 0.18557309337660421,
+      "recall": 0.5539409951563188,
+      "f1": 0.2780110497237569,
+      "roc_auc": 0.6703033541237622
+    },
+    "optimal_threshold_for_85_recall": 0.34674370288848877,
+    "threshold_metrics": {
+      "precision": 0.13676605991925775,
+      "recall": 0.8502862175253192,
+      "f1": 0.2356314826113484
+    }
+  },
+  "clinical_adjustment_info": {
+    "description": "Clinical Logic Post-Processing layer applies severity adjustments",
+    "rules": {
+      "severe_inpatient_history": "+15 points for 3+ prior admissions",
+      "high_emergency_utilization": "+10 points for 3+ ER visits",
+      "extensive_lab_work": "+10 points for 60+ lab procedures",
+      "polypharmacy": "+10 points for 15+ medications",
+      "elderly_patient": "+5 points for age 70+"
+    }
+  }
 }
