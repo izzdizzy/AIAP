@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * PatientDataManager Component - Manage Patient Data Tab
@@ -18,6 +18,13 @@ const PatientDataManager = ({ onFileUpload, patientData, onClearData }) => {
   const [file, setFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Auto-upload when file is selected
+  useEffect(() => {
+    if (file && !isUploading) {
+      handleUpload();
+    }
+  }, [file]);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -105,17 +112,12 @@ const PatientDataManager = ({ onFileUpload, patientData, onClearData }) => {
             disabled={isUploading}
             className="flex-1 px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500 text-sm disabled:opacity-50"
           />
-          <button
-            onClick={handleUpload}
-            disabled={!file || isUploading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm whitespace-nowrap"
-          >
-            {isUploading ? 'Processing...' : 'Upload & Parse'}
-          </button>
         </div>
         
         {file && (
-          <p className="mt-2 text-xs text-gray-400">Selected: {file.name}</p>
+          <p className="mt-2 text-xs text-gray-400">
+            {isUploading ? 'Processing...' : `Selected: ${file.name}`}
+          </p>
         )}
         
         {uploadStatus && (

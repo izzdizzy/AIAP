@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import os
+import pandas as pd
 
 # Import Pydantic models
 from models import (

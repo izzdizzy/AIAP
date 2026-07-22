@@ -81,10 +81,10 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
 
   // Update form data when file is uploaded and parsed
   useEffect(() => {
-    if (onFileUpload && file) {
-      // File upload handling is done via handleFileUpload callback
+    if (file && !loading) {
+      handleFileUpload();
     }
-  }, [file, onFileUpload]);
+  }, [file]);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -223,24 +223,17 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Upload Patient File (.csv, .xlsx)
         </label>
-        <div className="flex gap-2">
-          <input
-            type="file"
-            accept=".csv,.xlsx"
-            onChange={handleFileChange}
-            className="flex-1 px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500 text-sm"
-          />
-          <button
-            type="button"
-            onClick={handleFileUpload}
-            disabled={!file || loading}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm whitespace-nowrap"
-          >
-            Parse & Fill
-          </button>
-        </div>
+        <input
+          type="file"
+          accept=".csv,.xlsx"
+          onChange={handleFileChange}
+          disabled={loading}
+          className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500 text-sm disabled:opacity-50"
+        />
         {file && (
-          <p className="mt-1 text-xs text-gray-400">Selected: {file.name}</p>
+          <p className="mt-1 text-xs text-gray-400">
+            {loading ? 'Processing...' : `Selected: ${file.name}`}
+          </p>
         )}
         {uploadStatus && (
           <p className={`mt-2 text-sm ${
