@@ -41,6 +41,11 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
   const [file, setFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null); // { type: 'success'|'error', message: string }
   
+  // TASK 3: State variables for dropdown and symptom auto-fill
+  const [ageGroup, setAgeGroup] = useState('');
+  const [chasTier, setChasTier] = useState('None');
+  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+  
   // Form state with comprehensive UCI Diabetes dataset fields
   const [formData, setFormData] = useState({
     // Core clinical features
@@ -101,6 +106,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
   };
 
   const handleSymptomToggle = (symptom) => {
+    // Update formData.symptoms
     setFormData(prev => {
       const exists = prev.symptoms.includes(symptom);
       return {
@@ -109,6 +115,16 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           ? prev.symptoms.filter(s => s !== symptom)
           : [...prev.symptoms, symptom]
       };
+    });
+    
+    // Also update selectedSymptoms state for auto-fill tracking
+    setSelectedSymptoms(prev => {
+      const exists = prev.includes(symptom);
+      if (exists) {
+        return prev.filter(s => s !== symptom);
+      } else {
+        return [...prev, symptom];
+      }
     });
   };
 
@@ -138,6 +154,9 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
 
       const result = await response.json();
 
+      // TASK 3: Log backend response for debugging
+      console.log('Backend Upload Response:', result);
+
       // Verify response structure before accessing properties
       if (!result) {
         throw new Error('Invalid response from server');
@@ -146,23 +165,37 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
       if (result.success && result.patient_data) {
         const data = result.patient_data;
         
+        // TASK 3: Explicitly map backend response to React state
+        // Age group mapping - use age_group key directly from backend
+        if (data.age_group) {
+          setAgeGroup(data.age_group);
+        } else if (data.age_group_display) {
+          setAgeGroup(data.age_group_display);
+        }
+        
+        // CHAS Tier mapping - use chas_tier key directly from backend
+        if (data.chas_tier) {
+          setChasTier(data.chas_tier);
+        }
+        
+        // Symptoms mapping - use symptoms array from backend
+        const symptomsData = Array.isArray(data.symptoms) ? data.symptoms : 
+                            (Array.isArray(data.symptoms_list) ? data.symptoms_list : []);
+        setSelectedSymptoms(symptomsData);
+        
         // Parse symptoms from CSV - handle both string (comma-separated) and array formats
-        let parsedSymptoms = [];
-        if (data.symptoms_list && Array.isArray(data.symptoms_list)) {
-          // Backend already parsed symptoms into array
-          parsedSymptoms = data.symptoms_list;
-        } else if (data.symptoms && Array.isArray(data.symptoms)) {
-          // Direct symptoms array
-          parsedSymptoms = data.symptoms;
-        } else if (data.symptoms && typeof data.symptoms === 'string') {
-          // Comma-separated string - parse it
-          const symptomStrings = data.symptoms.split(',').map(s => s.trim()).filter(s => s);
-          // Map to exact symptom button labels (case-insensitive matching)
-          parsedSymptoms = symptomStrings.map(inputSymptom => {
-            const normalizedInput = inputSymptom.toLowerCase();
-            const match = symptomsList.find(symptom => symptom.toLowerCase() === normalizedInput);
-            return match || inputSymptom;
-          });
+        let parsedSymptoms = symptomsData;
+        if (!parsedSymptoms || parsedSymptoms.length === 0) {
+          if (data.symptoms && typeof data.symptoms === 'string') {
+            // Comma-separated string - parse it
+            const symptomStrings = data.symptoms.split(',').map(s => s.trim()).filter(s => s);
+            // Map to exact symptom button labels (case-insensitive matching)
+            parsedSymptoms = symptomStrings.map(inputSymptom => {
+              const normalizedInput = inputSymptom.toLowerCase();
+              const match = symptomsList.find(symptom => symptom.toLowerCase() === normalizedInput);
+              return match || inputSymptom;
+            });
+          }
         }
         
         // Map parsed CSV data to form fields with strict null/undefined checks
@@ -171,7 +204,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           ...prev,
           // Age mapping: convert numeric age or use age_group_display
           age: data.age_numeric != null ? String(data.age_numeric) : prev.age,
-          age_group: data.age_group_display || prev.age_group,
+          age_group: data.age_group || data.age_group_display || prev.age_group,
           
           // Medication count mapping
           num_medications: data.num_medications != null ? String(data.num_medications) : 
@@ -303,8 +336,11 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           <label className="block text-sm font-medium text-gray-300 mb-1">Age Group</label>
           <select
             name="age_group"
-            value={formData.age_group}
-            onChange={handleInputChange}
+            value={ageGroup || formData.age_group}
+            onChange={(e) => {
+              setAgeGroup(e.target.value);
+              handleInputChange(e);
+            }}
             className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Select...</option>
@@ -319,8 +355,11 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
         <label className="block text-sm font-medium text-gray-300 mb-1">CHAS Tier</label>
         <select
           name="chas_tier"
-          value={formData.chas_tier}
-          onChange={handleInputChange}
+          value={chasTier || formData.chas_tier}
+          onChange={(e) => {
+            setChasTier(e.target.value);
+            handleInputChange(e);
+          }}
           className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
         >
           {chasTiers.map(tier => (
@@ -494,7 +533,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
               type="button"
               onClick={() => handleSymptomToggle(symptom)}
               className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                formData.symptoms.includes(symptom)
+                selectedSymptoms.includes(symptom) || formData.symptoms.includes(symptom)
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
               }`}
@@ -503,9 +542,9 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
             </button>
           ))}
         </div>
-        {formData.symptoms.length > 0 && (
+        {(selectedSymptoms.length > 0 || formData.symptoms.length > 0) && (
           <p className="mt-1 text-xs text-gray-400">
-            Selected: {formData.symptoms.join(', ')}
+            Selected: {[...new Set([...selectedSymptoms, ...formData.symptoms])].join(', ')}
           </p>
         )}
       </div>

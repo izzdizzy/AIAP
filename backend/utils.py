@@ -358,11 +358,13 @@ def parse_uploaded_file_bytes(file_bytes: bytes, file_name: str) -> Dict[str, An
         extracted_data['data_completeness_pct'] = data_completeness_pct
         extracted_data['is_low_completeness'] = data_completeness_pct < 20.0
         
-        # Special handling for age group conversion
+        # Special handling for age group conversion - return both display and raw string format
         if 'age_numeric' in extracted_data:
             age = extracted_data['age_numeric']
             age_group, _ = age_numeric_to_age_group(int(age))
             extracted_data['age_group_display'] = age_group
+            # Also add age_group as a direct key for frontend compatibility (TASK 2)
+            extracted_data['age_group'] = age_group
         
         # Handle high_risk_flag conversion
         if 'high_risk_flag' in extracted_data:
@@ -372,6 +374,7 @@ def parse_uploaded_file_bytes(file_bytes: bytes, file_name: str) -> Dict[str, An
             ) else "No"
         
         # Handle symptoms column - split by comma and map to symptom options
+        # TASK 2: Ensure symptoms is returned as an array of strings for frontend
         if 'symptoms' in extracted_data:
             symptoms_str = str(extracted_data['symptoms'])
             if symptoms_str and symptoms_str.lower() != 'nan' and symptoms_str.strip():
@@ -391,12 +394,17 @@ def parse_uploaded_file_bytes(file_bytes: bytes, file_name: str) -> Dict[str, An
                         validated_symptoms.append(symptom.title())
                 
                 extracted_data['symptoms_list'] = validated_symptoms
+                # Also set symptoms as array directly for frontend (TASK 2)
+                extracted_data['symptoms'] = validated_symptoms
             else:
                 extracted_data['symptoms_list'] = []
+                extracted_data['symptoms'] = []
         else:
             extracted_data['symptoms_list'] = []
+            extracted_data['symptoms'] = []
         
         # Handle CHAS Tier column - pass through as-is if present
+        # TASK 2: Ensure chas_tier is always returned as a string
         if 'chas_tier' in extracted_data:
             chas_val = str(extracted_data['chas_tier']).strip()
             # Validate against known CHAS tiers

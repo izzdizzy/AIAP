@@ -135,26 +135,26 @@ def generate_patient_data(risk_level: str) -> dict:
     
     elif risk_level == "moderate":
         # Moderate risk patient profile:
-        # - Some prior admissions (total 1-2)
-        # - Moderate comorbidity count
-        # - Middle-aged
-        # - Moderate medications (5)
-        # - Oral medications
-        # - Lower lab procedures (25) to distinguish from high risk
+        # TASK 1: Strictly defined per requirements
+        # - age_numeric=55, age_group="[50-60)"
+        # - time_in_hospital=4, num_lab_procedures=45
+        # - prior_admissions=2, comorbidity_count=4
+        # - num_medications=8, chas_tier="Orange"
+        # - symptoms="Fatigue, Frequent urination"
         return {
             'admission_type_id': 1,
             'discharge_disposition_id': 1,
             'admission_source_id': 1,
-            'time_in_hospital': 3,
-            'num_lab_procedures': 25,
-            'num_procedures': 2,
-            'num_medications': 5,
-            'number_outpatient': 1,
+            'time_in_hospital': 4,
+            'num_lab_procedures': 45,
+            'num_procedures': 3,
+            'num_medications': 8,
+            'number_outpatient': 2,
             'number_emergency': 1,
-            'number_inpatient': 1,
-            'number_diagnoses': 4,
-            'diabetes_diag_count': 1,
-            'comorbidity_count': 3,
+            'number_inpatient': 2,
+            'number_diagnoses': 5,
+            'diabetes_diag_count': 2,
+            'comorbidity_count': 4,
             'metformin_encoded': 1,
             'metformin_active': 1,
             'repaglinide_encoded': 0,
@@ -201,40 +201,39 @@ def generate_patient_data(risk_level: str) -> dict:
             'metformin-rosiglitazone_active': 0,
             'metformin-pioglitazone_encoded': 0,
             'metformin-pioglitazone_active': 0,
-            'total_medications': 5,
+            'total_medications': 8,
             'on_insulin': 0,
             'oral_medications': 1,
             'change_encoded': 0,
             'diabetesMed_encoded': 1,
             'age_numeric': 55,
             'is_elderly': 0,
-            'total_prior_admissions': 1,
+            'total_prior_admissions': 2,
             'emergency_ratio': 0.33,
-            'inpatient_ratio': 0.33,
+            'inpatient_ratio': 0.40,
             'long_stay': 0,
-            'total_procedures': 2,
+            'total_procedures': 3,
             'high_lab_utilization': 0,
             'high_diagnosis_count': 0,
             'emergency_admission': 0,
             'not_home_discharge': 0,
             'er_admission': 0,
-            'age_comorbidity_interaction': 55 * 3,
-            'med_per_comorbidity': 5 / 3,
-            'admissions_per_year': 1,
-            'emerg_inpatient_combo': 2,
+            'age_comorbidity_interaction': 55 * 4,
+            'med_per_comorbidity': 8 / 4,
+            'admissions_per_year': 2,
+            'emerg_inpatient_combo': 3,
             'insulin_complexity': 0,
             'diabetes_med_intensity': 1,
         }
     
     else:  # low risk
         # Low risk patient profile:
-        # - No prior admissions (prior_admissions=0)
-        # - Low comorbidity count
-        # - Age in 40-50 range
-        # - Few medications (2)
-        # - 15 lab procedures
-        # - Well-controlled diabetes on metformin only
-        # - Discharged to home, no emergency admission
+        # TASK 1: Strictly defined per requirements
+        # - age_numeric=45, age_group="[40-50)"
+        # - time_in_hospital=2, num_lab_procedures=15
+        # - prior_admissions=0, comorbidity_count=1
+        # - num_medications=2, chas_tier="None"
+        # - symptoms="Mild thirst"
         return {
             'admission_type_id': 1,  # Elective admission
             'discharge_disposition_id': 1,  # Discharged to home
@@ -336,19 +335,21 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
     to ensure perfect compatibility with the app's CSV parsing logic.
     """
     # Define realistic symptom profiles based on risk level
+    # TASK 1: Strictly separated profiles per requirements
     symptom_profiles = {
         "high": "Fatigue, Frequent urination, Blurred vision, Slow-healing sores, Tingling in hands/feet, Excessive thirst",
-        "moderate": "Fatigue, Frequent urination, Mild thirst, Occasional blurred vision",
-        "low": "None, Mild thirst"
+        "moderate": "Fatigue, Frequent urination",
+        "low": "Mild thirst"
     }
     
     # Define CHAS Tier assignments based on patient profile (Singapore healthcare context)
-    # High risk (elderly, age 75): Pioneer or Merdeka tiers
-    # Moderate risk (middle-aged, age 55): Blue or Orange tiers
-    # Low risk (younger, age 45): None or Blue tiers
+    # TASK 1: Strictly assigned per requirements
+    # High risk (elderly, age 75): Pioneer tier
+    # Moderate risk (middle-aged, age 55): Orange tier
+    # Low risk (younger, age 45): None tier
     chas_tier_profiles = {
         "high": "Pioneer",      # Elderly patients (age 75) get Pioneer tier
-        "moderate": "Blue",     # Middle-aged patients (age 55) get Blue tier
+        "moderate": "Orange",   # Middle-aged patients (age 55) get Orange tier
         "low": "None"           # Younger patients (age 45) get None tier
     }
     
