@@ -279,8 +279,14 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Ensure formData includes the latest selectedSymptoms and chas_tier
+    const enrichedFormData = {
+      ...formData,
+      symptoms: selectedSymptoms,
+      chas_tier: chasTier
+    };
     // Submit both form data and file (if present)
-    await onSubmit(formData, file);
+    await onSubmit(enrichedFormData, file);
   };
 
   return (

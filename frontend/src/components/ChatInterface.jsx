@@ -17,6 +17,7 @@ import React, { useState, useRef, useEffect } from 'react';
 const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [fallbackMode, setFallbackMode] = useState(false);
   const messagesEndRef = useRef(null);
   
   const scrollToBottom = () => {
@@ -63,6 +64,12 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
     try {
       const response = await onSendMessage({}, input);
       const aiMessage = { role: 'assistant', content: response.response || response.message || 'No response received' };
+      
+      // Check if response indicates fallback mode (offline protocols)
+      if (response.is_fallback || (response.response && response.response.includes('[System Note: Operating on offline clinical protocols'))) {
+        setFallbackMode(true);
+      }
+      
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       const errorMessage = { role: 'assistant', content: 'Error: Unable to get a response from the AI service.' };
@@ -126,6 +133,15 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
       </div>
 
       <div className="border-t border-gray-700 p-4">
+        {/* Fallback Mode Warning Banner */}
+        {fallbackMode && (
+          <div className="mb-3 p-2 bg-yellow-900/30 border border-yellow-700 rounded-md">
+            <p className="text-xs text-yellow-300">
+              Live Gen AI disabled. Displaying standard care protocols.
+            </p>
+          </div>
+        )}
+        
         <div className="flex gap-2">
           <input
             type="text"

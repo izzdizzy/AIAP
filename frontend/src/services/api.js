@@ -32,14 +32,15 @@ export const uploadPatientFile = async (file) => {
  * Send chat message to Gen AI service with patient context
  * @param {Object} context - Patient context including clinical_severity_score, symptoms, chas_tier
  * @param {string} query - User's question or message
- * @returns {Promise<Object>} ChatResponse with AI-generated healthcare advice
+ * @returns {Promise<Object>} ChatResponse with AI-generated healthcare advice and is_fallback flag
  */
 export const sendChatMessage = async (context, query) => {
   // Build ChatRequest matching backend expectations
+  // Ensure all required fields are explicitly included in the payload
   const requestBody = {
-    clinical_severity_score: context.clinical_severity_score || context.prediction?.clinical_severity_score || 0,
-    symptoms: context.symptoms || context.form?.symptoms || context.form?.symptoms_list || [],
-    chas_tier: context.chas_tier || context.form?.chas_tier || null,
+    clinical_severity_score: context.clinical_severity_score || 0,
+    symptoms: Array.isArray(context.symptoms) ? context.symptoms : [],
+    chas_tier: context.chas_tier || null,
     user_query: query
   };
   

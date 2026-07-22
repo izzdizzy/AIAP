@@ -193,10 +193,14 @@ class GenAIService:
             symptoms: List of patient symptoms
             
         Returns:
-            Fallback advice text
+            Fallback advice text with system note about offline mode
         """
+        # Add transparent system note for fallback mode
+        system_note = "[System Note: Operating on offline clinical protocols due to API unavailability.] "
+        
         if urgency_level == "Immediate Intervention":
             return (
+                system_note +
                 f"**URGENT ATTENTION REQUIRED**\n\n"
                 f"Your Clinical Severity Score of {severity_score} out of 100 indicates high risk. "
                 f"I strongly recommend seeking immediate medical attention at a polyclinic or A&E. "
@@ -206,6 +210,7 @@ class GenAIService:
             )
         elif urgency_level == "Increased Surveillance":
             return (
+                system_note +
                 f"**MODERATE CONCERN**\n\n"
                 f"Your Clinical Severity Score of {severity_score} out of 100 suggests moderate risk. "
                 f"I recommend scheduling an appointment with your Healthier SG GP within the next few days "
@@ -215,6 +220,7 @@ class GenAIService:
             )
         else:
             return (
+                system_note +
                 f"**ROUTINE MONITORING**\n\n"
                 f"Your Clinical Severity Score of {severity_score} out of 100 indicates low risk. "
                 f"Continue your current diabetes management plan and attend scheduled follow-ups with your GP.\n\n"
@@ -272,17 +278,20 @@ class GenAIService:
         else:
             urgency_level = "Immediate Intervention"
         
-        # Build the user prompt
+        # Build the user prompt with explicit patient context format
         prompt_parts = []
         
-        # Current symptoms
+        # Patient context header for clear prompt structure
+        prompt_parts.append("=== PATIENT CONTEXT ===")
+        
+        # Current symptoms - explicitly include in prompt
         if symptoms:
             symptoms_str = ", ".join(symptoms)
             prompt_parts.append(f"Patient Symptoms: {symptoms_str}")
         else:
             prompt_parts.append("Patient Symptoms: None reported")
         
-        # Clinical Severity Score
+        # Clinical Severity Score and Urgency Level
         prompt_parts.append(f"Clinical Severity Score: {clinical_severity_score} out of 100")
         prompt_parts.append(f"Urgency Level: {urgency_level}")
         
@@ -293,11 +302,11 @@ class GenAIService:
         # User's current question
         prompt_parts.append(f"\nPatient Question: {user_query}")
         
-        # Clear instruction
+        # Clear instruction with explicit context requirement
         prompt_parts.append(
             "\nProvide a concise, direct answer to the patient's question above. "
             "Refer to the score as 'Clinical Severity Score of X out of 100' - NEVER as a percentage or probability. "
-            "Tailor advice based on the urgency level. "
+            "Tailor advice based on the urgency level and specific symptoms provided. "
             "Do NOT repeat disclaimers or metadata. "
             "Do NOT reference previous conversations."
         )

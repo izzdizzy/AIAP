@@ -81,10 +81,16 @@ function App() {
     setLoading(true);
     try {
       // Build context object matching ChatRequest schema with strict optional chaining
+      // Ensure symptoms array is correctly extracted from form data
+      const symptomsArray = Array.isArray(patientData?.form?.symptoms) 
+        ? patientData.form.symptoms 
+        : (Array.isArray(patientData?.form?.symptoms_list) 
+            ? patientData.form.symptoms_list 
+            : []);
+      
       const chatContext = {
         clinical_severity_score: patientData?.prediction?.clinical_severity_score ?? 0,
-        symptoms: Array.isArray(patientData?.form?.symptoms_list) ? patientData.form.symptoms_list : 
-                 (Array.isArray(patientData?.form?.symptoms) ? patientData.form.symptoms : []),
+        symptoms: symptomsArray,
         chas_tier: patientData?.form?.chas_tier ?? null
       };
       

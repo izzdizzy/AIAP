@@ -75,12 +75,15 @@ pip install -r requirements.txt
 ```
 
 ### 4. Configure Environment Variables
+
 Create a `.env` file in the project root:
 ```
 GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
 Obtain your API key from: https://makersuite.google.com/app/apikey
+
+**Important Note on Fallback Mode**: If `GEMINI_API_KEY` is not set or the Gemini API is unavailable, the application will automatically fall back to **offline clinical protocols**. This is an intentional design feature for robustness. The fallback mode provides standard care templates based on severity scores and symptoms, ensuring the system remains functional even without API access. When in fallback mode, a warning banner will appear in the chat interface indicating "Live Gen AI disabled. Displaying standard care protocols."
 
 ### 5. Train the Model
 ```bash
