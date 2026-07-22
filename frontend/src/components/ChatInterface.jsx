@@ -45,9 +45,10 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
 
-    const context = buildContext();
+    // Context is now built in App.jsx handleSendMessage using patientData state
+    // Pass empty context since the actual context is constructed from patientData there
     try {
-      const response = await onSendMessage(context, input);
+      const response = await onSendMessage({}, input);
       const aiMessage = { role: 'assistant', content: response.response || response.message || 'No response received' };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {

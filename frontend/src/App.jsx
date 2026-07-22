@@ -75,7 +75,14 @@ function App() {
   const handleSendMessage = async (context, query) => {
     setLoading(true);
     try {
-      const response = await sendChatMessage(context, query);
+      // Build context object matching ChatRequest schema
+      const chatContext = {
+        clinical_severity_score: patientData.prediction?.clinical_severity_score || 0,
+        symptoms: patientData.form?.symptoms_list || patientData.form?.symptoms || [],
+        chas_tier: patientData.form?.chas_tier || null
+      };
+      
+      const response = await sendChatMessage(chatContext, query);
       return response;
     } catch (err) {
       throw err;
