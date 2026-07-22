@@ -25,9 +25,14 @@ Usage:
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Tuple, List
+
+# Dynamically resolve project root regardless of current working directory
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "diabetic_data.csv"
 
 import numpy as np
 import pandas as pd
@@ -376,9 +381,37 @@ def train_model(
     print("STEP 1: LOADING DATA")
     print("=" * 70)
     
-    data_file = Path(data_path)
+    # Resolve data path: use provided path or fall back to default
+    if data_path:
+        data_file = Path(data_path)
+    else:
+        data_file = DEFAULT_DATA_PATH
+    
+    # Check if file exists at the specified path
     if not data_file.exists():
-        raise FileNotFoundError(f"Data file not found at {data_file}")
+        # Also check the default path as a fallback
+        if data_path and DEFAULT_DATA_PATH.exists():
+            print(f"\nWarning: File not found at '{data_path}', trying default path...")
+            data_file = DEFAULT_DATA_PATH
+            if not data_file.exists():
+                pass  # Will trigger error below
+        else:
+            pass  # Will trigger error below
+    
+    # Final check and clear error message
+    if not data_file.exists():
+        print("\n" + "=" * 70, file=sys.stderr)
+        print("ERROR: DATA FILE NOT FOUND", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+        print(f"\nThe dataset file was not found at:", file=sys.stderr)
+        print(f"  {data_file}", file=sys.stderr)
+        print(f"\nPlease download the UCI Diabetes 130-US dataset and place it at:", file=sys.stderr)
+        print(f"  {DEFAULT_DATA_PATH}", file=sys.stderr)
+        print("\nYou can download the dataset from:", file=sys.stderr)
+        print("  https://archive.ics.uci.edu/ml/datasets/Diabetes+130-US+hospitals+for+years+1999-2008", file=sys.stderr)
+        print("\nOnce downloaded, extract the 'diabetic_data.csv' file to the data/raw/ directory.", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+        sys.exit(1)
     
     df = pd.read_csv(data_file, encoding='utf-8')
     print(f"Dataset loaded: {df.shape[0]:,} rows x {df.shape[1]} columns")
@@ -641,8 +674,8 @@ def main():
     parser.add_argument(
         '--data-path',
         type=str,
-        default='data/raw/diabetic_data.csv',
-        help='Path to raw UCI Diabetes dataset CSV file'
+        default=None,  # Use None to trigger DEFAULT_DATA_PATH fallback
+        help='Path to raw UCI Diabetes dataset CSV file (default: data/raw/diabetic_data.csv relative to project root)'
     )
     parser.add_argument(
         '--output-dir',
@@ -671,9 +704,12 @@ def main():
     
     args = parser.parse_args()
     
+    # If no data path provided, use the dynamically resolved default
+    data_path = args.data_path if args.data_path else str(DEFAULT_DATA_PATH)
+    
     try:
         results = train_model(
-            data_path=args.data_path,
+            data_path=data_path,
             output_dir=args.output_dir,
             test_size=args.test_size,
             random_state=args.random_state,

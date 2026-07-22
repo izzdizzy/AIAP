@@ -232,6 +232,7 @@ async def upload_patient_file(file: UploadFile = File(...)):
         
         # Convert all numpy/pandas types to native Python types for JSON serialization
         # This prevents PydanticSerializationError with numpy.int64, numpy.float64, etc.
+        # Also apply default values for missing columns to prevent React crashes
         def convert_to_native(obj):
             """Recursively convert numpy/pandas types to native Python types."""
             import json
@@ -248,6 +249,35 @@ async def upload_patient_file(file: UploadFile = File(...)):
         
         patient_data = convert_to_native(patient_data)
         
+        # Apply default values for expected fields that might be missing from CSV
+        # This ensures the frontend never receives undefined/null for critical fields
+        defaults = {
+            'age_numeric': 0,
+            'total_prior_admissions': 0,
+            'number_inpatient': 0,
+            'number_emergency': 0,
+            'number_outpatient': 0,
+            'comorbidity_count': 0,
+            'total_medications': 0,
+            'num_medications': 0,
+            'time_in_hospital': 0,
+            'number_diagnoses': 0,
+            'num_lab_procedures': 0,
+            'num_procedures': 0,
+            'admission_type_id': 1,
+            'discharge_disposition_id': 1,
+            'admission_source_id': 1,
+            'diabetes_diag_count': 0,
+            'metformin_encoded': 0,
+            'insulin_encoded': 0,
+            'on_insulin': 0,
+            'age_group_display': 'Unknown',
+            'symptoms_list': []
+        }
+        
+        # Merge with defaults - user data takes precedence
+        patient_data = {**defaults, **patient_data}
+        
         return UploadResponse(
             success=True,
             message=f"Successfully parsed {file.filename}",
@@ -257,19 +287,67 @@ async def upload_patient_file(file: UploadFile = File(...)):
         )
         
     except ValueError as e:
+        # Return a valid response with defaults even on error
+        default_patient_data = {
+            'age_numeric': 0,
+            'total_prior_admissions': 0,
+            'number_inpatient': 0,
+            'number_emergency': 0,
+            'number_outpatient': 0,
+            'comorbidity_count': 0,
+            'total_medications': 0,
+            'num_medications': 0,
+            'time_in_hospital': 0,
+            'number_diagnoses': 0,
+            'num_lab_procedures': 0,
+            'num_procedures': 0,
+            'admission_type_id': 1,
+            'discharge_disposition_id': 1,
+            'admission_source_id': 1,
+            'diabetes_diag_count': 0,
+            'metformin_encoded': 0,
+            'insulin_encoded': 0,
+            'on_insulin': 0,
+            'age_group_display': 'Unknown',
+            'symptoms_list': []
+        }
         return UploadResponse(
             success=False,
             message="Failed to parse file",
-            patient_data=None,
-            data_completeness_pct=None,
+            patient_data=default_patient_data,
+            data_completeness_pct=0,
             error=str(e)
         )
     except Exception as e:
+        # Return a valid response with defaults even on unexpected error
+        default_patient_data = {
+            'age_numeric': 0,
+            'total_prior_admissions': 0,
+            'number_inpatient': 0,
+            'number_emergency': 0,
+            'number_outpatient': 0,
+            'comorbidity_count': 0,
+            'total_medications': 0,
+            'num_medications': 0,
+            'time_in_hospital': 0,
+            'number_diagnoses': 0,
+            'num_lab_procedures': 0,
+            'num_procedures': 0,
+            'admission_type_id': 1,
+            'discharge_disposition_id': 1,
+            'admission_source_id': 1,
+            'diabetes_diag_count': 0,
+            'metformin_encoded': 0,
+            'insulin_encoded': 0,
+            'on_insulin': 0,
+            'age_group_display': 'Unknown',
+            'symptoms_list': []
+        }
         return UploadResponse(
             success=False,
             message="Unexpected error during file processing",
-            patient_data=None,
-            data_completeness_pct=None,
+            patient_data=default_patient_data,
+            data_completeness_pct=0,
             error=str(e)
         )
 

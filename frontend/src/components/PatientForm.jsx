@@ -131,65 +131,76 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
         body: formDataObj
       });
 
+      // Strict error handling for non-200 responses
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+
       const result = await response.json();
+
+      // Verify response structure before accessing properties
+      if (!result) {
+        throw new Error('Invalid response from server');
+      }
 
       if (result.success && result.patient_data) {
         const data = result.patient_data;
         
-        // Map parsed CSV data to form fields
+        // Map parsed CSV data to form fields with strict null/undefined checks
         // This mapping aligns with the backend's CSV_TO_MODEL_MAPPING in utils.py
         setFormData(prev => ({
           ...prev,
           // Age mapping: convert numeric age or use age_group_display
-          age: data.age_numeric?.toString() || prev.age,
+          age: data.age_numeric != null ? String(data.age_numeric) : prev.age,
           age_group: data.age_group_display || prev.age_group,
           
           // Medication count mapping
-          num_medications: data.num_medications?.toString() || 
-                          data.total_medications?.toString() || prev.num_medications,
-          medications: data.total_medications?.toString() || prev.medications,
+          num_medications: data.num_medications != null ? String(data.num_medications) : 
+                          (data.total_medications != null ? String(data.total_medications) : prev.num_medications),
+          medications: data.total_medications != null ? String(data.total_medications) : prev.medications,
           
           // Comorbidity mapping
-          comorbidity_count: data.comorbidity_count?.toString() || prev.comorbidity_count,
-          comorbidities: data.comorbidity_count?.toString() || prev.comorbidities,
+          comorbidity_count: data.comorbidity_count != null ? String(data.comorbidity_count) : prev.comorbidity_count,
+          comorbidities: data.comorbidity_count != null ? String(data.comorbidity_count) : prev.comorbidities,
           
           // Prior admissions / inpatient visits mapping
-          prior_admissions: data.prior_admissions?.toString() || 
-                           data.total_prior_admissions?.toString() || 
-                           data.number_inpatient?.toString() || prev.prior_admissions,
-          number_inpatient: data.number_inpatient?.toString() || 
-                           data.prior_admissions?.toString() || prev.number_inpatient,
+          prior_admissions: data.prior_admissions != null ? String(data.prior_admissions) : 
+                           (data.total_prior_admissions != null ? String(data.total_prior_admissions) :
+                           (data.number_inpatient != null ? String(data.number_inpatient) : prev.prior_admissions)),
+          number_inpatient: data.number_inpatient != null ? String(data.number_inpatient) : 
+                           (data.prior_admissions != null ? String(data.prior_admissions) : prev.number_inpatient),
           
           // Hospital stay features
-          time_in_hospital: data.time_in_hospital?.toString() || prev.time_in_hospital,
-          num_lab_procedures: data.num_lab_procedures?.toString() || prev.num_lab_procedures,
-          num_procedures: data.num_procedures?.toString() || prev.num_procedures,
+          time_in_hospital: data.time_in_hospital != null ? String(data.time_in_hospital) : prev.time_in_hospital,
+          num_lab_procedures: data.num_lab_procedures != null ? String(data.num_lab_procedures) : prev.num_lab_procedures,
+          num_procedures: data.num_procedures != null ? String(data.num_procedures) : prev.num_procedures,
           
           // Visit counts
-          number_outpatient: data.number_outpatient?.toString() || prev.number_outpatient,
-          number_emergency: data.number_emergency?.toString() || prev.number_emergency,
+          number_outpatient: data.number_outpatient != null ? String(data.number_outpatient) : prev.number_outpatient,
+          number_emergency: data.number_emergency != null ? String(data.number_emergency) : prev.number_emergency,
           
           // Diagnosis features
-          number_diagnoses: data.number_diagnoses?.toString() || prev.number_diagnoses,
-          diabetes_diag_count: data.diabetes_diag_count?.toString() || prev.diabetes_diag_count,
+          number_diagnoses: data.number_diagnoses != null ? String(data.number_diagnoses) : prev.number_diagnoses,
+          diabetes_diag_count: data.diabetes_diag_count != null ? String(data.diabetes_diag_count) : prev.diabetes_diag_count,
           
           // Administrative features
-          admission_type_id: data.admission_type_id?.toString() || prev.admission_type_id,
-          discharge_disposition_id: data.discharge_disposition_id?.toString() || prev.discharge_disposition_id,
-          admission_source_id: data.admission_source_id?.toString() || prev.admission_source_id,
+          admission_type_id: data.admission_type_id != null ? String(data.admission_type_id) : prev.admission_type_id,
+          discharge_disposition_id: data.discharge_disposition_id != null ? String(data.discharge_disposition_id) : prev.discharge_disposition_id,
+          admission_source_id: data.admission_source_id != null ? String(data.admission_source_id) : prev.admission_source_id,
           
-          // Medication flags
-          metformin_encoded: data.metformin_encoded === 1 || data.metformin_encoded === true || prev.metformin_encoded,
-          insulin_encoded: data.insulin_encoded === 1 || data.insulin_encoded === true || prev.insulin_encoded,
-          on_insulin: data.on_insulin === 1 || data.on_insulin === true || prev.on_insulin,
+          // Medication flags - ensure boolean conversion is safe
+          metformin_encoded: (data.metformin_encoded === 1 || data.metformin_encoded === true) ? true : prev.metformin_encoded,
+          insulin_encoded: (data.insulin_encoded === 1 || data.insulin_encoded === true) ? true : prev.insulin_encoded,
+          on_insulin: (data.on_insulin === 1 || data.on_insulin === true) ? true : prev.on_insulin,
           
-          // Symptoms from CSV (if provided as comma-separated list)
-          symptoms: data.symptoms_list || data.symptoms || prev.symptoms
+          // Symptoms from CSV (if provided as comma-separated list) - ensure it's an array
+          symptoms: Array.isArray(data.symptoms_list) ? data.symptoms_list : 
+                   (Array.isArray(data.symptoms) ? data.symptoms : prev.symptoms)
         }));
 
         setUploadStatus({
           type: 'success',
-          message: `File parsed successfully! ${result.data_completeness_pct?.toFixed(0) || 0}% data completeness.`
+          message: `File parsed successfully! ${result.data_completeness_pct != null ? Math.round(result.data_completeness_pct) : 0}% data completeness.`
         });
 
         // Notify parent component of successful upload
@@ -197,15 +208,17 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           onFileUpload(result);
         }
       } else {
+        // Display error from backend but don't crash
         setUploadStatus({
           type: 'error',
-          message: result.error || 'Failed to parse file.'
+          message: result.error || 'Failed to parse file. Please check the file format.'
         });
       }
     } catch (error) {
+      // Catch network errors, parsing errors, etc.
       setUploadStatus({
         type: 'error',
-        message: `Upload error: ${error.message}`
+        message: `Upload error: ${error.message || 'An unexpected error occurred'}`
       });
     }
   };
@@ -235,10 +248,16 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
             {loading ? 'Processing...' : `Selected: ${file.name}`}
           </p>
         )}
-        {uploadStatus && (
-          <p className={`mt-2 text-sm ${
-            uploadStatus.type === 'success' ? 'text-green-400' : 'text-red-400'
-          }`}>
+        {/* Error Alert Box - Red background for errors */}
+        {uploadStatus && uploadStatus.type === 'error' && (
+          <div className="mt-3 p-3 bg-red-900/40 border border-red-700 rounded-md">
+            <p className="text-sm text-red-300 font-medium">Upload Error</p>
+            <p className="text-sm text-red-400">{uploadStatus.message}</p>
+          </div>
+        )}
+        {/* Success Message */}
+        {uploadStatus && uploadStatus.type === 'success' && (
+          <p className="mt-2 text-sm text-green-400">
             {uploadStatus.message}
           </p>
         )}
