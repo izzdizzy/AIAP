@@ -51,36 +51,36 @@ const PatientForm = ({ onSubmit, loading }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-300 mb-1">
           Upload Patient File (.csv, .xlsx)
         </label>
         <input
           type="file"
           accept=".csv,.xlsx"
           onChange={handleFileChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Age</label>
           <input
             type="number"
             name="age"
             value={formData.age}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
             placeholder="e.g., 65"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">CHAS Tier</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">CHAS Tier</label>
           <select
             name="chas_tier"
             value={formData.chas_tier}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           >
             {chasTiers.map(tier => (
               <option key={tier} value={tier}>{tier}</option>
@@ -90,43 +90,43 @@ const PatientForm = ({ onSubmit, loading }) => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Prior Admissions</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Prior Admissions</label>
         <input
           type="number"
           name="prior_admissions"
           value={formData.prior_admissions}
           onChange={handleInputChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           placeholder="e.g., 2"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Comorbidities</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Comorbidities</label>
         <input
           type="text"
           name="comorbidities"
           value={formData.comorbidities}
           onChange={handleInputChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           placeholder="e.g., Diabetes, Hypertension"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Medications</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Medications</label>
         <input
           type="text"
           name="medications"
           value={formData.medications}
           onChange={handleInputChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
           placeholder="e.g., Metformin, Lisinopril"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Symptoms</label>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Symptoms</label>
         <div className="flex flex-wrap gap-2">
           {symptomsList.map(symptom => (
             <button
@@ -136,7 +136,7 @@ const PatientForm = ({ onSubmit, loading }) => {
               className={`px-3 py-1 rounded-full text-sm ${
                 formData.symptoms.includes(symptom)
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
+                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
               }`}
             >
               {symptom}
@@ -148,7 +148,7 @@ const PatientForm = ({ onSubmit, loading }) => {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? 'Analyzing...' : 'Assess Risk'}
       </button>

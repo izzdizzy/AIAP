@@ -217,6 +217,10 @@ async def upload_patient_file(file: UploadFile = File(...)):
         # Read file bytes
         file_bytes = await file.read()
         
+        # Validate file is not empty
+        if not file_bytes or len(file_bytes) == 0:
+            raise ValueError("Uploaded file is empty.")
+        
         # Parse file using utility function
         parsed_data = parse_uploaded_file_bytes(file_bytes, file.filename)
         
@@ -224,6 +228,24 @@ async def upload_patient_file(file: UploadFile = File(...)):
         patient_data = {k: v for k, v in parsed_data.items() 
                        if k not in ['data_completeness_pct', 'is_low_completeness', 
                                    'age_group_display', 'high_risk_display', 'symptoms_list']}
+        
+        # Convert all numpy/pandas types to native Python types for JSON serialization
+        # This prevents PydanticSerializationError with numpy.int64, numpy.float64, etc.
+        def convert_to_native(obj):
+            """Recursively convert numpy/pandas types to native Python types."""
+            import json
+            if isinstance(obj, dict):
+                return {key: convert_to_native(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_native(item) for item in obj]
+            elif hasattr(obj, 'item'):  # numpy scalar types
+                return obj.item()
+            elif pd.isna(obj):  # pandas NaN
+                return None
+            else:
+                return obj
+        
+        patient_data = convert_to_native(patient_data)
         
         return UploadResponse(
             success=True,

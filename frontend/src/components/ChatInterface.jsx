@@ -19,10 +19,11 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
     const contextParts = [];
     
     if (patientData.prediction) {
-      const { severity_score, urgency_level, interpretation } = patientData.prediction;
-      contextParts.push(`Clinical Severity Score: ${severity_score}/100`);
+      const { clinical_severity_score, urgency_level, raw_probability, risk_category } = patientData.prediction;
+      contextParts.push(`Clinical Severity Score: ${clinical_severity_score}/100`);
       contextParts.push(`Urgency Level: ${urgency_level}`);
-      contextParts.push(`Interpretation: ${interpretation}`);
+      contextParts.push(`Risk Category: ${risk_category}`);
+      contextParts.push(`Readmission Probability: ${(raw_probability * 100).toFixed(1)}%`);
     }
     
     if (patientData.form) {
@@ -63,10 +64,10 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow">
+    <div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg border border-gray-700">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
+          <div className="text-center text-gray-400 mt-8">
             <p>Start a conversation about this patient's care plan.</p>
             <p className="text-sm mt-2">Patient context is automatically included.</p>
           </div>
@@ -80,7 +81,7 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
               className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-lg ${
                 msg.role === 'user'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-800'
+                  : 'bg-gray-700 text-gray-100'
               }`}
             >
               <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -90,7 +91,7 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-700 p-4">
         <div className="flex gap-2">
           <input
             type="text"
@@ -98,13 +99,13 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask about care recommendations..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-4 py-2 border border-gray-600 rounded-md bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={loading}
           />
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Sending...' : 'Send'}
           </button>
