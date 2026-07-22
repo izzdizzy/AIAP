@@ -8,8 +8,18 @@ with safety guardrails and API failure fallback.
 """
 
 import os
-import time
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Resolve project root (one level above backend/) and load .env
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+env_path = PROJECT_ROOT / '.env'
+
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    print(f"Warning: .env file not found at {env_path}")
+
 from typing import List, Dict, Any, Optional
 
 # Try importing the google-generativeai library

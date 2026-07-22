@@ -15,6 +15,18 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Resolve project root (one level above backend/) and load .env
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+env_path = PROJECT_ROOT / '.env'
+
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    print(f"Warning: .env file not found at {env_path}")
+
 import pandas as pd
 
 # Import Pydantic models
