@@ -100,11 +100,12 @@ class ChatRequest(BaseModel):
     """
     Request model for Gen AI chat endpoint.
     Includes patient context and user query.
+    All fields are Optional with defaults to prevent validation errors from frontend.
     """
-    clinical_severity_score: int = Field(..., description="Clinical Severity Score (0-100)")
-    symptoms: List[str] = Field(default_factory=list, description="List of patient-reported symptoms")
+    clinical_severity_score: Optional[int] = Field(0, description="Clinical Severity Score (0-100)")
+    symptoms: Optional[List[str]] = Field(default_factory=list, description="List of patient-reported symptoms")
     chas_tier: Optional[str] = Field(None, description="CHAS tier: Blue, Orange, Green, or None")
-    user_query: str = Field(..., description="User's question or message")
+    user_query: Optional[str] = Field("", description="User's question or message")
     
     class Config:
         json_schema_extra = {

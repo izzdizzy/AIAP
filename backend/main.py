@@ -201,10 +201,15 @@ async def chat_with_assistant(chat_request: ChatRequest):
             safety_warning=result.get('safety_warning')
         )
         
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat generation failed: {str(e)}")
+        # CRITICAL: Catch ALL exceptions to prevent 500 errors
+        # Log the exact error and return fallback response instead of crashing
+        print(f"CHAT ENDPOINT ERROR: {str(e)}")
+        return ChatResponse(
+            response="[System Error] Unable to connect to live care navigation. Please follow standard post-discharge protocols. Seek immediate medical attention if symptoms worsen.",
+            is_fallback=True,
+            safety_warning=None
+        )
 
 
 # =============================================================================

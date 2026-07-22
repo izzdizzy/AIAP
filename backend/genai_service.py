@@ -8,6 +8,7 @@ with safety guardrails and API failure fallback.
 """
 
 import os
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -264,143 +265,166 @@ class GenAIService:
             - is_fallback: Whether fallback response was used
             - safety_warning: Safety warning if dangerous content detected
         """
-        # Validate inputs
-        if not isinstance(clinical_severity_score, (int, float)):
-            raise TypeError("clinical_severity_score must be numeric")
-        
-        if clinical_severity_score < 0 or clinical_severity_score > 100:
-            raise ValueError("clinical_severity_score must be between 0 and 100")
-        
-        # Check for dangerous content first
-        safety_warning = self._check_dangerous_content(user_query, symptoms)
-        if safety_warning:
-            return {
-                "response": safety_warning,
-                "is_fallback": False,
-                "safety_warning": safety_warning
-            }
-        
-        # Determine urgency level from severity score
-        if clinical_severity_score < 33:
-            urgency_level = "Routine Monitoring"
-        elif clinical_severity_score < 66:
-            urgency_level = "Increased Surveillance"
-        else:
-            urgency_level = "Immediate Intervention"
-        
-        # Build the user prompt with explicit patient context format
-        prompt_parts = []
-        
-        # Patient context header for clear prompt structure
-        prompt_parts.append("=== PATIENT CONTEXT ===")
-        
-        # Current symptoms - explicitly include in prompt
-        if symptoms:
-            symptoms_str = ", ".join(symptoms)
-            prompt_parts.append(f"Patient Symptoms: {symptoms_str}")
-        else:
-            prompt_parts.append("Patient Symptoms: None reported")
-        
-        # Clinical Severity Score and Urgency Level
-        prompt_parts.append(f"Clinical Severity Score: {clinical_severity_score} out of 100")
-        prompt_parts.append(f"Urgency Level: {urgency_level}")
-        
-        # CHAS tier if provided
-        if chas_tier:
-            prompt_parts.append(f"CHAS Tier: {chas_tier}")
-        
-        # User's current question
-        prompt_parts.append(f"\nPatient Question: {user_query}")
-        
-        # Clear instruction with explicit context requirement
-        prompt_parts.append(
-            "\nProvide a concise, direct answer to the patient's question above. "
-            "Refer to the score as 'Clinical Severity Score of X out of 100' - NEVER as a percentage or probability. "
-            "Tailor advice based on the urgency level and specific symptoms provided. "
-            "Do NOT repeat disclaimers or metadata. "
-            "Do NOT reference previous conversations."
-        )
-        
-        user_prompt = "\n".join(prompt_parts)
-        
-        # If API is not available, use fallback
-        if not self.is_available or self.model is None:
+        try:
+            # Validate inputs
+            if not isinstance(clinical_severity_score, (int, float)):
+                raise TypeError("clinical_severity_score must be numeric")
+            
+            if clinical_severity_score < 0 or clinical_severity_score > 100:
+                raise ValueError("clinical_severity_score must be between 0 and 100")
+            
+            # Check for dangerous content first
+            safety_warning = self._check_dangerous_content(user_query, symptoms)
+            if safety_warning:
+                return {
+                    "response": safety_warning,
+                    "is_fallback": False,
+                    "safety_warning": safety_warning
+                }
+            
+            # Determine urgency level from severity score
+            if clinical_severity_score < 33:
+                urgency_level = "Routine Monitoring"
+            elif clinical_severity_score < 66:
+                urgency_level = "Increased Surveillance"
+            else:
+                urgency_level = "Immediate Intervention"
+            
+            # Build the user prompt with explicit patient context format
+            prompt_parts = []
+            
+            # Patient context header for clear prompt structure
+            prompt_parts.append("=== PATIENT CONTEXT ===")
+            
+            # Current symptoms - explicitly include in prompt
+            if symptoms:
+                symptoms_str = ", ".join(symptoms)
+                prompt_parts.append(f"Patient Symptoms: {symptoms_str}")
+            else:
+                prompt_parts.append("Patient Symptoms: None reported")
+            
+            # Clinical Severity Score and Urgency Level
+            prompt_parts.append(f"Clinical Severity Score: {clinical_severity_score} out of 100")
+            prompt_parts.append(f"Urgency Level: {urgency_level}")
+            
+            # CHAS tier if provided
+            if chas_tier:
+                prompt_parts.append(f"CHAS Tier: {chas_tier}")
+            
+            # User's current question
+            prompt_parts.append(f"\nPatient Question: {user_query}")
+            
+            # Clear instruction with explicit context requirement
+            prompt_parts.append(
+                "\nProvide a concise, direct answer to the patient's question above. "
+                "Refer to the score as 'Clinical Severity Score of X out of 100' - NEVER as a percentage or probability. "
+                "Tailor advice based on the urgency level and specific symptoms provided. "
+                "Do NOT repeat disclaimers or metadata. "
+                "Do NOT reference previous conversations."
+            )
+            
+            user_prompt = "\n".join(prompt_parts)
+            
+            # If API is not available, use fallback
+            if not self.is_available or self.model is None:
+                print("[GenAI] API not available. Using fallback response.")
+                fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
+                return {
+                    "response": fallback_response,
+                    "is_fallback": True,
+                    "safety_warning": None
+                }
+            
+            # Attempt API call with retry logic
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    # Generate response using non-streaming mode
+                    response = self.model.generate_content(
+                        [SYSTEM_PROMPT.strip(), user_prompt],
+                        generation_config=self.generation_config,
+                        stream=False
+                    )
+                    
+                    # Extract and validate response
+                    if response and response.text:
+                        advice_text = response.text.strip()
+                        
+                        # Validation check: Ensure response is not too short
+                        if len(advice_text) < 10:
+                            print(f"[GenAI] Warning: Response too short ({len(advice_text)} chars), triggering retry...")
+                            if attempt < max_retries - 1:
+                                time.sleep(retry_delay)
+                                continue
+                            else:
+                                # Return fallback after all retries
+                                fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
+                                return {
+                                    "response": fallback_response,
+                                    "is_fallback": True,
+                                    "safety_warning": None
+                                }
+                        
+                        return {
+                            "response": advice_text,
+                            "is_fallback": False,
+                            "safety_warning": None
+                        }
+                    else:
+                        raise RuntimeError("Empty response received from API")
+                
+                except Exception as e:
+                    last_exception = e
+                    error_type = type(e).__name__
+                    
+                    # Handle rate limiting with exponential backoff
+                    if "rate limit" in str(e).lower() or "quota" in str(e).lower():
+                        wait_time = retry_delay * (2 ** attempt)
+                        print(f"[GenAI] Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}")
+                        time.sleep(wait_time)
+                    elif "api key" in str(e).lower() or "authentication" in str(e).lower():
+                        # Don't retry authentication errors - return fallback immediately
+                        print(f"Gemini API failed: API key not valid. Using fallback.")
+                        fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
+                        return {
+                            "response": fallback_response,
+                            "is_fallback": True,
+                            "safety_warning": None
+                        }
+                    else:
+                        # Generic retry with delay
+                        if attempt < max_retries - 1:
+                            print(f"[GenAI] API call failed (attempt {attempt + 1}/{max_retries}): {error_type}. Retrying...")
+                            time.sleep(retry_delay)
+                        else:
+                            # Final attempt failed - log and return fallback
+                            print(f"Gemini API failed after all retries: {str(e)}. Using fallback.")
+            
+            # All retries exhausted - use fallback
+            print(f"[GenAI] All retries exhausted. Using fallback response.")
             fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
             return {
                 "response": fallback_response,
                 "is_fallback": True,
                 "safety_warning": None
             }
-        
-        # Attempt API call with retry logic
-        last_exception = None
-        for attempt in range(max_retries):
-            try:
-                # Generate response using non-streaming mode
-                response = self.model.generate_content(
-                    [SYSTEM_PROMPT.strip(), user_prompt],
-                    generation_config=self.generation_config,
-                    stream=False
-                )
-                
-                # Extract and validate response
-                if response and response.text:
-                    advice_text = response.text.strip()
-                    
-                    # Validation check: Ensure response is not too short
-                    if len(advice_text) < 10:
-                        print(f"[GenAI] Warning: Response too short ({len(advice_text)} chars), triggering retry...")
-                        if attempt < max_retries - 1:
-                            time.sleep(retry_delay)
-                            continue
-                        else:
-                            # Return fallback after all retries
-                            fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
-                            return {
-                                "response": fallback_response,
-                                "is_fallback": True,
-                                "safety_warning": None
-                            }
-                    
-                    return {
-                        "response": advice_text,
-                        "is_fallback": False,
-                        "safety_warning": None
-                    }
-                else:
-                    raise RuntimeError("Empty response received from API")
             
-            except Exception as e:
-                last_exception = e
-                error_type = type(e).__name__
-                
-                # Handle rate limiting with exponential backoff
-                if "rate limit" in str(e).lower() or "quota" in str(e).lower():
-                    wait_time = retry_delay * (2 ** attempt)
-                    print(f"[GenAI] Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}")
-                    time.sleep(wait_time)
-                elif "api key" in str(e).lower() or "authentication" in str(e).lower():
-                    # Don't retry authentication errors
-                    fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
-                    return {
-                        "response": fallback_response,
-                        "is_fallback": True,
-                        "safety_warning": None
-                    }
-                else:
-                    # Generic retry with delay
-                    if attempt < max_retries - 1:
-                        print(f"[GenAI] API call failed (attempt {attempt + 1}/{max_retries}): {error_type}. Retrying...")
-                        time.sleep(retry_delay)
-        
-        # All retries exhausted - use fallback
-        print(f"[GenAI] All retries exhausted. Using fallback response.")
-        fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
-        return {
-            "response": fallback_response,
-            "is_fallback": True,
-            "safety_warning": None
-        }
+        except Exception as e:
+            # CRITICAL: Catch any unexpected exception and return fallback
+            print(f"Gemini API failed with unexpected error: {str(e)}. Using fallback.")
+            # Determine urgency level for fallback response
+            if clinical_severity_score < 33:
+                urgency_level = "Routine Monitoring"
+            elif clinical_severity_score < 66:
+                urgency_level = "Increased Surveillance"
+            else:
+                urgency_level = "Immediate Intervention"
+            fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms or [])
+            return {
+                "response": fallback_response,
+                "is_fallback": True,
+                "safety_warning": None
+            }
 
 
 # Singleton instance for the FastAPI app

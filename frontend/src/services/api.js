@@ -44,6 +44,9 @@ export const sendChatMessage = async (context, query) => {
     user_query: query
   };
   
+  // Debug: Log the payload being sent to the backend
+  console.log("Sending chat payload:", requestBody);
+  
   const response = await axios.post(`${API_BASE}/chat`, requestBody);
   return response.data;
 };
