@@ -32,10 +32,21 @@ except ImportError:
 # Base directory is parent of this file's directory (backend/ -> workspace/)
 BASE_DIR = Path(__file__).parent.parent
 
-DEFAULT_MODEL_PATH = BASE_DIR / "outputs" / "readmission_model.joblib"
-DEFAULT_FEATURE_COLUMNS_PATH = BASE_DIR / "outputs" / "feature_columns.json"
-DEFAULT_METADATA_PATH = BASE_DIR / "outputs" / "model_metadata.json"
-DEFAULT_FEATURE_DEFAULTS_PATH = BASE_DIR / "outputs" / "feature_defaults.json"
+# Use artifacts directory for model files (created by training script)
+ARTIFACTS_DIR = Path(__file__).parent / "artifacts"
+
+# Primary paths - check artifacts/ directory first
+DEFAULT_MODEL_PATH = ARTIFACTS_DIR / "model.joblib"
+DEFAULT_FEATURE_COLUMNS_PATH = ARTIFACTS_DIR / "feature_columns.json"
+DEFAULT_METADATA_PATH = ARTIFACTS_DIR / "model_metadata.json"
+DEFAULT_FEATURE_DEFAULTS_PATH = ARTIFACTS_DIR / "feature_defaults.json"
+DEFAULT_THRESHOLD_PATH = ARTIFACTS_DIR / "threshold.json"
+
+# Fallback paths - legacy outputs/ directory
+FALLBACK_MODEL_PATH = BASE_DIR / "outputs" / "readmission_model.joblib"
+FALLBACK_FEATURE_COLUMNS_PATH = BASE_DIR / "outputs" / "feature_columns.json"
+FALLBACK_METADATA_PATH = BASE_DIR / "outputs" / "model_metadata.json"
+FALLBACK_FEATURE_DEFAULTS_PATH = BASE_DIR / "outputs" / "feature_defaults.json"
 
 
 # =============================================================================
@@ -76,27 +87,34 @@ class MLService:
     
     def _load_model(self) -> None:
         """Load the trained XGBoost model from disk."""
-        if not DEFAULT_MODEL_PATH.exists():
+        # Try primary path (artifacts/) first, then fallback to outputs/
+        model_path = DEFAULT_MODEL_PATH if DEFAULT_MODEL_PATH.exists() else FALLBACK_MODEL_PATH
+        
+        if not model_path.exists():
             raise FileNotFoundError(
-                f"Model file not found at {DEFAULT_MODEL_PATH}. "
-                "Please ensure the outputs/ folder contains the trained model."
+                f"Model file not found at {model_path}. "
+                "Please ensure the artifacts/ folder contains the trained model, "
+                "or run: python backend/scripts/train.py"
             )
         
         try:
-            self.model = joblib.load(DEFAULT_MODEL_PATH)
-            print(f"[MLService] Model loaded successfully from {DEFAULT_MODEL_PATH}")
+            self.model = joblib.load(model_path)
+            print(f"[MLService] Model loaded successfully from {model_path}")
         except Exception as e:
             raise Exception(f"Failed to load model: {str(e)}")
     
     def _load_feature_columns(self) -> None:
         """Load the expected feature column order from JSON file."""
-        if not DEFAULT_FEATURE_COLUMNS_PATH.exists():
+        # Try primary path (artifacts/) first, then fallback to outputs/
+        feature_path = DEFAULT_FEATURE_COLUMNS_PATH if DEFAULT_FEATURE_COLUMNS_PATH.exists() else FALLBACK_FEATURE_COLUMNS_PATH
+        
+        if not feature_path.exists():
             raise FileNotFoundError(
-                f"Feature columns file not found at {DEFAULT_FEATURE_COLUMNS_PATH}."
+                f"Feature columns file not found at {feature_path}."
             )
         
         try:
-            with open(DEFAULT_FEATURE_COLUMNS_PATH, 'r', encoding='utf-8') as f:
+            with open(feature_path, 'r', encoding='utf-8') as f:
                 self.feature_columns = json.load(f)
             print(f"[MLService] Feature columns loaded: {len(self.feature_columns)} features")
         except Exception as e:
@@ -104,13 +122,16 @@ class MLService:
     
     def _load_feature_defaults(self) -> None:
         """Load the baseline default values for all features."""
-        if not DEFAULT_FEATURE_DEFAULTS_PATH.exists():
-            print(f"[MLService] Warning: Feature defaults file not found at {DEFAULT_FEATURE_DEFAULTS_PATH}")
+        # Try primary path (artifacts/) first, then fallback to outputs/
+        defaults_path = DEFAULT_FEATURE_DEFAULTS_PATH if DEFAULT_FEATURE_DEFAULTS_PATH.exists() else FALLBACK_FEATURE_DEFAULTS_PATH
+        
+        if not defaults_path.exists():
+            print(f"[MLService] Warning: Feature defaults file not found at {defaults_path}")
             self.feature_defaults = {}
             return
         
         try:
-            with open(DEFAULT_FEATURE_DEFAULTS_PATH, 'r', encoding='utf-8') as f:
+            with open(defaults_path, 'r', encoding='utf-8') as f:
                 self.feature_defaults = json.load(f)
             print(f"[MLService] Feature defaults loaded: {len(self.feature_defaults)} baseline values")
         except Exception as e:
@@ -118,23 +139,38 @@ class MLService:
             self.feature_defaults = {}
     
     def _load_optimal_threshold(self) -> None:
-        """Load the optimal threshold from the model metadata file."""
-        if DEFAULT_METADATA_PATH.exists():
+        """Load the optimal threshold from the threshold.json or model metadata file."""
+        # Try primary threshold path first
+        if DEFAULT_THRESHOLD_PATH.exists():
             try:
-                with open(DEFAULT_METADATA_PATH, 'r', encoding='utf-8') as f:
+                with open(DEFAULT_THRESHOLD_PATH, 'r', encoding='utf-8') as f:
+                    threshold_data = json.load(f)
+                
+                if 'optimal_threshold_for_80_recall' in threshold_data:
+                    self.optimal_threshold = threshold_data['optimal_threshold_for_80_recall']
+                    print(f"[MLService] Optimal threshold loaded from threshold.json: {self.optimal_threshold}")
+                    return
+            except Exception as e:
+                print(f"[MLService] Warning: Failed to load threshold from threshold.json: {str(e)}")
+        
+        # Fallback to metadata file
+        metadata_path = DEFAULT_METADATA_PATH if DEFAULT_METADATA_PATH.exists() else FALLBACK_METADATA_PATH
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
                     metadata = json.load(f)
                 
                 # Try to get the optimal threshold from metadata
                 if 'optimal_threshold_for_80_recall' in metadata:
                     self.optimal_threshold = metadata['optimal_threshold_for_80_recall']
-                    print(f"[MLService] Optimal threshold loaded: {self.optimal_threshold}")
+                    print(f"[MLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
                 elif 'results' in metadata and 'optimal_threshold_for_85_recall' in metadata['results']:
                     self.optimal_threshold = metadata['results']['optimal_threshold_for_85_recall']
-                    print(f"[MLService] Optimal threshold loaded: {self.optimal_threshold}")
+                    print(f"[MLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
                 else:
                     print(f"[MLService] Using default threshold: {self.optimal_threshold}")
             except Exception as e:
-                print(f"[MLService] Warning: Failed to load optimal threshold: {str(e)}")
+                print(f"[MLService] Warning: Failed to load optimal threshold from metadata: {str(e)}")
         else:
             print(f"[MLService] Metadata file not found. Using default threshold: {self.optimal_threshold}")
     

@@ -1,10 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const ChatInterface = ({ patientData, onSendMessage, loading }) => {
+/**
+ * ChatInterface Component - Care Navigation Assistant (Gen AI)
+ * 
+ * CONDITIONAL RENDERING LOGIC:
+ * - The chat interface is LOCKED (disabled with tooltip) until valid patient data exists
+ * - Valid patient data requires: successful CSV/XLSX upload OR completed form submission
+ * - This ensures the Gen AI assistant only activates when proper patient context is available
+ * 
+ * @param {Object} props
+ * @param {Object} props.patientData - Patient data including form and prediction results
+ * @param {Function} props.onSendMessage - Callback to send message to Gen AI backend
+ * @param {boolean} props.loading - Loading state for API calls
+ * @param {boolean} props.isLocked - Whether the chat should be locked (no valid patient data)
+ */
+const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
-
+  
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -27,26 +41,25 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
     }
     
     if (patientData.form) {
-      const { age, chas_tier, symptoms, comorbidities, prior_admissions } = patientData.form;
+      const { age, chas_tier, symptoms, comorbidities, prior_admissions, num_medications } = patientData.form;
       if (age) contextParts.push(`Age: ${age}`);
       if (chas_tier) contextParts.push(`CHAS Tier: ${chas_tier}`);
       if (symptoms && symptoms.length > 0) contextParts.push(`Symptoms: ${symptoms.join(', ')}`);
       if (comorbidities) contextParts.push(`Comorbidities: ${comorbidities}`);
       if (prior_admissions) contextParts.push(`Prior Admissions: ${prior_admissions}`);
+      if (num_medications) contextParts.push(`Medications: ${num_medications}`);
     }
     
     return contextParts.join('\n');
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isLocked) return;
 
     const userMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
 
-    // Context is now built in App.jsx handleSendMessage using patientData state
-    // Pass empty context since the actual context is constructed from patientData there
     try {
       const response = await onSendMessage({}, input);
       const aiMessage = { role: 'assistant', content: response.response || response.message || 'No response received' };
@@ -63,6 +76,26 @@ const ChatInterface = ({ patientData, onSendMessage, loading }) => {
       handleSend();
     }
   };
+
+  // Render locked state when no valid patient data exists
+  if (isLocked) {
+    return (
+      <div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg border border-gray-700 items-center justify-center p-8 text-center">
+        <div className="bg-gray-700/50 p-6 rounded-lg max-w-md">
+          <svg className="w-12 h-12 mx-auto text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-300 mb-2">Care Navigation Assistant Locked</h3>
+          <p className="text-sm text-gray-400 mb-4">
+            The AI Care Navigation Assistant requires patient data to provide personalized recommendations.
+          </p>
+          <p className="text-xs text-gray-500">
+            Please upload a patient CSV/XLSX file or manually enter patient information in the Risk Assessment tab to unlock this feature.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-800 rounded-lg shadow-lg border border-gray-700">
