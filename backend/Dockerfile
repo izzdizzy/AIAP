@@ -2,19 +2,19 @@
 FROM python:3.11-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/backend
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
-COPY . .
+COPY backend/ ./
 
 # Copy the outputs folder (model, feature configs)
-COPY outputs/ ./outputs/
+COPY outputs/ /app/outputs/
 
 # Create a .env file placeholder (API keys should be set via environment variables)
 RUN touch .env
@@ -23,4 +23,4 @@ RUN touch .env
 EXPOSE 8000
 
 # Run the FastAPI application
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

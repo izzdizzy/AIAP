@@ -40,10 +40,24 @@ from sklearn.metrics import (
     roc_auc_score, precision_recall_curve, confusion_matrix,
     classification_report
 )
+from sklearn.base import ClassifierMixin
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.utils._tags import ClassifierTags, Tags, TargetTags
 
 import xgboost as xgb
 import joblib
+
+
+# Compatibility shim for scikit-learn 1.6 + XGBoost classifier tags.
+def _safe_classifier_tags(self):
+    return Tags(
+        estimator_type='classifier',
+        target_tags=TargetTags(required=True),
+        classifier_tags=ClassifierTags(),
+    )
+
+
+ClassifierMixin.__sklearn_tags__ = _safe_classifier_tags
 
 # Try importing SHAP for model interpretability
 try:

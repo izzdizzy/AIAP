@@ -1,45 +1,45 @@
 {
-  "model_type": "XGBClassifier",
+  "training_date": "2026-07-22T18:32:43.691795",
+  "dataset_path": "/Users/izzdanish/Downloads/Personal/AIAP/data/raw/diabetic_data.csv",
   "feature_count": 82,
   "training_samples": 81412,
   "test_samples": 20354,
-  "train_date": "2026-07-22T16:38:35.908146",
-  "xgb_params": {
-    "objective": "binary:logistic",
-    "eval_metric": "auc",
-    "max_depth": 6,
-    "learning_rate": 0.1,
-    "n_estimators": 200,
-    "min_child_weight": 3,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "scale_pos_weight": 7.960158485582214,
-    "random_state": 42,
-    "n_jobs": -1
-  },
+  "scale_pos_weight_used": 7.960158485582214,
+  "tuning_sample_size": 25000,
+  "cv_folds": 3,
+  "n_iter_search": 15,
+  "best_model_name": "XGBoost",
   "results": {
-    "test_metrics": {
-      "accuracy": 0.6789820182765058,
-      "precision": 0.18557309337660421,
-      "recall": 0.5539409951563188,
-      "f1": 0.2780110497237569,
-      "roc_auc": 0.6703033541237622
+    "model_name": "XGBoost",
+    "best_params": {
+      "subsample": 0.9,
+      "reg_lambda": 1,
+      "reg_alpha": 0.1,
+      "n_estimators": 300,
+      "min_child_weight": 5,
+      "max_depth": 6,
+      "learning_rate": 0.05,
+      "gamma": 0.1,
+      "colsample_bytree": 0.8,
+      "colsample_bylevel": 0.7,
+      "scale_pos_weight": 7.960158485582214,
+      "random_state": 42,
+      "n_jobs": -1,
+      "objective": "binary:logistic",
+      "eval_metric": "auc",
+      "use_label_encoder": false
     },
-    "optimal_threshold_for_85_recall": 0.34674370288848877,
-    "threshold_metrics": {
-      "precision": 0.13676605991925775,
+    "best_cv_score": 0.6286570546243484,
+    "test_metrics": {
+      "accuracy": 0.4051783433231797,
+      "precision": 0.14096948459629144,
       "recall": 0.8502862175253192,
-      "f1": 0.2356314826113484
-    }
+      "f1": 0.24184357192059616,
+      "roc_auc": 0.6769731591153887,
+      "optimal_threshold_for_85_recall": 0.3684521019458771
+    },
+    "training_time_seconds": 0
   },
-  "clinical_adjustment_info": {
-    "description": "Clinical Logic Post-Processing layer applies severity adjustments",
-    "rules": {
-      "severe_inpatient_history": "+15 points for 3+ prior admissions",
-      "high_emergency_utilization": "+10 points for 3+ ER visits",
-      "extensive_lab_work": "+10 points for 60+ lab procedures",
-      "polypharmacy": "+10 points for 15+ medications",
-      "elderly_patient": "+5 points for age 70+"
-    }
-  }
+  "total_training_time_seconds": 0,
+  "optimal_threshold_for_85_recall": 0.3684521019458771
 }

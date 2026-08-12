@@ -107,7 +107,7 @@ function App() {
     <div className="min-h-screen bg-gray-900">
       <header className="bg-gray-800 text-gray-100 shadow-md border-b border-gray-700">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">IT3100 PR2 - Healthcare Risk Assessment</h1>
+          <h1 className="text-2xl font-bold">Healthcare Risk Assessment</h1>
           <p className="text-sm text-gray-400 mt-1">ML-Powered Clinical Decision Support</p>
         </div>
       </header>
