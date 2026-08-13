@@ -1,6 +1,99 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 /**
+ * Simple markdown renderer for assistant messages.
+ * Converts a subset of markdown to HTML safely.
+ * 
+ * Features:
+ * - Escapes HTML entities first (& < > " ')
+ * - **bold** -> <strong>
+ * - *italic* -> <em>
+ * - [text](url) -> <a href="..." target="_blank" rel="noopener noreferrer">
+ *   Only allows http:// and https:// URLs (blocks javascript: and other schemes)
+ * - "- " lines -> bullet list items
+ * - "1. " lines -> numbered list items
+ * - "### " -> <h4> heading
+ * - Blank line -> paragraph break
+ * 
+ * @param {string} markdown - The markdown text to render
+ * @returns {string} - Safe HTML string
+ */
+function renderMarkdown(markdown) {
+  try {
+    if (!markdown || typeof markdown !== 'string') {
+      return '';
+    }
+
+    let html = markdown;
+
+    // Step 1: Escape HTML entities to prevent XSS
+    html = html
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+
+    // Step 2: Convert markdown links [text](url) to HTML anchors
+    // Only allow http:// and https:// URLs for security
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+      const trimmedUrl = url.trim();
+      // Only allow http:// and https:// URLs
+      if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        return `<a href="${trimmedUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      } else {
+        // Block javascript:, data:, and other potentially dangerous schemes
+        // Return just the link text (no parentheses)
+        return text;
+      }
+    });
+
+    // Step 3: Convert **bold** to <strong>
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // Step 4: Convert *italic* to <em>
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // Step 5: Convert ### headings to <h4>
+    html = html.replace(/^### (.+)$/gm, '<h4 class="text-lg font-semibold mt-4 mb-2">$1</h4>');
+
+    // Step 6: Convert bullet lists "- " to <li>
+    html = html.replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
+
+    // Step 7: Convert numbered lists "1. " to <li>
+    html = html.replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>');
+
+    // Step 8: Convert blank lines to paragraph breaks
+    // Split by double newlines and wrap non-empty paragraphs
+    const paragraphs = html.split(/\n\n+/);
+    html = paragraphs.map(para => {
+      const trimmed = para.trim();
+      if (!trimmed) return '';
+      // Don't wrap if already wrapped in block elements
+      if (trimmed.startsWith('<h4') || trimmed.startsWith('<li') || trimmed.startsWith('<ul') || trimmed.startsWith('<ol')) {
+        return trimmed;
+      }
+      return `<p class="mb-2">${trimmed.replace(/\n/g, '<br/>')}</p>`;
+    }).join('');
+
+    return html;
+  } catch (error) {
+    // Fallback: return escaped plain text if anything fails
+    console.error('Markdown rendering failed:', error);
+    try {
+      return String(markdown)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+    } catch {
+      return 'Error rendering message';
+    }
+  }
+}
+
+/**
  * ChatInterface Component - Care Navigation Assistant (Gen AI)
  * 
  * CONDITIONAL RENDERING LOGIC:
@@ -125,7 +218,15 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
                   : 'bg-gray-700 text-gray-100'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              {/* Render assistant messages with markdown, user messages as plain text */}
+              {msg.role === 'assistant' ? (
+                <p 
+                  className="text-sm prose prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                />
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              )}
             </div>
           </div>
         ))}
