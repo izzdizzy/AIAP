@@ -149,11 +149,7 @@ function App() {
           </div>
         )}
 
-        {loading && !uploading && (
-          <div className="bg-blue-900/30 border border-blue-700 text-blue-300 px-4 py-3 rounded mb-6">
-            Processing prediction...
-          </div>
-        )}
+        {/* Removed top-level loading banner - typing indicator now appears inside chat stream */}
 
         {uploading && (
           <div className="bg-blue-900/30 border border-blue-700 text-blue-300 px-4 py-3 rounded mb-6">

@@ -4,16 +4,17 @@ import React, { useState, useRef, useEffect } from 'react';
  * Simple markdown renderer for assistant messages.
  * Converts a subset of markdown to HTML safely.
  * 
- * Features:
- * - Escapes HTML entities first (& < > " ')
- * - **bold** -> <strong>
- * - *italic* -> <em>
- * - [text](url) -> <a href="..." target="_blank" rel="noopener noreferrer">
+ * Features (applied in fixed order after escaping):
+ * 1. Escapes HTML entities first (& < > " ')
+ * 2. {red: text}, {amber: text}, {green: text} -> coloured spans (whitelist only)
+ * 3. **bold** -> <strong>
+ * 4. *italic* -> <em>
+ * 5. [text](url) -> <a href="..." target="_blank" rel="noopener noreferrer">
  *   Only allows http:// and https:// URLs (blocks javascript: and other schemes)
- * - "- " lines -> bullet list items
- * - "1. " lines -> numbered list items
- * - "### " -> <h4> heading
- * - Blank line -> paragraph break
+ * 6. "- " lines -> bullet list items
+ * 7. "1. " lines -> numbered list items
+ * 8. "### " -> <h4> heading
+ * 9. Blank line -> paragraph break
  * 
  * @param {string} markdown - The markdown text to render
  * @returns {string} - Safe HTML string
@@ -34,7 +35,14 @@ function renderMarkdown(markdown) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#x27;');
 
-    // Step 2: Convert markdown links [text](url) to HTML anchors
+    // Step 2: Convert colour emphasis {red: text}, {amber: text}, {green: text}
+    // Only these three colours are allowed - any other colour name renders as plain text
+    // This must run AFTER escaping but BEFORE other markdown conversions
+    html = html.replace(/\{red:\s*([^}]+)\}/g, '<span class="chat-red">$1</span>');
+    html = html.replace(/\{amber:\s*([^}]+)\}/g, '<span class="chat-amber">$1</span>');
+    html = html.replace(/\{green:\s*([^}]+)\}/g, '<span class="chat-green">$1</span>');
+
+    // Step 3: Convert markdown links [text](url) to HTML anchors
     // Only allow http:// and https:// URLs for security
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
       const trimmedUrl = url.trim();
@@ -48,22 +56,22 @@ function renderMarkdown(markdown) {
       }
     });
 
-    // Step 3: Convert **bold** to <strong>
+    // Step 4: Convert **bold** to <strong>
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-    // Step 4: Convert *italic* to <em>
+    // Step 5: Convert *italic* to <em>
     html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-    // Step 5: Convert ### headings to <h4>
+    // Step 6: Convert ### headings to <h4>
     html = html.replace(/^### (.+)$/gm, '<h4 class="text-lg font-semibold mt-4 mb-2">$1</h4>');
 
-    // Step 6: Convert bullet lists "- " to <li>
+    // Step 7: Convert bullet lists "- " to <li>
     html = html.replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
 
-    // Step 7: Convert numbered lists "1. " to <li>
+    // Step 8: Convert numbered lists "1. " to <li>
     html = html.replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>');
 
-    // Step 8: Convert blank lines to paragraph breaks
+    // Step 9: Convert blank lines to paragraph breaks
     // Split by double newlines and wrap non-empty paragraphs
     const paragraphs = html.split(/\n\n+/);
     html = paragraphs.map(para => {
@@ -111,6 +119,7 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [fallbackMode, setFallbackMode] = useState(false);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const messagesEndRef = useRef(null);
   
   const scrollToBottom = () => {
@@ -119,7 +128,7 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isWaitingForResponse]);
 
   const buildContext = () => {
     if (!patientData) return '';
@@ -153,9 +162,17 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
     const userMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    
+    // Add typing indicator bubble inside the chat stream
+    setIsWaitingForResponse(true);
+    const typingMessageId = Date.now();
+    setMessages(prev => [...prev, { role: 'typing', id: typingMessageId }]);
 
     try {
       const response = await onSendMessage({}, input);
+      
+      // Remove typing indicator and add actual AI response
+      setMessages(prev => prev.filter(msg => msg.id !== typingMessageId));
       const aiMessage = { role: 'assistant', content: response.response || response.message || 'No response received' };
       
       // Check if response indicates fallback mode (offline protocols)
@@ -165,8 +182,12 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
       
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
+      // Remove typing indicator and show error
+      setMessages(prev => prev.filter(msg => msg.id !== typingMessageId));
       const errorMessage = { role: 'assistant', content: 'Error: Unable to get a response from the AI service.' };
       setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsWaitingForResponse(false);
     }
   };
 
@@ -224,6 +245,13 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
                   className="text-sm prose prose-invert max-w-none"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
                 />
+              ) : msg.role === 'typing' ? (
+                // Typing indicator with animated three dots (pure CSS animation)
+                <div className="typing-indicator">
+                  <span className="typing-dot"></span>
+                  <span className="typing-dot"></span>
+                  <span className="typing-dot"></span>
+                </div>
               ) : (
                 <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
               )}
