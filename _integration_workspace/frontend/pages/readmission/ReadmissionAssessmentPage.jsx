@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMessage } from '../../services/readmission/api';
+import ThemeToggle from '../../theme/ThemeToggle';
 
 /**
  * Hospital Readmission Assessment Page

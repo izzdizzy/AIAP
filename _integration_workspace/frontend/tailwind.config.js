@@ -2,9 +2,13 @@
 export default {
   content: [
     "./index.html",
-    "./pages/readmission/**/*.{js,jsx}",
-    "./pages/LandingPage.jsx"
+    "./main.jsx",
+    "./App.jsx",
+    "./pages/**/*.{js,jsx}",
+    "./components/**/*.{js,jsx}",
+    "./theme/**/*.{js,jsx}"
   ],
+  darkMode: 'class',
   corePlugins: {
     preflight: false
   },

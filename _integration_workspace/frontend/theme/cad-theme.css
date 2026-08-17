@@ -1,0 +1,144 @@
+/* Global theme CSS variables for CAD module theming.
+ * These variables are applied based on the data-theme attribute.
+ * 
+ * Light mode (default): Original CAD design colors
+ * Dark mode: Inverted dark palette for consistency with readmission page
+ */
+
+/* Light theme - Original CAD colors */
+[data-theme='light'],
+:root {
+  --cad-bg: #edf3ef;
+  --cad-bg-accent: #dce9e2;
+  --cad-surface: #ffffff;
+  --cad-surface-muted: #f5f8f6;
+  --cad-border: #c9d6ce;
+  --cad-text: #123026;
+  --cad-text-muted: #4e6760;
+  --cad-accent: #1e6b52;
+  --cad-accent-strong: #164f3d;
+  --cad-danger: #9b312c;
+  --cad-shadow: 0 16px 40px rgba(12, 32, 25, 0.08);
+}
+
+/* Dark theme - Inverted palette */
+[data-theme='dark'] {
+  --cad-bg: #0f172a;
+  --cad-bg-accent: #1e293b;
+  --cad-surface: #1e293b;
+  --cad-surface-muted: #334155;
+  --cad-border: #475569;
+  --cad-text: #f1f5f9;
+  --cad-text-muted: #94a3b8;
+  --cad-accent: #34d399;
+  --cad-accent-strong: #10b981;
+  --cad-danger: #f87171;
+  --cad-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Apply theme variables to body and root elements */
+body {
+  background-color: var(--cad-bg);
+  color: var(--cad-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* App shell styling with theme variables */
+.app-shell {
+  background: linear-gradient(180deg, var(--cad-bg) 0%, var(--cad-bg-accent) 100%);
+}
+
+.app-header {
+  background: var(--cad-surface);
+  border-color: var(--cad-border);
+  box-shadow: var(--cad-shadow);
+}
+
+.eyebrow,
+.app-title {
+  color: var(--cad-text);
+}
+
+.nav-link {
+  background: var(--cad-surface);
+  border-color: var(--cad-border);
+  color: var(--cad-text);
+}
+
+.nav-link.active {
+  background: var(--cad-accent);
+  border-color: var(--cad-accent);
+  color: white;
+}
+
+.section-card,
+.result-card {
+  background: var(--cad-surface);
+  border-color: var(--cad-border);
+  box-shadow: var(--cad-shadow);
+}
+
+.primary-button {
+  background: var(--cad-accent);
+  border-color: var(--cad-accent);
+  color: white;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--cad-accent-strong);
+  border-color: var(--cad-accent-strong);
+}
+
+.form-field {
+  background: var(--cad-surface-muted);
+  border-color: var(--cad-border);
+}
+
+.form-field input,
+.form-field select {
+  background: var(--cad-surface);
+  border-color: var(--cad-border);
+  color: var(--cad-text);
+}
+
+.stepper-item {
+  background: var(--cad-surface-muted);
+  border-color: var(--cad-border);
+}
+
+.stepper-item--active {
+  border-color: var(--cad-accent);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.progress-metric,
+.progress-item {
+  background: var(--cad-surface-muted);
+  border-color: var(--cad-border);
+}
+
+/* Chatbot styles with theme variables */
+.chat-window {
+  background: var(--cad-surface);
+  border-color: var(--cad-border);
+}
+
+.chat-message--assistant .chat-message__bubble {
+  background: var(--cad-surface-muted);
+  border-color: var(--cad-border);
+}
+
+.chat-input {
+  border-color: var(--cad-border);
+  background: var(--cad-surface);
+  color: var(--cad-text);
+}
+
+/* Theme toggle button styling */
+.theme-toggle {
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.05);
+}
