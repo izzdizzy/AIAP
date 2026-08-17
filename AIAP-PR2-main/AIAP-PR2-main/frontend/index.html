@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vitals — Chronic Disease Risk Monitor</title>
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     Palette: calm clinical. Deep ink for text, a trustworthy teal
+     as the primary, soft sage surface, and a warm amber / clay for
+     the risk states so warnings read as caring, not alarming.
+     ============================================================ */
+  :root {
+    --ink: #12211f;
+    --ink-soft: #3d514d;
+    --surface: #f3f6f4;
+    --card: #ffffff;
+    --line: #d9e3df;
+    --teal: #0f766e;
+    --teal-deep: #0b544e;
+    --teal-tint: #e2f0ee;
+    --low: #2f8f6b;
+    --low-bg: #e5f3ec;
+    --mod: #c98a1a;
+    --mod-bg: #fbf1dc;
+    --high: #c0492f;
+    --high-bg: #f8e6df;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(18,33,31,.04), 0 8px 24px rgba(18,33,31,.06);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--surface);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-deep));
+    display: grid; place-items: center;
+    color: #fff; font-weight: 600; font-size: 18px;
+    font-family: var(--font-display);
+  }
+  .brand h1 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+  .brand span { color: var(--ink-soft); font-size: 12.5px; display: block; font-weight: 400; margin-top: -2px; }
+
+  .conn {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: var(--ink-soft);
+    background: var(--surface); padding: 6px 12px; border-radius: 20px;
+    border: 1px solid var(--line);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #b6c2bd; }
+  .dot.live { background: var(--low); box-shadow: 0 0 0 3px var(--low-bg); }
+
+  /* ---------- Layout ---------- */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  .intro { margin-bottom: 28px; max-width: 620px; }
+  .eyebrow {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--teal); font-weight: 600; margin-bottom: 10px;
+  }
+  .intro h2 {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: 30px; line-height: 1.15; letter-spacing: -.02em;
+    margin-bottom: 10px;
+  }
+  .intro p { color: var(--ink-soft); font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 24px;
+  }
+  .card h3 {
+    font-family: var(--font-display); font-weight: 500; font-size: 18px;
+    margin-bottom: 4px; letter-spacing: -.01em;
+  }
+  .card .sub { color: var(--ink-soft); font-size: 13px; margin-bottom: 18px; }
+
+  /* ---------- Form ---------- */
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  .field .hint { color: var(--ink-soft); font-weight: 400; font-size: 12px; }
+  select, input[type="number"] {
+    width: 100%; padding: 9px 11px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  select:focus, input:focus {
+    outline: none; border-color: var(--teal);
+    box-shadow: 0 0 0 3px var(--low-bg);
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn {
+    width: 100%; margin-top: 8px; padding: 13px; font-size: 15px; font-weight: 600;
+    font-family: inherit; color: #fff; background: var(--teal);
+    border: none; border-radius: 10px; cursor: pointer;
+    transition: background .15s, transform .05s;
+  }
+  .btn:hover { background: var(--teal-deep); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent; color: var(--teal); border: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .btn-ghost:hover { background: var(--surface); }
+
+  /* ---------- Result ---------- */
+  .result-empty {
+    text-align: center; color: var(--ink-soft); padding: 40px 20px;
+  }
+  .result-empty svg { opacity: .35; margin-bottom: 12px; }
+
+  .gauge-wrap { text-align: center; padding: 8px 0 4px; }
+  .gauge { position: relative; width: 190px; height: 105px; margin: 0 auto 6px; }
+  .gauge svg { width: 100%; height: 100%; }
+  .gauge-val {
+    position: absolute; bottom: 2px; left: 0; right: 0;
+    font-family: var(--font-display); font-size: 34px; font-weight: 600;
+  }
+  .gauge-label { font-size: 13px; color: var(--ink-soft); }
+
+  .band-pill {
+    display: inline-block; padding: 5px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; margin: 10px 0 4px;
+  }
+  .band-Low   { background: var(--low-bg);  color: var(--low); }
+  .band-Moderate { background: var(--mod-bg); color: var(--mod); }
+  .band-High  { background: var(--high-bg); color: var(--high); }
+
+  .factors { margin: 18px 0 0; border-top: 1px solid var(--line); padding-top: 16px; }
+  .factors h4 { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .factor {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13.5px; padding: 6px 0; color: var(--ink-soft);
+  }
+  .factor b { color: var(--ink); font-weight: 500; }
+
+  .explain {
+    margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px;
+  }
+  .explain h4 { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+  .explain h4 .ai {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+    background: var(--teal); color: #fff; padding: 2px 7px; border-radius: 5px; font-weight: 600;
+  }
+  .explain-body { font-size: 14px; color: var(--ink-soft); white-space: pre-wrap; }
+  .explain-body p { margin-bottom: 10px; }
+
+  .loading { display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 14px; padding: 8px 0; }
+  .spin { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--teal); border-radius: 50%; animation: s .7s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+
+  .disclaimer {
+    margin-top: 22px; font-size: 12px; color: var(--ink-soft);
+    background: var(--surface); padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+
+  .teammate {
+    margin-top: 22px; border: 1px dashed var(--line); border-radius: var(--radius);
+    padding: 18px 20px; background: transparent;
+  }
+  .teammate h3 { font-family: var(--font-display); font-weight: 500; font-size: 15px; margin-bottom: 4px; }
+  .teammate p { font-size: 13px; color: var(--ink-soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font-size: 12.5px; padding: 6px 12px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .chip.active { background: var(--teal-tint); border-color: var(--teal); color: var(--teal-deep); font-weight: 500; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="brand-mark">V</div>
+    <div>
+      <h1>Vitals</h1>
+      <span>Chronic Disease Risk Monitor</span>
+    </div>
+  </div>
+  <div class="conn">
+    <span class="dot" id="connDot"></span>
+    <span id="connText">Checking backend…</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="intro">
+    <div class="eyebrow">Diabetes module</div>
+    <h2>Know your risk between clinic visits.</h2>
+    <p>Enter your health profile to see your diabetes risk, understand what's driving it,
+       and get guidance on what to do next. This is a screening aid, not a diagnosis.</p>
+  </div>
+
+  <div class="grid">
+    <!-- ============ INPUT ============ -->
+    <div class="card">
+      <h3>Your health profile</h3>
+      <p class="sub">All fields use the same scales as your health record.</p>
+
+      <div class="row2">
+        <div class="field">
+          <label>General health</label>
+          <select id="GenHlth">
+            <option value="1">1 — Excellent</option>
+            <option value="2">2 — Very good</option>
+            <option value="3" selected>3 — Good</option>
+            <option value="4">4 — Fair</option>
+            <option value="5">5 — Poor</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>BMI</label>
+          <input type="number" id="BMI" value="28" min="10" max="100" step="0.1">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Age band</label>
+          <select id="Age">
+            <option value="1">18–24</option><option value="2">25–29</option>
+            <option value="3">30–34</option><option value="4">35–39</option>
+            <option value="5">40–44</option><option value="6">45–49</option>
+            <option value="7">50–54</option><option value="8">55–59</option>
+            <option value="9" selected>60–64</option><option value="10">65–69</option>
+            <option value="11">70–74</option><option value="12">75–79</option>
+            <option value="13">80+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Biological sex</label>
+          <select id="Sex"><option value="0">Female</option><option value="1" selected>Male</option></select>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>High blood pressure</label>
+          <select id="HighBP"><option value="0">No</option><option value="1" selected>Yes</option></select></div>
+        <div class="field"><label>High cholesterol</label>
+          <select id="HighChol"><option value="0">No</option><option value="1" selected>Yes</option></select></div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>Physically active</label>
+          <select id="PhysActivity"><option value="1">Yes</option><option value="0" selected>No</option></select></div>
+        <div class="field"><label>Difficulty walking</label>
+          <select id="DiffWalk"><option value="0">No</option><option value="1" selected>Yes</option></select></div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>Smoker <span class="hint">(100+ in life)</span></label>
+          <select id="Smoker"><option value="0">No</option><option value="1" selected>Yes</option></select></div>
+        <div class="field"><label>Heart disease / attack</label>
+          <select id="HeartDiseaseorAttack"><option value="0" selected>No</option><option value="1">Yes</option></select></div>
+      </div>
+
+      <div class="row2">
+        <div class="field"><label>Eats fruit daily</label>
+          <select id="Fruits"><option value="1">Yes</option><option value="0" selected>No</option></select></div>
+        <div class="field"><label>Eats veg daily</label>
+          <select id="Veggies"><option value="1" selected>Yes</option><option value="0">No</option></select></div>
+      </div>
+
+      <button class="btn" id="assessBtn" onclick="assess()">Assess my risk</button>
+      <button class="btn btn-ghost" onclick="loadSample()">Fill sample profile</button>
+    </div>
+
+    <!-- ============ RESULT ============ -->
+    <div class="card" id="resultCard">
+      <div class="result-empty" id="emptyState">
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+        <p>Your risk assessment will appear here.</p>
+      </div>
+
+      <div id="resultContent" style="display:none;">
+        <div class="gauge-wrap">
+          <div class="gauge">
+            <svg viewBox="0 0 190 105">
+              <path d="M15 100 A80 80 0 0 1 175 100" fill="none" stroke="var(--line)" stroke-width="13" stroke-linecap="round"/>
+              <path id="gaugeArc" d="M15 100 A80 80 0 0 1 175 100" fill="none" stroke="var(--teal)" stroke-width="13" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251" style="transition:stroke-dashoffset .8s ease, stroke .4s"/>
+            </svg>
+            <div class="gauge-val" id="gaugeVal">—</div>
+          </div>
+          <div class="gauge-label">probability of being at risk</div>
+          <div><span class="band-pill" id="bandPill">—</span></div>
+        </div>
+
+        <div class="factors">
+          <h4>What's influencing this most</h4>
+          <div id="factorList"></div>
+        </div>
+
+        <div class="explain">
+          <h4>Personalised explanation <span class="ai">Gen AI</span></h4>
+          <div id="explainArea"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Extensibility slot for teammates -->
+  <div class="teammate">
+    <h3>Full monitor — team modules</h3>
+    <p>This diabetes module plugs into the shared monitor. Teammates' models connect the same way:
+       each calls its own <code>/predict</code> and <code>/explain</code> endpoint and renders in an identical card.</p>
+    <div class="chips">
+      <span class="chip active">Diabetes risk · live</span>
+      <span class="chip">Hypertension risk · teammate</span>
+      <span class="chip">Hospital readmission · teammate</span>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Important:</strong> Vitals is a screening tool that estimates statistical risk from your health
+    profile. It does not diagnose any condition. For medical concerns, consult a GP, polyclinic, or specialist.
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // CONFIG
+  // Point this at your running FastAPI backend. The UI probes /health
+  // on load: if the backend answers, it runs "live". If not, it falls
+  // back to a local demo predictor so the app never fails during a demo.
+  // ============================================================
+  const API_BASE = "http://127.0.0.1:8000";
+  let LIVE = false;
+
+  const FIELDS = ["HighBP","HighChol","CholCheck","BMI","Smoker","Stroke",
+    "HeartDiseaseorAttack","PhysActivity","Fruits","Veggies","HvyAlcoholConsump",
+    "AnyHealthcare","NoDocbcCost","GenHlth","MentHlth","PhysHlth","DiffWalk",
+    "Sex","Age","Education","Income"];
+
+  // Fields not shown in the form get sensible defaults, so the model
+  // always receives all 21 features it was trained on.
+  const DEFAULTS = { CholCheck:1, Stroke:0, HvyAlcoholConsump:0, AnyHealthcare:1,
+    NoDocbcCost:0, MentHlth:2, PhysHlth:3, Education:4, Income:5 };
+
+  // ---- Probe backend on load ----
+  async function checkBackend() {
+    try {
+      const r = await fetch(API_BASE + "/health", { signal: AbortSignal.timeout(2500) });
+      const j = await r.json();
+      LIVE = j.status === "ok" && j.model_loaded;
+    } catch { LIVE = false; }
+    document.getElementById("connDot").className = "dot" + (LIVE ? " live" : "");
+    document.getElementById("connText").textContent = LIVE ? "Backend connected" : "Demo mode (backend offline)";
+  }
+
+  function gatherProfile() {
+    const p = {};
+    FIELDS.forEach(f => {
+      const el = document.getElementById(f);
+      p[f] = el ? Number(el.value) : DEFAULTS[f];
+    });
+    return p;
+  }
+
+  // ---- Local fallback predictor (mirrors the model's feature weights) ----
+  // Used only when the backend is offline, so the demo still shows results.
+  function localPredict(p) {
+    let s = -3.2;
+    s += p.GenHlth*0.62 + p.HighBP*0.85 + (p.BMI-25)*0.055 + p.HighChol*0.5
+       + (p.Age-1)*0.11 + p.DiffWalk*0.45 + p.HeartDiseaseorAttack*0.4
+       - p.PhysActivity*0.25 + p.Smoker*0.15;
+    const prob = 1/(1+Math.exp(-s));
+    return prob;
+  }
+
+  async function assess() {
+    const btn = document.getElementById("assessBtn");
+    btn.disabled = true; btn.textContent = "Assessing…";
+    const profile = gatherProfile();
+
+    let prediction;
+    if (LIVE) {
+      try {
+        const r = await fetch(API_BASE + "/predict", {
+          method: "POST", headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(profile)
+        });
+        prediction = await r.json();
+      } catch { LIVE = false; }
+    }
+    if (!prediction) {
+      const prob = localPredict(profile);
+      const band = prob < 0.33 ? "Low" : prob < 0.66 ? "Moderate" : "High";
+      const top = ["GenHlth","HighBP","BMI","HighChol","Age"];
+      prediction = {
+        risk_label: prob >= 0.5 ? "At risk" : "Not at risk",
+        risk_probability: Math.round(prob*1000)/1000,
+        risk_band: band,
+        top_factors: top.map(f => f + " = " + profile[f])
+      };
+    }
+
+    renderPrediction(prediction);
+    renderExplanation(profile, prediction);
+    btn.disabled = false; btn.textContent = "Assess my risk";
+  }
+
+  function renderPrediction(pred) {
+    document.getElementById("emptyState").style.display = "none";
+    document.getElementById("resultContent").style.display = "block";
+
+    const pct = Math.round(pred.risk_probability * 100);
+    document.getElementById("gaugeVal").textContent = pct + "%";
+
+    const arc = document.getElementById("gaugeArc");
+    const full = 251;
+    arc.style.strokeDashoffset = full - (full * pred.risk_probability);
+    const color = pred.risk_band === "High" ? "var(--high)" :
+                  pred.risk_band === "Moderate" ? "var(--mod)" : "var(--low)";
+    arc.style.stroke = color;
+
+    const pill = document.getElementById("bandPill");
+    pill.textContent = pred.risk_band + " risk · " + pred.risk_label;
+    pill.className = "band-pill band-" + pred.risk_band;
+
+    const labels = { GenHlth:"General health", HighBP:"High blood pressure", BMI:"BMI",
+      HighChol:"High cholesterol", Age:"Age band", DiffWalk:"Difficulty walking" };
+    document.getElementById("factorList").innerHTML = pred.top_factors.map(f => {
+      const [k,v] = f.split(" = ");
+      return `<div class="factor"><span>${labels[k]||k}</span><b>${v}</b></div>`;
+    }).join("");
+  }
+
+  async function renderExplanation(profile, prediction) {
+    const area = document.getElementById("explainArea");
+    area.innerHTML = `<div class="loading"><div class="spin"></div>Generating your explanation…</div>`;
+
+    if (LIVE) {
+      try {
+        const r = await fetch(API_BASE + "/explain", {
+          method: "POST", headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ profile })
+        });
+        const j = await r.json();
+        area.innerHTML = `<div class="explain-body">${formatText(j.explanation)}</div>`;
+        return;
+      } catch { /* fall through to local text */ }
+    }
+    // Local explanation when backend/LLM offline.
+    area.innerHTML = `<div class="explain-body">${formatText(localExplain(prediction))}</div>`;
+  }
+
+  function localExplain(pred) {
+    const band = pred.risk_band;
+    const advice = (band === "High" || band === "Moderate")
+      ? "Because your risk is in the " + band.toLowerCase() + " range, it's worth booking a check-up at your polyclinic or GP. You can also look into Healthier SG enrolment, which supports ongoing chronic-care planning."
+      : "Your risk is currently low. Keeping up regular activity and a balanced diet, and reviewing your health each year, will help keep it that way.";
+    const drivers = pred.top_factors.slice(0,3).map(f => f.split(" = ")[0]).join(", ");
+    return `Your diabetes risk is assessed as ${band} (${pred.risk_label}), with a probability of ${Math.round(pred.risk_probability*100)}%.\n\n`
+      + `The factors influencing this result the most are ${drivers}. These are well-established contributors to diabetes risk, so small improvements in the ones you can change tend to help.\n\n`
+      + advice + `\n\nRemember, this is a screening estimate, not a medical diagnosis.`;
+  }
+
+  function formatText(t) {
+    return t.split(/\n\n+/).map(p => `<p>${p.replace(/\n/g,"<br>")}</p>`).join("");
+  }
+
+  function loadSample() {
+    const sample = { GenHlth:4, BMI:34, Age:9, Sex:1, HighBP:1, HighChol:1,
+      PhysActivity:0, DiffWalk:1, Smoker:1, HeartDiseaseorAttack:0, Fruits:0, Veggies:1 };
+    for (const [k,v] of Object.entries(sample)) {
+      const el = document.getElementById(k); if (el) el.value = v;
+    }
+  }
+
+  checkBackend();
+</script>
+</body>
+</html>
