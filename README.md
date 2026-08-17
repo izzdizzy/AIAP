@@ -33,7 +33,6 @@ npm run dev
    ```
    GEMINI_KEY=your_api_key
    GEMINI__API_KEY=your_api_key
-   ENABLE_CAD=true
-   ENABLE_DIABETES=true
+
    ```
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import PatientForm from '../../components/readmission/PatientForm';
 import RiskDashboard from '../../components/readmission/RiskDashboard';
 import ChatInterface from '../../components/readmission/ChatInterface';
-import { predictPatient, uploadPatientFile, sendChatMessage } from '../../services/readmission/api';
+import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMessage } from '../../services/readmission/api';
 import '../../styles/readmission.css';
 
 function App() {
@@ -21,7 +21,7 @@ function App() {
 
       if (file) {
         setUploading(true);
-        const uploadResponse = await uploadPatientFile(file);
+        const uploadResponse = await uploadReadmissionPatientFile(file);
 
         // Check for upload error - don't throw, just handle gracefully
         if (!uploadResponse?.success) {
@@ -61,10 +61,10 @@ function App() {
         });
 
         // Get prediction using parsed data
-        predictionData = await predictPatient(patientInput);
+        predictionData = await predictReadmission(patientInput);
         setPatientData({ form: { ...formData, ...uploadedData }, prediction: predictionData });
       } else {
-        predictionData = await predictPatient(formData);
+        predictionData = await predictReadmission(formData);
         setPatientData({ form: formData, prediction: predictionData });
       }
 
@@ -95,7 +95,7 @@ function App() {
         chas_tier: patientData?.form?.chas_tier ?? null
       };
 
-      const response = await sendChatMessage(chatContext, query);
+      const response = await sendReadmissionChatMessage(chatContext, query);
       return response;
     } catch (err) {
       throw err;

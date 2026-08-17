@@ -84,20 +84,5 @@ Top Contributing Factors:
 
 User: test
 
-Assistant: Hello! I am your lifestyle coach. 
-
-Your CAD risk is moderate at 47.9%. CAD means narrowed heart arteries. 
-
-Your results show exercise-induced angina. This means chest pain during physical activity. 
-
-Here are some safe steps:
-* Do only light walking.
-* Stop immediately if your chest hurts.
-* Avoid strenuous workouts.
-
-Please consult a doctor for a checkup.
-
-User: test
-
 
 Assistant:

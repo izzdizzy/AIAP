@@ -11,12 +11,30 @@ import os
 import joblib
 import pandas as pd
 
-# Locate the saved artifacts relative to the workspace root for unified app
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # /workspace/backend -> /workspace
-ARTIFACT_DIR = os.path.join(BASE_DIR, "backend", "models", "diabetes")
-MODEL_PATH = os.path.join(ARTIFACT_DIR, "diabetes_rf_model.pkl")
-FEATURE_ORDER_PATH = os.path.join(ARTIFACT_DIR, "feature_order.json")
-IMPORTANCE_PATH = os.path.join(ARTIFACT_DIR, "feature_importances.json")
+# Resolve the saved artifacts from the workspace root for the unified app.
+# __file__ lives under backend/services/diabetes, so we must go up three
+# levels to reach the project root before joining backend/model/diabetes.
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+ARTIFACT_DIR = os.path.join(BASE_DIR, "backend", "model", "diabetes")
+LEGACY_ARTIFACT_DIR = os.path.join(BASE_DIR, "AIAP-PR2-main", "AIAP-PR2-main", "backend", "model_artifacts")
+
+
+def _resolve_artifact_path(filename: str, preferred_dir: str, fallback_dir: str | None = None) -> str:
+    """Prefer the active workspace artifacts but tolerate the legacy bundled copy."""
+    candidates = [os.path.join(preferred_dir, filename)]
+    if fallback_dir:
+        candidates.append(os.path.join(fallback_dir, filename))
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+
+    return candidates[0]
+
+
+MODEL_PATH = _resolve_artifact_path("diabetes_rf_model.pkl", ARTIFACT_DIR, LEGACY_ARTIFACT_DIR)
+FEATURE_ORDER_PATH = _resolve_artifact_path("feature_order.json", ARTIFACT_DIR, LEGACY_ARTIFACT_DIR)
+IMPORTANCE_PATH = _resolve_artifact_path("feature_importances.json", ARTIFACT_DIR, LEGACY_ARTIFACT_DIR)
 
 
 class DiabetesModel:
