@@ -131,13 +131,13 @@ def get_relevant_knowledge(
     # Assessment
     # --------------------------------------------------
 
-    if assessment.get("chol", 0) >= 240:
+    if (assessment.get("chol") or 0) >= 240:
         selected.add(CHOLESTEROL_GUIDE)
 
-    if assessment.get("trestbps", 0) >= 140:
+    if (assessment.get("trestbps") or 0) >= 140:
         selected.add(BP_GUIDE)
 
-    if assessment.get("exang", 0) == 1:
+    if (assessment.get("exang") or 0) == 1:
         selected.add(GENERAL_GUIDE)
 
     # Always provide at least one document

@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List, Optional
 import pandas as pd
 
-from ..schemas.diabetes import (
+from backend.schemas.diabetes import (
     DiabetesPatientData,
     DiabetesPredictionResponse,
     DiabetesSHAPValue,
@@ -26,8 +26,8 @@ from ..schemas.diabetes import (
     DiabetesUploadResponse,
     DiabetesModelInfoResponse,
 )
-from ..services.diabetes.ml_service import get_diabetes_ml_service
-from ..services.diabetes.genai_service import get_diabetes_genai_service
+from backend.services.diabetes.ml_service import get_diabetes_ml_service
+from backend.services.diabetes.genai_service import get_diabetes_genai_service
 
 
 router = APIRouter(prefix="/v1/diabetes", tags=["Diabetes Readmission Prediction"])
