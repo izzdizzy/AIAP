@@ -1,14 +1,14 @@
 /**
- * Diabetes Readmission Prediction Service
+ * Hospital Readmission Prediction Service
  * 
- * This module provides API client functions for the Diabetes Readmission module.
- * All endpoints are prefixed with /api/v1/readmission to avoid conflicts with CAD endpoints.
+ * This module provides API client functions for the Hospital Readmission module.
+ * Points directly to the mounted FastAPI sub-app on port 8000.
  */
 
-const API_BASE = '/api/v1/readmission';
+const API_BASE = 'http://localhost:8000/readmission/api';
 
 /**
- * Predict diabetes readmission risk for a patient
+ * Predict hospital readmission risk for a patient
  * @param {Object} patientData - Patient clinical data
  * @returns {Promise<Object>} Prediction response with severity score and SHAP analysis
  */
@@ -29,13 +29,13 @@ export async function predictReadmission(patientData) {
 
     return await response.json();
   } catch (error) {
-    console.error('[Diabetes API] Prediction error:', error);
+    console.error('[Hospital API] Prediction error:', error);
     throw error;
   }
 }
 
 /**
- * Get AI care navigation advice for diabetes patient
+ * Get AI care navigation advice for hospital readmission patient
  * @param {Object} chatContext - Context including severity score, symptoms, CHAS tier
  * @param {string} userQuery - User's question or message
  * @returns {Promise<Object>} Chat response with AI-generated advice
@@ -60,7 +60,7 @@ export async function sendReadmissionChatMessage(chatContext, userQuery) {
 
     return await response.json();
   } catch (error) {
-    console.error('[Diabetes API] Chat error:', error);
+    console.error('[Hospital API] Chat error:', error);
     throw error;
   }
 }
@@ -87,7 +87,7 @@ export async function uploadReadmissionPatientFile(file) {
 
     return await response.json();
   } catch (error) {
-    console.error('[Diabetes API] Upload error:', error);
+    console.error('[Hospital API] Upload error:', error);
     throw error;
   }
 }
@@ -109,18 +109,19 @@ export async function getReadmissionModelInfo() {
 
     return await response.json();
   } catch (error) {
-    console.error('[Diabetes API] Model info error:', error);
+    console.error('[Hospital API] Model info error:', error);
     throw error;
   }
 }
 
 /**
  * Health check endpoint
+ * Note: The health endpoint is mounted directly at /readmission/health, not under /readmission/api
  * @returns {Promise<Object>} Health status
  */
 export async function checkReadmissionHealth() {
   try {
-    const response = await fetch(`${API_BASE}/health`, {
+    const response = await fetch('http://localhost:8000/readmission/health', {
       method: 'GET',
     });
 
@@ -130,7 +131,7 @@ export async function checkReadmissionHealth() {
 
     return await response.json();
   } catch (error) {
-    console.error('[Diabetes API] Health check error:', error);
+    console.error('[Hospital API] Health check error:', error);
     throw error;
   }
 }

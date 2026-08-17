@@ -12,14 +12,25 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Resolve project root (one level above backend/) and load .env
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-env_path = PROJECT_ROOT / '.env'
+# Resolve .env from the integration workspace root
+_CURRENT_FILE = Path(__file__).resolve()
+_BACKEND_DIR = _CURRENT_FILE.parent          # my_original/backend
+_MY_ORIGINAL_DIR = _BACKEND_DIR.parent       # my_original
+_INTEGRATION_ROOT = _MY_ORIGINAL_DIR.parent  # _integration_workspace
 
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
+_env_candidates = [
+    _BACKEND_DIR / '.env',
+    _MY_ORIGINAL_DIR / '.env',
+    _INTEGRATION_ROOT / '.env',
+]
+
+for env_path in _env_candidates:
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+        print(f"[GenAI Service] Loaded .env from {env_path}")
+        break
 else:
-    print(f"Warning: .env file not found at {env_path}")
+    print("[GenAI Service] Warning: .env file not found.")
 
 from typing import List, Dict, Any, Optional
 
@@ -150,6 +161,7 @@ class GenAIService:
             api_key: Google Gemini API key. If None, will read from GEMINI_API_KEY env var.
             model_name: Name of the Gemini model to use. Default is "gemini-2.0-flash".
         """
+        
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         self.model_name = model_name
         self.model = None

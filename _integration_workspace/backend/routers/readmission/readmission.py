@@ -26,8 +26,8 @@ from backend.schemas.readmission import (
     ReadmissionUploadResponse,
     ReadmissionModelInfoResponse,
 )
-from backend.services.readmission.ml_service import get_readmission_ml_service
-from backend.services.readmission.genai_service import get_readmission_genai_service
+from backend.services.readmission.ml_service import get_ml_service
+from backend.services.readmission.genai_service import get_genai_service
 
 
 router = APIRouter(prefix="/v1/readmission", tags=["Hospital Readmission Prediction"])
@@ -65,7 +65,7 @@ async def predict_readmission(patient_data: ReadmissionPatientData):
         ReadmissionPredictionResponse with severity score, urgency level, and SHAP analysis
     """
     try:
-        ml_service = get_readmission_ml_service()
+        ml_service = get_ml_service()
         
         # Convert Pydantic model to dict
         patient_dict = patient_data.model_dump(exclude_unset=True)
@@ -123,7 +123,7 @@ async def chat_with_assistant(chat_request: ReadmissionChatRequest):
         ReadmissionChatResponse with AI-generated advice
     """
     try:
-        genai_service = get_readmission_genai_service()
+        genai_service = get_genai_service()
         
         # Generate response
         result = genai_service.generate_response(

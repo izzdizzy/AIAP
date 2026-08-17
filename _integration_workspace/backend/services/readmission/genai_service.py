@@ -1,34 +1,54 @@
 """
-Diabetes GenAI Service Module
-==============================
+Gen AI Service for Hospital Readmission Predictor API
+======================================================
 
-This module handles Gen AI chat functionality for the Diabetes Readmission module.
-It integrates with Google Gemini API (google-generativeai SDK) to provide 
-personalized healthcare advice with safety guardrails and API failure fallback.
-
-This service is isolated from the CAD chatbot service to use a different Gemini SDK.
+This module handles Gen AI chat functionality, migrated from gen_ai.py.
+It integrates with Google Gemini API to provide personalized healthcare advice
+with safety guardrails and API failure fallback.
 """
 
 import os
 import time
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Resolve .env from the integration workspace root
+_CURRENT_FILE = Path(__file__).resolve()
+_BACKEND_DIR = _CURRENT_FILE.parent          # my_original/backend
+_MY_ORIGINAL_DIR = _BACKEND_DIR.parent       # my_original
+_INTEGRATION_ROOT = _MY_ORIGINAL_DIR.parent  # _integration_workspace
+
+_env_candidates = [
+    _BACKEND_DIR / '.env',
+    _MY_ORIGINAL_DIR / '.env',
+    _INTEGRATION_ROOT / '.env',
+]
+
+for env_path in _env_candidates:
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+        print(f"[GenAI Service] Loaded .env from {env_path}")
+        break
+else:
+    print("[GenAI Service] Warning: .env file not found.")
+
 from typing import List, Dict, Any, Optional
 
-# Try importing the google-generativeai library (different from teammate's google.genai)
+# Try importing the google-generativeai library
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-    print("[DiabetesGenAI] Warning: google-generativeai library not available.")
+    print("[GenAI] Warning: google-generativeai library not available.")
 
 
 # =============================================================================
 # CONFIGURATION CONSTANTS
 # =============================================================================
 
-# System prompt for Singapore healthcare context (Diabetes-specific)
-DIABETES_SYSTEM_PROMPT = """
+# System prompt for Singapore healthcare context
+SYSTEM_PROMPT = """
 You are a conversational care navigator for diabetic patients in Singapore. Your role is to provide 
 personalized, actionable healthcare advice based on clinical severity scores and patient symptoms.
 
@@ -122,20 +142,18 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
 
 
 # =============================================================================
-# DIABETES GEN AI SERVICE CLASS
+# GEN AI SERVICE CLASS
 # =============================================================================
 
-class ReadmissionGenAIService:
+class GenAIService:
     """
-    AI-powered Care Navigation Assistant for Singapore healthcare context (Diabetes module).
+    AI-powered Care Navigation Assistant for Singapore healthcare context.
     
-    This class uses Google Gemini (google-generativeai SDK) to generate personalized 
-    healthcare advice based on ML model predictions and patient-reported symptoms.
-    
-    This is separate from the CAD chatbot service which uses google.genai SDK.
+    This class uses Google Gemini to generate personalized healthcare advice
+    based on ML model predictions and patient-reported symptoms.
     """
     
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "gemini-3.5-flash"):
         """
         Initialize the Gen AI service.
         
@@ -143,6 +161,7 @@ class ReadmissionGenAIService:
             api_key: Google Gemini API key. If None, will read from GEMINI_API_KEY env var.
             model_name: Name of the Gemini model to use. Default is "gemini-2.0-flash".
         """
+        
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         self.model_name = model_name
         self.model = None
@@ -162,18 +181,18 @@ class ReadmissionGenAIService:
                 genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel(model_name=model_name)
                 self.is_available = True
-                print(f"[DiabetesGenAI] Initialized with model: {model_name}")
+                print(f"[GenAI] Initialized with model: {model_name}")
             except Exception as e:
-                print(f"[DiabetesGenAI] Warning: Failed to initialize Gemini: {str(e)}")
+                print(f"[GenAI] Warning: Failed to initialize Gemini: {str(e)}")
         else:
             if not GEMINI_AVAILABLE:
-                print("[DiabetesGenAI] google-generativeai library not installed. Using fallback responses only.")
+                print("[GenAI] google-generativeai library not installed. Using fallback responses only.")
             else:
-                print("[DiabetesGenAI] No API key configured. Using fallback responses only.")
+                print("[GenAI] No API key configured. Using fallback responses only.")
     
     def _check_dangerous_content(self, user_question: str, symptoms: List[str]) -> Optional[str]:
         """
-        Check for dangerous content that requires safety intervention.
+        Check for dangerous phrases that require safety intervention.
         
         Returns:
             Safety warning message if dangerous content detected, None otherwise.
@@ -300,79 +319,127 @@ class ReadmissionGenAIService:
                     "safety_warning": safety_warning
                 }
             
-            # Check if service is available
-            if not self.is_available or self.model is None:
+            # Determine urgency level from severity score
+            if clinical_severity_score < 33:
                 urgency_level = "Routine Monitoring"
-                if clinical_severity_score >= 66:
-                    urgency_level = "Immediate Intervention"
-                elif clinical_severity_score >= 33:
-                    urgency_level = "Increased Surveillance"
-                
-                fallback_response = self._get_fallback_response(
-                    clinical_severity_score,
-                    urgency_level,
-                    symptoms
-                )
+            elif clinical_severity_score < 66:
+                urgency_level = "Increased Surveillance"
+            else:
+                urgency_level = "Immediate Intervention"
+            
+            # Build the user prompt with explicit patient context format
+            prompt_parts = []
+            
+            # Patient context header for clear prompt structure
+            prompt_parts.append("=== PATIENT CONTEXT ===")
+            
+            # Current symptoms - explicitly include in prompt
+            if symptoms:
+                symptoms_str = ", ".join(symptoms)
+                prompt_parts.append(f"Patient Symptoms: {symptoms_str}")
+            else:
+                prompt_parts.append("Patient Symptoms: None reported")
+            
+            # Clinical Severity Score and Urgency Level
+            prompt_parts.append(f"Clinical Severity Score: {clinical_severity_score} out of 100")
+            prompt_parts.append(f"Urgency Level: {urgency_level}")
+            
+            # CHAS tier if provided
+            if chas_tier:
+                prompt_parts.append(f"CHAS Tier: {chas_tier}")
+            
+            # User's current question
+            prompt_parts.append(f"\nPatient Question: {user_query}")
+            
+            # Clear instruction with explicit context requirement
+            prompt_parts.append(
+                "\nProvide a concise, direct answer to the patient's question above. "
+                "Refer to the score as 'Clinical Severity Score of X out of 100' - NEVER as a percentage or probability. "
+                "Tailor advice based on the urgency level and specific symptoms provided. "
+                "Do NOT repeat disclaimers or metadata. "
+                "Do NOT reference previous conversations."
+            )
+            
+            user_prompt = "\n".join(prompt_parts)
+            
+            # If API is not available, use fallback
+            if not self.is_available or self.model is None:
+                print("[GenAI] API not available. Using fallback response.")
+                fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
                 return {
                     "response": fallback_response,
                     "is_fallback": True,
                     "safety_warning": None
                 }
             
-            # Build prompt with context
-            chas_context = ""
-            if chas_tier:
-                chas_context = f"\nPatient's CHAS tier: {chas_tier}\n"
-            
-            symptoms_context = ", ".join(symptoms) if symptoms else "none specified"
-            
-            prompt = f"""{DIABETES_SYSTEM_PROMPT}
-
-PATIENT CONTEXT:
-- Clinical Severity Score: {clinical_severity_score} out of 100
-- Symptoms: {symptoms_context}{chas_context}
-
-USER QUERY: {user_query}
-
-Provide your response following all the rules above. Remember to be conversational and directly answer the user's question."""
-
-            # Retry logic with exponential backoff
-            last_error = None
+            # Attempt API call with retry logic
+            last_exception = None
             for attempt in range(max_retries):
                 try:
+                    # Generate response using non-streaming mode
                     response = self.model.generate_content(
-                        prompt,
-                        generation_config=self.generation_config
+                        [SYSTEM_PROMPT.strip(), user_prompt],
+                        generation_config=self.generation_config,
+                        stream=False
                     )
                     
-                    response_text = response.text.strip()
-                    
-                    return {
-                        "response": response_text,
-                        "is_fallback": False,
-                        "safety_warning": None
-                    }
-                    
+                    # Extract and validate response
+                    if response and response.text:
+                        advice_text = response.text.strip()
+                        
+                        # Validation check: Ensure response is not too short
+                        if len(advice_text) < 10:
+                            print(f"[GenAI] Warning: Response too short ({len(advice_text)} chars), triggering retry...")
+                            if attempt < max_retries - 1:
+                                time.sleep(retry_delay)
+                                continue
+                            else:
+                                # Return fallback after all retries
+                                fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
+                                return {
+                                    "response": fallback_response,
+                                    "is_fallback": True,
+                                    "safety_warning": None
+                                }
+                        
+                        return {
+                            "response": advice_text,
+                            "is_fallback": False,
+                            "safety_warning": None
+                        }
+                    else:
+                        raise RuntimeError("Empty response received from API")
+                
                 except Exception as e:
-                    last_error = e
-                    if attempt < max_retries - 1:
+                    last_exception = e
+                    error_type = type(e).__name__
+                    
+                    # Handle rate limiting with exponential backoff
+                    if "rate limit" in str(e).lower() or "quota" in str(e).lower():
                         wait_time = retry_delay * (2 ** attempt)
-                        print(f"[DiabetesGenAI] Retry {attempt + 1}/{max_retries} after {wait_time}s: {str(e)}")
+                        print(f"[GenAI] Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}")
                         time.sleep(wait_time)
+                    elif "api key" in str(e).lower() or "authentication" in str(e).lower():
+                        # Don't retry authentication errors - return fallback immediately
+                        print(f"Gemini API failed: API key not valid. Using fallback.")
+                        fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
+                        return {
+                            "response": fallback_response,
+                            "is_fallback": True,
+                            "safety_warning": None
+                        }
+                    else:
+                        # Generic retry with delay
+                        if attempt < max_retries - 1:
+                            print(f"[GenAI] API call failed (attempt {attempt + 1}/{max_retries}): {error_type}. Retrying...")
+                            time.sleep(retry_delay)
+                        else:
+                            # Final attempt failed - log and return fallback
+                            print(f"Gemini API failed after all retries: {str(e)}. Using fallback.")
             
-            # All retries failed
-            print(f"[DiabetesGenAI] All retries failed. Last error: {str(last_error)}")
-            urgency_level = "Routine Monitoring"
-            if clinical_severity_score >= 66:
-                urgency_level = "Immediate Intervention"
-            elif clinical_severity_score >= 33:
-                urgency_level = "Increased Surveillance"
-            
-            fallback_response = self._get_fallback_response(
-                clinical_severity_score,
-                urgency_level,
-                symptoms
-            )
+            # All retries exhausted - use fallback
+            print(f"[GenAI] All retries exhausted. Using fallback response.")
+            fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms)
             return {
                 "response": fallback_response,
                 "is_fallback": True,
@@ -380,19 +447,16 @@ Provide your response following all the rules above. Remember to be conversation
             }
             
         except Exception as e:
-            # CRITICAL: Catch ALL exceptions to prevent 500 errors
-            print(f"[DiabetesGenAI] ERROR in generate_response: {str(e)}")
-            urgency_level = "Routine Monitoring"
-            if clinical_severity_score >= 66:
-                urgency_level = "Immediate Intervention"
-            elif clinical_severity_score >= 33:
+            # CRITICAL: Catch any unexpected exception and return fallback
+            print(f"Gemini API failed with unexpected error: {str(e)}. Using fallback.")
+            # Determine urgency level for fallback response
+            if clinical_severity_score < 33:
+                urgency_level = "Routine Monitoring"
+            elif clinical_severity_score < 66:
                 urgency_level = "Increased Surveillance"
-            
-            fallback_response = self._get_fallback_response(
-                clinical_severity_score,
-                urgency_level,
-                symptoms
-            )
+            else:
+                urgency_level = "Immediate Intervention"
+            fallback_response = self._get_fallback_response(clinical_severity_score, urgency_level, symptoms or [])
             return {
                 "response": fallback_response,
                 "is_fallback": True,
@@ -400,23 +464,13 @@ Provide your response following all the rules above. Remember to be conversation
             }
 
 
-# =============================================================================
-# SERVICE FACTORY FUNCTION
-# =============================================================================
+# Singleton instance for the FastAPI app
+_genai_service_instance: Optional[GenAIService] = None
 
-_diabetes_genai_service_instance = None
 
-def get_readmission_genai_service(api_key: Optional[str] = None) -> ReadmissionGenAIService:
-    """
-    Get or create the singleton ReadmissionGenAIService instance.
-    
-    Args:
-        api_key: Optional API key override
-        
-    Returns:
-        ReadmissionGenAIService instance
-    """
-    global _diabetes_genai_service_instance
-    if _diabetes_genai_service_instance is None:
-        _diabetes_genai_service_instance = ReadmissionGenAIService(api_key=api_key)
-    return _diabetes_genai_service_instance
+def get_genai_service() -> GenAIService:
+    """Get or create the Gen AI service singleton instance."""
+    global _genai_service_instance
+    if _genai_service_instance is None:
+        _genai_service_instance = GenAIService()
+    return _genai_service_instance

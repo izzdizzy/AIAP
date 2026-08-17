@@ -18,16 +18,31 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Resolve project root (one level above backend/) and load .env
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-env_path = PROJECT_ROOT / '.env'
+_CURRENT_FILE = Path(__file__).resolve()
+_BACKEND_DIR = _CURRENT_FILE.parent          # my_original/backend
+_MY_ORIGINAL_DIR = _BACKEND_DIR.parent       # my_original
+_INTEGRATION_ROOT = _MY_ORIGINAL_DIR.parent  # _integration_workspace
 
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
+_env_candidates = [
+    _BACKEND_DIR / '.env',
+    _MY_ORIGINAL_DIR / '.env',
+    _INTEGRATION_ROOT / '.env',
+]
+
+for env_path in _env_candidates:
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+        print(f"[Readmission Backend] Loaded .env from {env_path}")
+        break
 else:
-    print(f"Warning: .env file not found at {env_path}")
+    print("[Readmission Backend] Warning: .env file not found.")
 
 import pandas as pd
+
+import sys
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
 
 # Import Pydantic models
 from models import (

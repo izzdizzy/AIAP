@@ -13,7 +13,11 @@ class Settings(BaseSettings):
     ENABLE_DIABETES: bool = True
 
     # Tell Pydantic to read from the .env file
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file='.env', 
+        env_file_encoding='utf-8', 
+        extra='ignore'
+    )
 
 # Instantiate to share across the application
 settings = Settings()

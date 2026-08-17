@@ -40,12 +40,12 @@ const ageGroups = [
 const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
   const [file, setFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null); // { type: 'success'|'error', message: string }
-  
+
   // TASK 3: State variables for dropdown and symptom auto-fill
   const [ageGroup, setAgeGroup] = useState('');
   const [chasTier, setChasTier] = useState('None');
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
-  
+
   // Form state with comprehensive UCI Diabetes dataset fields
   const [formData, setFormData] = useState({
     // Core clinical features
@@ -58,26 +58,26 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
     num_medications: '',
     chas_tier: 'None',
     symptoms: [],
-    
+
     // Hospital stay features
     time_in_hospital: '',
     num_lab_procedures: '',
     num_procedures: '',
-    
+
     // Visit counts
     number_outpatient: '',
     number_emergency: '',
     number_inpatient: '',
-    
+
     // Diagnosis features
     number_diagnoses: '',
     diabetes_diag_count: '',
-    
+
     // Administrative features
     admission_type_id: '',
     discharge_disposition_id: '',
     admission_source_id: '',
-    
+
     // Medication flags
     metformin_encoded: false,
     insulin_encoded: false,
@@ -116,7 +116,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           : [...prev.symptoms, symptom]
       };
     });
-    
+
     // Also update selectedSymptoms state for auto-fill tracking
     setSelectedSymptoms(prev => {
       const exists = prev.includes(symptom);
@@ -142,7 +142,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
       const formDataObj = new FormData();
       formDataObj.append('file', file);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch('http://localhost:8000/readmission/api/upload', {
         method: 'POST',
         body: formDataObj
       });
@@ -164,7 +164,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
 
       if (result.success && result.patient_data) {
         const data = result.patient_data;
-        
+
         // TASK 3: Explicitly map backend response to React state
         // Age group mapping - use age_group key directly from backend
         if (data.age_group) {
@@ -172,17 +172,17 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
         } else if (data.age_group_display) {
           setAgeGroup(data.age_group_display);
         }
-        
+
         // CHAS Tier mapping - use chas_tier key directly from backend
         if (data.chas_tier) {
           setChasTier(data.chas_tier);
         }
-        
+
         // Symptoms mapping - use symptoms array from backend
-        const symptomsData = Array.isArray(data.symptoms) ? data.symptoms : 
-                            (Array.isArray(data.symptoms_list) ? data.symptoms_list : []);
+        const symptomsData = Array.isArray(data.symptoms) ? data.symptoms :
+          (Array.isArray(data.symptoms_list) ? data.symptoms_list : []);
         setSelectedSymptoms(symptomsData);
-        
+
         // Parse symptoms from CSV - handle both string (comma-separated) and array formats
         let parsedSymptoms = symptomsData;
         if (!parsedSymptoms || parsedSymptoms.length === 0) {
@@ -197,7 +197,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
             });
           }
         }
-        
+
         // Map parsed CSV data to form fields with strict null/undefined checks
         // This mapping aligns with the backend's CSV_TO_MODEL_MAPPING in utils.py
         setFormData(prev => ({
@@ -205,49 +205,49 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
           // Age mapping: convert numeric age or use age_group_display
           age: data.age_numeric != null ? String(data.age_numeric) : prev.age,
           age_group: data.age_group || data.age_group_display || prev.age_group,
-          
+
           // Medication count mapping
-          num_medications: data.num_medications != null ? String(data.num_medications) : 
-                          (data.total_medications != null ? String(data.total_medications) : prev.num_medications),
+          num_medications: data.num_medications != null ? String(data.num_medications) :
+            (data.total_medications != null ? String(data.total_medications) : prev.num_medications),
           medications: data.total_medications != null ? String(data.total_medications) : prev.medications,
-          
+
           // Comorbidity mapping
           comorbidity_count: data.comorbidity_count != null ? String(data.comorbidity_count) : prev.comorbidity_count,
           comorbidities: data.comorbidity_count != null ? String(data.comorbidity_count) : prev.comorbidities,
-          
+
           // Prior admissions / inpatient visits mapping
-          prior_admissions: data.prior_admissions != null ? String(data.prior_admissions) : 
-                           (data.total_prior_admissions != null ? String(data.total_prior_admissions) :
-                           (data.number_inpatient != null ? String(data.number_inpatient) : prev.prior_admissions)),
-          number_inpatient: data.number_inpatient != null ? String(data.number_inpatient) : 
-                           (data.prior_admissions != null ? String(data.prior_admissions) : prev.number_inpatient),
-          
+          prior_admissions: data.prior_admissions != null ? String(data.prior_admissions) :
+            (data.total_prior_admissions != null ? String(data.total_prior_admissions) :
+              (data.number_inpatient != null ? String(data.number_inpatient) : prev.prior_admissions)),
+          number_inpatient: data.number_inpatient != null ? String(data.number_inpatient) :
+            (data.prior_admissions != null ? String(data.prior_admissions) : prev.number_inpatient),
+
           // Hospital stay features
           time_in_hospital: data.time_in_hospital != null ? String(data.time_in_hospital) : prev.time_in_hospital,
           num_lab_procedures: data.num_lab_procedures != null ? String(data.num_lab_procedures) : prev.num_lab_procedures,
           num_procedures: data.num_procedures != null ? String(data.num_procedures) : prev.num_procedures,
-          
+
           // Visit counts
           number_outpatient: data.number_outpatient != null ? String(data.number_outpatient) : prev.number_outpatient,
           number_emergency: data.number_emergency != null ? String(data.number_emergency) : prev.number_emergency,
-          
+
           // Diagnosis features
           number_diagnoses: data.number_diagnoses != null ? String(data.number_diagnoses) : prev.number_diagnoses,
           diabetes_diag_count: data.diabetes_diag_count != null ? String(data.diabetes_diag_count) : prev.diabetes_diag_count,
-          
+
           // Administrative features
           admission_type_id: data.admission_type_id != null ? String(data.admission_type_id) : prev.admission_type_id,
           discharge_disposition_id: data.discharge_disposition_id != null ? String(data.discharge_disposition_id) : prev.discharge_disposition_id,
           admission_source_id: data.admission_source_id != null ? String(data.admission_source_id) : prev.admission_source_id,
-          
+
           // CHAS Tier mapping
           chas_tier: data.chas_tier != null ? String(data.chas_tier) : prev.chas_tier,
-          
+
           // Medication flags - ensure boolean conversion is safe
           metformin_encoded: (data.metformin_encoded === 1 || data.metformin_encoded === true) ? true : prev.metformin_encoded,
           insulin_encoded: (data.insulin_encoded === 1 || data.insulin_encoded === true) ? true : prev.insulin_encoded,
           on_insulin: (data.on_insulin === 1 || data.on_insulin === true) ? true : prev.on_insulin,
-          
+
           // Symptoms from CSV - use parsed array, default to empty array if no symptoms
           symptoms: parsedSymptoms
         }));
@@ -446,7 +446,7 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
         <summary className="cursor-pointer text-sm font-medium text-gray-300 mb-3">
           Advanced Clinical Features (Optional)
         </summary>
-        
+
         <div className="grid grid-cols-2 gap-4 mt-3">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">Outpatient Visits</label>
@@ -538,11 +538,10 @@ const PatientForm = ({ onSubmit, loading, onFileUpload }) => {
               key={symptom}
               type="button"
               onClick={() => handleSymptomToggle(symptom)}
-              className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                selectedSymptoms.includes(symptom) || formData.symptoms.includes(symptom)
+              className={`px-3 py-1 rounded-full text-sm transition-colors ${selectedSymptoms.includes(symptom) || formData.symptoms.includes(symptom)
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-              }`}
+                }`}
             >
               {symptom}
             </button>
