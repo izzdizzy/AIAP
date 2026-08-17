@@ -1,58 +1,6 @@
 ```
-# Compiled and build artifacts
-*.pyc
 __pycache__/
-*.o
-*.obj
-*.out
-*.so
-*.dll
-*.exe
-
-# Dependencies
-venv/
-.venv/
-node_modules/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.coverage
-coverage/
-
-# Build and distribution
-build/
-dist/
-*.whl
-*.tar.gz
-
-# ML/AI artifacts
-*.joblib
-*.pkl
-*.model
-*.bin
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors and IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS specific
-.DS_Store
-Thumbs.db
-
-# Artifacts directories
-backend/artifacts/
-outputs/
+*.pyc
+*.pyo
+*.pyd
 ```
