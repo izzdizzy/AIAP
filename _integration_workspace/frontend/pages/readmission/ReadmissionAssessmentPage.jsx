@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './tailwind-readmission.css';
 import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMessage } from '../services/readmission/api';
 
 /**
