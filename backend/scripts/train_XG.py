@@ -40,24 +40,24 @@ from sklearn.metrics import (
     roc_auc_score, precision_recall_curve, confusion_matrix,
     classification_report
 )
-from sklearn.base import ClassifierMixin
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.utils._tags import ClassifierTags, Tags, TargetTags
+try:
+    from sklearn.utils._tags import ClassifierTags, Tags, TargetTags
+    _NEW_SKLEARN_TAGS = True
+except ImportError:
+    _NEW_SKLEARN_TAGS = False
 
 import xgboost as xgb
 import joblib
 
-
 # Compatibility shim for scikit-learn 1.6 + XGBoost classifier tags.
-def _safe_classifier_tags(self):
-    return Tags(
-        estimator_type='classifier',
-        target_tags=TargetTags(required=True),
-        classifier_tags=ClassifierTags(),
-    )
-
-
-ClassifierMixin.__sklearn_tags__ = _safe_classifier_tags
+if _NEW_SKLEARN_TAGS:
+    def _safe_classifier_tags(self):
+        return Tags(
+            estimator_type='classifier',
+            target_tags=TargetTags(required=True),
+            classifier_tags=ClassifierTags(),
+        )
+    ClassifierMixin.__sklearn_tags__ = _safe_classifier_tags
 
 # Try importing SHAP for model interpretability
 try:
@@ -120,7 +120,10 @@ FEATURE_COLUMNS = [
     'emergency_admission', 'not_home_discharge', 'er_admission',
     'age_comorbidity_interaction', 'med_per_comorbidity',
     'admissions_per_year', 'emerg_inpatient_combo',
-    'insulin_complexity', 'diabetes_med_intensity'
+    'insulin_complexity', 'diabetes_med_intensity',
+    
+    # External module risk scores (0-100)
+    'diabetes_risk_score', 'cad_risk_score'
 ]
 
 
@@ -247,6 +250,24 @@ def preprocess_diabetes_data(df: pd.DataFrame) -> pd.DataFrame:
     
     # Comorbidity count (using diagnoses as proxy)
     df_clean['comorbidity_count'] = df_clean['number_diagnoses'].clip(0, 10)
+    
+    # -------------------------------------------------------------------------
+    # Simulate External Module Risk Scores (for training purposes)
+    # In production, these are passed as 0-100 percentages from the other modules.
+    # We simulate them here with slight correlation to the target so the model 
+    # learns their predictive value.
+    # -------------------------------------------------------------------------
+    np.random.seed(42)
+    base_diabetes = np.random.uniform(20, 70, len(df_clean))
+    base_cad = np.random.uniform(20, 70, len(df_clean))
+    
+    # Boost scores for readmitted patients
+    readmitted_mask = df_clean['readmitted_binary'] == 1
+    base_diabetes[readmitted_mask] += np.random.uniform(15, 35, readmitted_mask.sum())
+    base_cad[readmitted_mask] += np.random.uniform(15, 35, readmitted_mask.sum())
+    
+    df_clean['diabetes_risk_score'] = np.clip(base_diabetes, 0, 100)
+    df_clean['cad_risk_score'] = np.clip(base_cad, 0, 100)
     
     return df_clean
 
@@ -381,8 +402,8 @@ def train_model(
     print("HOSPITAL READMISSION PREDICTOR - TRAINING PIPELINE")
     print("=" * 70)
     
-    # Create output directory using pathlib
-    output_path = PROJECT_ROOT / output_dir
+    # Create output directory in backend/outputs to match unified backend structure
+    output_path = PROJECT_ROOT / "backend" / "outputs"
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"\nOutput directory: {output_path}")
     
