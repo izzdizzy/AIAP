@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMessage } from '../services/readmission/api';
+import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMessage } from '../../services/readmission/api';
 
 /**
  * Hospital Readmission Assessment Page
