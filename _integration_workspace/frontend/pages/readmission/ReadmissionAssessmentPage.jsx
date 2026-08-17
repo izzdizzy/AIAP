@@ -13,7 +13,7 @@ import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMe
  * Integration note: This is a self-contained page that can be added to the
  * main App.jsx routing structure without modifying existing CAD pages.
  */
-export default function ReadmissionAssessmentPage() {
+export default function ReadmissionAssessmentPage({ onBackToLanding }) {
   const [activeTab, setActiveTab] = useState('assessment');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -21,6 +21,16 @@ export default function ReadmissionAssessmentPage() {
   const [error, setError] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
+
+  // Handle back navigation with error handling
+  const handleBackToMain = () => {
+    if (onBackToLanding) {
+      onBackToLanding();
+    } else {
+      // Fallback: directly modify hash if prop not provided
+      window.location.hash = '';
+    }
+  };
 
   // Handle form submission for hospital readmission prediction
   const handleFormSubmit = async (formData, file) => {
@@ -157,11 +167,42 @@ export default function ReadmissionAssessmentPage() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Header */}
+      {/* Header with Back to Main Menu button */}
       <header className="bg-gray-800 text-gray-100 shadow-md border-b border-gray-700">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">Hospital Readmission Prediction</h1>
-          <p className="text-sm text-gray-400 mt-1">ML-Powered Clinical Decision Support for Hospital Readmission Risk</p>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBackToMain}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#374151',
+                color: '#f3f4f6',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '500'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#4b5563';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#374151';
+              }}
+            >
+              <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Main Menu
+            </button>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Hospital Readmission Prediction</h1>
+            <p className="text-sm text-gray-400 mt-1">ML-Powered Clinical Decision Support for Hospital Readmission Risk</p>
+          </div>
         </div>
       </header>
 

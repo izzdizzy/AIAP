@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import AppShell from './components/AppShell';
 import AssessmentPage from './pages/AssessmentPage';
-import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import ResultsPage from './pages/ResultsPage';
 import ChatPage from './pages/ChatbotPage';
 import ReadmissionAssessmentPage from './pages/readmission/ReadmissionAssessmentPage';
@@ -15,11 +15,11 @@ function getRouteFromHash() {
   const hash = window.location.hash.replace('#', '');
   return ['assessment', 'results', 'chat', 'readmission'].includes(hash)
     ? hash
-    : 'home';
+    : 'landing';
 }
 
 export default function App() {
-  const [route, setRoute] = useState(() => (typeof window === 'undefined' ? 'home' : getRouteFromHash()));
+  const [route, setRoute] = useState(() => (typeof window === 'undefined' ? 'landing' : getRouteFromHash()));
   const [assessmentState, setAssessmentState] = useState(() =>
     loadStoredAssessmentState()
   );
@@ -42,7 +42,7 @@ export default function App() {
   }, [assessmentState]);
 
   function navigate(nextRoute) {
-    window.location.hash = nextRoute === 'home' ? '' : nextRoute;
+    window.location.hash = nextRoute === 'landing' ? '' : nextRoute;
     setRoute(nextRoute);
   }
 
@@ -68,14 +68,29 @@ export default function App() {
     }
   }
 
-  // Clear assessmnet if restarted
+  // Clear assessment if restarted
   function handleRestart() {
     setAssessmentState(null);
-    navigate('home');
+    navigate('landing');
   }
 
   function handleEditAssessment() {
     navigate('assessment');
+  }
+
+  // Navigate to CAD Assessment from Landing Page
+  function handleStartCADAssessment() {
+    navigate('assessment');
+  }
+
+  // Navigate to Readmission Assessment from Landing Page
+  function handleStartReadmissionAssessment() {
+    navigate('readmission');
+  }
+
+  // Navigate back to Landing Page
+  function handleBackToLanding() {
+    navigate('landing');
   }
 
   function setChatMessages(messagesOrUpdater) {
@@ -104,10 +119,12 @@ export default function App() {
       currentRoute={route}
       onNavigate={navigate}
       hasPrediction={hasPrediction}
+      onBackToLanding={handleBackToLanding}
     >
-      {route === 'home' && (
-        <HomePage
-          onStartAssessment={() => navigate('assessment')}
+      {route === 'landing' && (
+        <LandingPage
+          onStartCADAssessment={handleStartCADAssessment}
+          onStartReadmissionAssessment={handleStartReadmissionAssessment}
         />
       )}
 
@@ -115,7 +132,7 @@ export default function App() {
         <AssessmentPage
           onSubmitAssessment={handleSubmitAssessment}
           loading={loading}
-          onCancel={() => navigate('home')}
+          onCancel={handleBackToLanding}
           initialValues={assessmentState?.assessmentForm}
         />
       )}
@@ -140,19 +157,21 @@ export default function App() {
       )}
 
       {route === 'results' && !hasPrediction && (
-        <HomePage
-          onStartAssessment={() => navigate('assessment')}
+        <LandingPage
+          onStartCADAssessment={handleStartCADAssessment}
+          onStartReadmissionAssessment={handleStartReadmissionAssessment}
         />
       )}
 
       {route === 'chat' && (!hasAssessment || !hasPrediction) && (
-        <HomePage
-          onStartAssessment={() => navigate('assessment')}
+        <LandingPage
+          onStartCADAssessment={handleStartCADAssessment}
+          onStartReadmissionAssessment={handleStartReadmissionAssessment}
         />
       )}
 
       {route === 'readmission' && (
-        <ReadmissionAssessmentPage />
+        <ReadmissionAssessmentPage onBackToLanding={handleBackToLanding} />
       )}
     </AppShell>
   );
