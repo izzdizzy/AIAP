@@ -29,8 +29,8 @@ except ImportError:
 # CONFIGURATION CONSTANTS
 # =============================================================================
 
-# Base directory is parent of this file's directory (backend/ -> workspace/)
-BASE_DIR = Path(__file__).parent.parent
+# Base directory is parent of this file's directory (backend/services/readmission/ -> backend/ -> _integration_workspace/)
+BASE_DIR = Path(__file__).parent.parent.parent  # backend/services/readmission -> backend -> _integration_workspace
 
 # Use artifacts directory for model files (created by training script)
 ARTIFACTS_DIR = Path(__file__).parent / "artifacts"
@@ -42,11 +42,11 @@ DEFAULT_METADATA_PATH = ARTIFACTS_DIR / "model_metadata.json"
 DEFAULT_FEATURE_DEFAULTS_PATH = ARTIFACTS_DIR / "feature_defaults.json"
 DEFAULT_THRESHOLD_PATH = ARTIFACTS_DIR / "threshold.json"
 
-# Fallback paths - legacy outputs/ directory
-FALLBACK_MODEL_PATH = BASE_DIR / "outputs" / "readmission_model.joblib"
-FALLBACK_FEATURE_COLUMNS_PATH = BASE_DIR / "outputs" / "feature_columns.json"
-FALLBACK_METADATA_PATH = BASE_DIR / "outputs" / "model_metadata.json"
-FALLBACK_FEATURE_DEFAULTS_PATH = BASE_DIR / "outputs" / "feature_defaults.json"
+# Fallback paths - legacy outputs/ directory at integration workspace root
+FALLBACK_MODEL_PATH = BASE_DIR.parent / "outputs" / "readmission_model.joblib"
+FALLBACK_FEATURE_COLUMNS_PATH = BASE_DIR.parent / "outputs" / "feature_columns.json"
+FALLBACK_METADATA_PATH = BASE_DIR.parent / "outputs" / "model_metadata.json"
+FALLBACK_FEATURE_DEFAULTS_PATH = BASE_DIR.parent / "outputs" / "feature_defaults.json"
 
 
 # =============================================================================
@@ -259,7 +259,7 @@ class MLService:
             - shap_values: SHAP analysis (if requested)
         """
         # Import clinical adjustment function
-        from utils import calculate_clinical_adjustment
+        from backend.utils.readmission_utils import calculate_clinical_adjustment
         
         # Convert dict to DataFrame
         if isinstance(patient_data, dict):

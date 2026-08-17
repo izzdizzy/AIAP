@@ -8,8 +8,8 @@ from .services.chatbot import router as chatbot_router
 # Import diabetes module routers (conditionally based on feature flag)
 from .config import settings
 
-# Mount the original readmission backend as a sub-app
-from my_original.backend.main import app as original_readmission_app
+# Import the readmission router from the new location
+from .routers.readmission import router as readmission_router
 
 app = FastAPI(
     title='Healthcare Risk Assessment API',
@@ -35,13 +35,9 @@ if settings.ENABLE_CAD:
     app.include_router(predict_router, prefix='/api', tags=['CAD Prediction'])
     app.include_router(chatbot_router, prefix='/api', tags=['CAD Chat'])
 
-# Include readmission routes (new module)
+# Include readmission routes via the new router at /readmission prefix
 if settings.ENABLE_DIABETES:
-    from .routers.readmission.readmission import router as readmission_router
-    app.include_router(readmission_router, prefix='/api', tags=['Hospital Readmission'])
-
-# Mount the original readmission backend as a sub-app at /readmission
-app.mount("/readmission", original_readmission_app)
+    app.include_router(readmission_router, prefix='/readmission', tags=['Hospital Readmission'])
 
 
 # =============================================================================

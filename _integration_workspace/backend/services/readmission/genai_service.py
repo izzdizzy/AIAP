@@ -14,13 +14,11 @@ from dotenv import load_dotenv
 
 # Resolve .env from the integration workspace root
 _CURRENT_FILE = Path(__file__).resolve()
-_BACKEND_DIR = _CURRENT_FILE.parent          # my_original/backend
-_MY_ORIGINAL_DIR = _BACKEND_DIR.parent       # my_original
-_INTEGRATION_ROOT = _MY_ORIGINAL_DIR.parent  # _integration_workspace
+_BACKEND_DIR = _CURRENT_FILE.parent.parent       # backend/services/readmission -> backend
+_INTEGRATION_ROOT = _BACKEND_DIR.parent         # backend -> _integration_workspace
 
 _env_candidates = [
     _BACKEND_DIR / '.env',
-    _MY_ORIGINAL_DIR / '.env',
     _INTEGRATION_ROOT / '.env',
 ]
 

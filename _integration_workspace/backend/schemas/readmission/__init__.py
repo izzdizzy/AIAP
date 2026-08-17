@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 # PREDICTION ENDPOINT MODELS
 # =============================================================================
 
-class ReadmissionPatientData(BaseModel):
+class PatientData(BaseModel):
     """
     Request model for patient data input.
     Accepts any subset of features - missing features will be filled with defaults.
@@ -57,14 +57,14 @@ class ReadmissionPatientData(BaseModel):
         extra = "allow"
 
 
-class ReadmissionSHAPValue(BaseModel):
+class SHAPValue(BaseModel):
     """Model for individual SHAP value in hospital readmission prediction."""
     feature: str
     importance: float
     shap_value: float
 
 
-class ReadmissionPredictionResponse(BaseModel):
+class PredictionResponse(BaseModel):
     """
     Response model for hospital readmission ML prediction endpoint.
     Contains raw probability, severity score, urgency level, and SHAP analysis.
@@ -87,7 +87,7 @@ class ReadmissionPredictionResponse(BaseModel):
     clinical_adjustment_applied: int = Field(..., description="Points added due to clinical severity rules")
     
     # SHAP analysis
-    shap_values: Optional[List[ReadmissionSHAPValue]] = Field(None, description="Top contributing features from SHAP analysis")
+    shap_values: Optional[List[SHAPValue]] = Field(None, description="Top contributing features from SHAP analysis")
     top_positive_features: Optional[List[Dict[str, Any]]] = Field(None, description="Features increasing risk")
     top_negative_features: Optional[List[Dict[str, Any]]] = Field(None, description="Features decreasing risk")
     
@@ -99,7 +99,7 @@ class ReadmissionPredictionResponse(BaseModel):
 # CHAT ENDPOINT MODELS
 # =============================================================================
 
-class ReadmissionChatRequest(BaseModel):
+class ChatRequest(BaseModel):
     """
     Request model for Gen AI chat endpoint.
     Includes patient context and user query.
@@ -121,7 +121,7 @@ class ReadmissionChatRequest(BaseModel):
         }
 
 
-class ReadmissionChatResponse(BaseModel):
+class ChatResponse(BaseModel):
     """
     Response model for Gen AI chat endpoint.
     Contains AI-generated advice with safety guardrails.
@@ -135,7 +135,7 @@ class ReadmissionChatResponse(BaseModel):
 # FILE UPLOAD ENDPOINT MODELS
 # =============================================================================
 
-class ReadmissionUploadResponse(BaseModel):
+class UploadResponse(BaseModel):
     """
     Response model for file upload endpoint.
     Returns parsed patient data ready to pre-fill the form.
@@ -151,7 +151,7 @@ class ReadmissionUploadResponse(BaseModel):
 # MODEL INFO ENDPOINT MODELS
 # =============================================================================
 
-class ReadmissionModelInfoResponse(BaseModel):
+class ModelInfoResponse(BaseModel):
     """
     Response model for model info endpoint.
     Contains model metrics and theoretical ceiling citations.
