@@ -1,137 +1,70 @@
-/**
- * Hospital Readmission Prediction Service
- * 
- * This module provides API client functions for the Hospital Readmission module.
- * Points directly to the mounted FastAPI sub-app on port 8000.
- */
+import axios from 'axios';
 
 const API_BASE = 'http://localhost:8000/readmission/api';
 
 /**
- * Predict hospital readmission risk for a patient
- * @param {Object} patientData - Patient clinical data
- * @returns {Promise<Object>} Prediction response with severity score and SHAP analysis
+ * Send prediction request to FastAPI backend for hospital readmission
+ * @param {Object} data - Patient data matching PatientData Pydantic model
+ * @returns {Promise<Object>} PredictionResponse with severity score, urgency level, and SHAP analysis
  */
-export async function predictReadmission(patientData) {
-  try {
-    const response = await fetch(`${API_BASE}/predict`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(patientData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Prediction failed');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('[Hospital API] Prediction error:', error);
-    throw error;
-  }
-}
+export const predictPatient = async (data) => {
+  const response = await axios.post(`${API_BASE}/predict`, data);
+  return response.data;
+};
 
 /**
- * Get AI care navigation advice for hospital readmission patient
- * @param {Object} chatContext - Context including severity score, symptoms, CHAS tier
- * @param {string} userQuery - User's question or message
- * @returns {Promise<Object>} Chat response with AI-generated advice
+ * Upload CSV/Excel patient file for parsing
+ * @param {File} file - Patient data file (CSV or Excel format)
+ * @returns {Promise<Object>} UploadResponse with parsed patient_data
  */
-export async function sendReadmissionChatMessage(chatContext, userQuery) {
-  try {
-    const response = await fetch(`${API_BASE}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...chatContext,
-        user_query: userQuery,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Chat request failed');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('[Hospital API] Chat error:', error);
-    throw error;
-  }
-}
+export const uploadPatientFile = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await axios.post(`${API_BASE}/upload`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
 
 /**
- * Upload patient data file (CSV or Excel)
- * @param {File} file - Patient data file
- * @returns {Promise<Object>} Upload response with parsed patient data
+ * Send chat message to Gen AI service with patient context
+ * @param {Object} context - Patient context including clinical_severity_score, symptoms, chas_tier
+ * @param {string} query - User's question or message
+ * @returns {Promise<Object>} ChatResponse with AI-generated healthcare advice and is_fallback flag
  */
-export async function uploadReadmissionPatientFile(file) {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${API_BASE}/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Upload failed');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('[Hospital API] Upload error:', error);
-    throw error;
-  }
-}
+export const sendChatMessage = async (context, query) => {
+  // Build ChatRequest matching backend expectations
+  // Ensure all required fields are explicitly included in the payload
+  const requestBody = {
+    clinical_severity_score: context.clinical_severity_score || 0,
+    symptoms: Array.isArray(context.symptoms) ? context.symptoms : [],
+    chas_tier: context.chas_tier || null,
+    user_query: query
+  };
+  
+  // Debug: Log the payload being sent to the backend
+  console.log("Sending chat payload:", requestBody);
+  
+  const response = await axios.post(`${API_BASE}/chat`, requestBody);
+  return response.data;
+};
 
 /**
- * Get model information and performance metrics
- * @returns {Promise<Object>} Model info response
+ * Get model metadata and performance metrics
+ * @returns {Promise<Object>} ModelInfoResponse with ROC-AUC, recall, threshold info
  */
-export async function getReadmissionModelInfo() {
-  try {
-    const response = await fetch(`${API_BASE}/model-info`, {
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to retrieve model info');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('[Hospital API] Model info error:', error);
-    throw error;
-  }
-}
+export const getModelInfo = async () => {
+  const response = await axios.get(`${API_BASE}/model-info`);
+  return response.data;
+};
 
 /**
  * Health check endpoint
- * Note: The health endpoint is mounted directly at /readmission/health, not under /readmission/api
  * @returns {Promise<Object>} Health status
  */
-export async function checkReadmissionHealth() {
-  try {
-    const response = await fetch('http://localhost:8000/readmission/health', {
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      throw new Error('Health check failed');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('[Hospital API] Health check error:', error);
-    throw error;
-  }
-}
+export const checkHealth = async () => {
+  const response = await axios.get(`${API_BASE}/health`);
+  return response.data;
+};

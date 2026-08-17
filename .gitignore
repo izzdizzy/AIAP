@@ -1,13 +1,63 @@
 ```
-# Compiled Python files
-*.pyc
-__pycache__/
+# Dependencies
+node_modules/
 
-# Artifacts directory
-_integration_workspace/backend/services/readmission/artifacts/
+# Build artifacts
+dist/
+build/
+*.js.map
 
-# Environment files
+# Environment
 .env
 .env.local
 *.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Compiled files
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.a
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.nyc_output/
+coverage/
+junit.xml
+
+# Distribution / packaging
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
 ```

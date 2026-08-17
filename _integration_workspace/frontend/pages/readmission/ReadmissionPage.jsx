@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import PatientForm from './components/PatientForm';
-import RiskDashboard from './components/RiskDashboard';
-import ChatInterface from './components/ChatInterface';
-import { predictPatient, uploadPatientFile, sendChatMessage } from './services/api';
+import PatientForm from '../../components/readmission/PatientForm';
+import RiskDashboard from '../../components/readmission/RiskDashboard';
+import ChatInterface from '../../components/readmission/ChatInterface';
+import { predictPatient, uploadPatientFile, sendChatMessage } from '../../services/readmission/api';
+import '../../styles/readmission.css';
 
 function App() {
   const [activeTab, setActiveTab] = useState('assessment');
