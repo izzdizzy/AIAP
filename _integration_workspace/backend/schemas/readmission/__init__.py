@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 # PREDICTION ENDPOINT MODELS
 # =============================================================================
 
-class DiabetesPatientData(BaseModel):
+class ReadmissionPatientData(BaseModel):
     """
     Request model for patient data input.
     Accepts any subset of features - missing features will be filled with defaults.
@@ -57,14 +57,14 @@ class DiabetesPatientData(BaseModel):
         extra = "allow"
 
 
-class DiabetesSHAPValue(BaseModel):
+class ReadmissionSHAPValue(BaseModel):
     """Model for individual SHAP value in hospital readmission prediction."""
     feature: str
     importance: float
     shap_value: float
 
 
-class DiabetesPredictionResponse(BaseModel):
+class ReadmissionPredictionResponse(BaseModel):
     """
     Response model for hospital readmission ML prediction endpoint.
     Contains raw probability, severity score, urgency level, and SHAP analysis.
@@ -87,7 +87,7 @@ class DiabetesPredictionResponse(BaseModel):
     clinical_adjustment_applied: int = Field(..., description="Points added due to clinical severity rules")
     
     # SHAP analysis
-    shap_values: Optional[List[DiabetesSHAPValue]] = Field(None, description="Top contributing features from SHAP analysis")
+    shap_values: Optional[List[ReadmissionSHAPValue]] = Field(None, description="Top contributing features from SHAP analysis")
     top_positive_features: Optional[List[Dict[str, Any]]] = Field(None, description="Features increasing risk")
     top_negative_features: Optional[List[Dict[str, Any]]] = Field(None, description="Features decreasing risk")
     
@@ -99,7 +99,7 @@ class DiabetesPredictionResponse(BaseModel):
 # CHAT ENDPOINT MODELS
 # =============================================================================
 
-class DiabetesChatRequest(BaseModel):
+class ReadmissionChatRequest(BaseModel):
     """
     Request model for Gen AI chat endpoint.
     Includes patient context and user query.
@@ -121,7 +121,7 @@ class DiabetesChatRequest(BaseModel):
         }
 
 
-class DiabetesChatResponse(BaseModel):
+class ReadmissionChatResponse(BaseModel):
     """
     Response model for Gen AI chat endpoint.
     Contains AI-generated advice with safety guardrails.
@@ -135,7 +135,7 @@ class DiabetesChatResponse(BaseModel):
 # FILE UPLOAD ENDPOINT MODELS
 # =============================================================================
 
-class DiabetesUploadResponse(BaseModel):
+class ReadmissionUploadResponse(BaseModel):
     """
     Response model for file upload endpoint.
     Returns parsed patient data ready to pre-fill the form.
@@ -151,7 +151,7 @@ class DiabetesUploadResponse(BaseModel):
 # MODEL INFO ENDPOINT MODELS
 # =============================================================================
 
-class DiabetesModelInfoResponse(BaseModel):
+class ReadmissionModelInfoResponse(BaseModel):
     """
     Response model for model info endpoint.
     Contains model metrics and theoretical ceiling citations.

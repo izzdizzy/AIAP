@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { predictDiabetesReadmission, uploadDiabetesPatientFile, sendDiabetesChatMessage } from '../services/diabetes/api';
+import { predictReadmission, uploadReadmissionPatientFile, sendReadmissionChatMessage } from '../services/readmission/api';
 
 /**
  * Hospital Readmission Assessment Page
@@ -13,7 +13,7 @@ import { predictDiabetesReadmission, uploadDiabetesPatientFile, sendDiabetesChat
  * Integration note: This is a self-contained page that can be added to the
  * main App.jsx routing structure without modifying existing CAD pages.
  */
-export default function DiabetesAssessmentPage() {
+export default function ReadmissionAssessmentPage() {
   const [activeTab, setActiveTab] = useState('assessment');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -33,7 +33,7 @@ export default function DiabetesAssessmentPage() {
       if (file) {
         // File upload path
         setUploading(true);
-        const uploadResponse = await uploadDiabetesPatientFile(file);
+        const uploadResponse = await uploadReadmissionPatientFile(file);
         
         // Check for upload error
         if (!uploadResponse?.success) {
@@ -73,11 +73,11 @@ export default function DiabetesAssessmentPage() {
         });
         
         // Get prediction using parsed data
-        predictionData = await predictDiabetesReadmission(patientInput);
+        predictionData = await predictReadmission(patientInput);
         setPatientData({ form: { ...formData, ...uploadedData }, prediction: predictionData });
       } else {
         // Direct form submission path
-        predictionData = await predictDiabetesReadmission(formData);
+        predictionData = await predictReadmission(formData);
         setPatientData({ form: formData, prediction: predictionData });
       }
 
@@ -107,7 +107,7 @@ export default function DiabetesAssessmentPage() {
         chas_tier: patientData?.form?.chas_tier ?? null
       };
       
-      const response = await sendDiabetesChatMessage(chatContext, query);
+      const response = await sendReadmissionChatMessage(chatContext, query);
       
       // Add messages to chat history
       setChatMessages(prev => [
@@ -131,7 +131,7 @@ export default function DiabetesAssessmentPage() {
     setError(null);
     
     try {
-      const uploadResponse = await uploadDiabetesPatientFile(file);
+      const uploadResponse = await uploadReadmissionPatientFile(file);
       
       if (!uploadResponse?.success) {
         throw new Error(uploadResponse?.error || 'Failed to parse file');

@@ -3,34 +3,34 @@ Hospital Readmission Prediction Router
 =======================================
 
 This module defines the FastAPI router for Hospital Readmission Prediction endpoints.
-All routes are prefixed with /api/v1/diabetes to avoid conflicts with CAD routes.
+All routes are prefixed with /api/v1/readmission to avoid conflicts with CAD routes.
 
 Endpoints:
-- POST /api/v1/diabetes/predict - Predict readmission risk
-- POST /api/v1/diabetes/chat - Get AI care navigation advice
-- POST /api/v1/diabetes/upload - Upload patient data file
-- GET /api/v1/diabetes/model-info - Get model information
-- GET /api/v1/diabetes/health - Health check
+- POST /api/v1/readmission/predict - Predict readmission risk
+- POST /api/v1/readmission/chat - Get AI care navigation advice
+- POST /api/v1/readmission/upload - Upload patient data file
+- GET /api/v1/readmission/model-info - Get model information
+- GET /api/v1/readmission/health - Health check
 """
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List, Optional
 import pandas as pd
 
-from backend.schemas.diabetes import (
-    DiabetesPatientData,
-    DiabetesPredictionResponse,
-    DiabetesSHAPValue,
-    DiabetesChatRequest,
-    DiabetesChatResponse,
-    DiabetesUploadResponse,
-    DiabetesModelInfoResponse,
+from backend.schemas.readmission import (
+    ReadmissionPatientData,
+    ReadmissionPredictionResponse,
+    ReadmissionSHAPValue,
+    ReadmissionChatRequest,
+    ReadmissionChatResponse,
+    ReadmissionUploadResponse,
+    ReadmissionModelInfoResponse,
 )
-from backend.services.diabetes.ml_service import get_diabetes_ml_service
-from backend.services.diabetes.genai_service import get_diabetes_genai_service
+from backend.services.readmission.ml_service import get_readmission_ml_service
+from backend.services.readmission.genai_service import get_readmission_genai_service
 
 
-router = APIRouter(prefix="/v1/diabetes", tags=["Hospital Readmission Prediction"])
+router = APIRouter(prefix="/v1/readmission", tags=["Hospital Readmission Prediction"])
 
 
 # =============================================================================
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/v1/diabetes", tags=["Hospital Readmission Prediction
 @router.get("/health")
 async def health_check():
     """Health check endpoint for monitoring."""
-    return {"status": "healthy", "module": "diabetes"}
+    return {"status": "healthy", "module": "readmission"}
 
 
 # =============================================================================
@@ -65,7 +65,7 @@ async def predict_readmission(patient_data: DiabetesPatientData):
         DiabetesPredictionResponse with severity score, urgency level, and SHAP analysis
     """
     try:
-        ml_service = get_diabetes_ml_service()
+        ml_service = get_readmission_ml_service()
         
         # Convert Pydantic model to dict
         patient_dict = patient_data.model_dump(exclude_unset=True)
@@ -123,7 +123,7 @@ async def chat_with_assistant(chat_request: DiabetesChatRequest):
         DiabetesChatResponse with AI-generated advice
     """
     try:
-        genai_service = get_diabetes_genai_service()
+        genai_service = get_readmission_genai_service()
         
         # Generate response
         result = genai_service.generate_response(
@@ -325,7 +325,7 @@ async def get_model_information():
         DiabetesModelInfoResponse with metrics and citations
     """
     try:
-        ml_service = get_diabetes_ml_service()
+        ml_service = get_readmission_ml_service()
         info = ml_service.get_model_info()
         
         return DiabetesModelInfoResponse(

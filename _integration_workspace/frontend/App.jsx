@@ -4,6 +4,7 @@ import AssessmentPage from './pages/AssessmentPage';
 import HomePage from './pages/HomePage';
 import ResultsPage from './pages/ResultsPage';
 import ChatPage from './pages/ChatbotPage';
+import ReadmissionAssessmentPage from './pages/readmission/ReadmissionAssessmentPage';
 import { submitAssessment } from './services/predictionService';
 import {
   loadStoredAssessmentState,
@@ -12,7 +13,7 @@ import {
 
 function getRouteFromHash() {
   const hash = window.location.hash.replace('#', '');
-  return ['assessment', 'results', 'chat'].includes(hash)
+  return ['assessment', 'results', 'chat', 'readmission'].includes(hash)
     ? hash
     : 'home';
 }
@@ -148,6 +149,10 @@ export default function App() {
         <HomePage
           onStartAssessment={() => navigate('assessment')}
         />
+      )}
+
+      {route === 'readmission' && (
+        <ReadmissionAssessmentPage />
       )}
     </AppShell>
   );

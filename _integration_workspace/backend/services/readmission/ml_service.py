@@ -116,7 +116,7 @@ def calculate_clinical_adjustment(patient_dict: Dict[str, Any]) -> int:
 # DIABETES ML SERVICE CLASS
 # =============================================================================
 
-class DiabetesMLService:
+class ReadmissionMLService:
     """
     Diabetes Readmission ML Service using trained XGBoost model.
     
@@ -165,22 +165,22 @@ class DiabetesMLService:
     def _load_model(self) -> None:
         """Load the trained XGBoost model from disk."""
         if not JOBLIB_AVAILABLE:
-            print("[DiabetesMLService] Warning: joblib not available. Model will not be loaded.")
+            print("[ReadmissionMLService] Warning: joblib not available. Model will not be loaded.")
             return
         
         # Try primary path (artifacts/diabetes/) first, then fallback to outputs/
         model_path = DEFAULT_MODEL_PATH if DEFAULT_MODEL_PATH.exists() else FALLBACK_MODEL_PATH
         
         if not model_path.exists():
-            print(f"[DiabetesMLService] Warning: Model file not found at {model_path}.")
-            print("[DiabetesMLService] Please ensure the artifacts/diabetes/ folder contains the trained model.")
+            print(f"[ReadmissionMLService] Warning: Model file not found at {model_path}.")
+            print("[ReadmissionMLService] Please ensure the artifacts/diabetes/ folder contains the trained model.")
             return
         
         try:
             self.model = joblib.load(model_path)
-            print(f"[DiabetesMLService] Model loaded successfully from {model_path}")
+            print(f"[ReadmissionMLService] Model loaded successfully from {model_path}")
         except Exception as e:
-            print(f"[DiabetesMLService] Error: Failed to load model: {str(e)}")
+            print(f"[ReadmissionMLService] Error: Failed to load model: {str(e)}")
     
     def _load_feature_columns(self) -> None:
         """Load the expected feature column order from JSON file."""
@@ -188,15 +188,15 @@ class DiabetesMLService:
         feature_path = DEFAULT_FEATURE_COLUMNS_PATH if DEFAULT_FEATURE_COLUMNS_PATH.exists() else FALLBACK_FEATURE_COLUMNS_PATH
         
         if not feature_path.exists():
-            print(f"[DiabetesMLService] Warning: Feature columns file not found at {feature_path}.")
+            print(f"[ReadmissionMLService] Warning: Feature columns file not found at {feature_path}.")
             return
         
         try:
             with open(feature_path, 'r', encoding='utf-8') as f:
                 self.feature_columns = json.load(f)
-            print(f"[DiabetesMLService] Feature columns loaded: {len(self.feature_columns)} features")
+            print(f"[ReadmissionMLService] Feature columns loaded: {len(self.feature_columns)} features")
         except Exception as e:
-            print(f"[DiabetesMLService] Error: Failed to load feature columns: {str(e)}")
+            print(f"[ReadmissionMLService] Error: Failed to load feature columns: {str(e)}")
     
     def _load_feature_defaults(self) -> None:
         """Load the baseline default values for all features."""
@@ -204,16 +204,16 @@ class DiabetesMLService:
         defaults_path = DEFAULT_FEATURE_DEFAULTS_PATH if DEFAULT_FEATURE_DEFAULTS_PATH.exists() else FALLBACK_FEATURE_DEFAULTS_PATH
         
         if not defaults_path.exists():
-            print(f"[DiabetesMLService] Warning: Feature defaults file not found at {defaults_path}")
+            print(f"[ReadmissionMLService] Warning: Feature defaults file not found at {defaults_path}")
             self.feature_defaults = {}
             return
         
         try:
             with open(defaults_path, 'r', encoding='utf-8') as f:
                 self.feature_defaults = json.load(f)
-            print(f"[DiabetesMLService] Feature defaults loaded: {len(self.feature_defaults)} baseline values")
+            print(f"[ReadmissionMLService] Feature defaults loaded: {len(self.feature_defaults)} baseline values")
         except Exception as e:
-            print(f"[DiabetesMLService] Warning: Failed to load feature defaults: {str(e)}")
+            print(f"[ReadmissionMLService] Warning: Failed to load feature defaults: {str(e)}")
             self.feature_defaults = {}
     
     def _load_optimal_threshold(self) -> None:
@@ -226,10 +226,10 @@ class DiabetesMLService:
                 
                 if 'optimal_threshold_for_80_recall' in threshold_data:
                     self.optimal_threshold = threshold_data['optimal_threshold_for_80_recall']
-                    print(f"[DiabetesMLService] Optimal threshold loaded from threshold.json: {self.optimal_threshold}")
+                    print(f"[ReadmissionMLService] Optimal threshold loaded from threshold.json: {self.optimal_threshold}")
                     return
             except Exception as e:
-                print(f"[DiabetesMLService] Warning: Failed to load threshold from threshold.json: {str(e)}")
+                print(f"[ReadmissionMLService] Warning: Failed to load threshold from threshold.json: {str(e)}")
         
         # Fallback to metadata file
         metadata_path = DEFAULT_METADATA_PATH if DEFAULT_METADATA_PATH.exists() else FALLBACK_METADATA_PATH
@@ -241,16 +241,16 @@ class DiabetesMLService:
                 # Try to get the optimal threshold from metadata
                 if 'optimal_threshold_for_80_recall' in metadata:
                     self.optimal_threshold = metadata['optimal_threshold_for_80_recall']
-                    print(f"[DiabetesMLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
+                    print(f"[ReadmissionMLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
                 elif 'results' in metadata and 'optimal_threshold_for_85_recall' in metadata['results']:
                     self.optimal_threshold = metadata['results']['optimal_threshold_for_85_recall']
-                    print(f"[DiabetesMLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
+                    print(f"[ReadmissionMLService] Optimal threshold loaded from metadata: {self.optimal_threshold}")
                 else:
-                    print(f"[DiabetesMLService] Using default threshold: {self.optimal_threshold}")
+                    print(f"[ReadmissionMLService] Using default threshold: {self.optimal_threshold}")
             except Exception as e:
-                print(f"[DiabetesMLService] Warning: Failed to load optimal threshold from metadata: {str(e)}")
+                print(f"[ReadmissionMLService] Warning: Failed to load optimal threshold from metadata: {str(e)}")
         else:
-            print(f"[DiabetesMLService] Metadata file not found. Using default threshold: {self.optimal_threshold}")
+            print(f"[ReadmissionMLService] Metadata file not found. Using default threshold: {self.optimal_threshold}")
     
     def _load_metadata(self) -> None:
         """Load full model metadata for the info endpoint."""
@@ -258,17 +258,17 @@ class DiabetesMLService:
             try:
                 with open(DEFAULT_METADATA_PATH, 'r', encoding='utf-8') as f:
                     self.metadata = json.load(f)
-                print(f"[DiabetesMLService] Model metadata loaded")
+                print(f"[ReadmissionMLService] Model metadata loaded")
             except Exception as e:
-                print(f"[DiabetesMLService] Warning: Failed to load metadata: {str(e)}")
+                print(f"[ReadmissionMLService] Warning: Failed to load metadata: {str(e)}")
     
     def _initialize_shap_explainer(self) -> None:
         """Initialize SHAP TreeExplainer for the loaded model."""
         try:
             self.shap_explainer = shap.TreeExplainer(self.model)
-            print("[DiabetesMLService] SHAP explainer initialized successfully")
+            print("[ReadmissionMLService] SHAP explainer initialized successfully")
         except Exception as e:
-            print(f"[DiabetesMLService] Warning: Failed to initialize SHAP explainer: {str(e)}")
+            print(f"[ReadmissionMLService] Warning: Failed to initialize SHAP explainer: {str(e)}")
             self.shap_explainer = None
     
     def _align_features(self, input_data: pd.DataFrame) -> pd.DataFrame:
@@ -500,14 +500,14 @@ class DiabetesMLService:
 
 _diabetes_ml_service_instance = None
 
-def get_diabetes_ml_service() -> DiabetesMLService:
+def get_readmission_ml_service() -> ReadmissionMLService:
     """
-    Get or create the singleton DiabetesMLService instance.
+    Get or create the singleton ReadmissionMLService instance.
     
     Returns:
-        DiabetesMLService instance
+        ReadmissionMLService instance
     """
     global _diabetes_ml_service_instance
     if _diabetes_ml_service_instance is None:
-        _diabetes_ml_service_instance = DiabetesMLService()
+        _diabetes_ml_service_instance = ReadmissionMLService()
     return _diabetes_ml_service_instance

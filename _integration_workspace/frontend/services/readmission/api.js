@@ -2,17 +2,17 @@
  * Diabetes Readmission Prediction Service
  * 
  * This module provides API client functions for the Diabetes Readmission module.
- * All endpoints are prefixed with /api/v1/diabetes to avoid conflicts with CAD endpoints.
+ * All endpoints are prefixed with /api/v1/readmission to avoid conflicts with CAD endpoints.
  */
 
-const API_BASE = '/api/v1/diabetes';
+const API_BASE = '/api/v1/readmission';
 
 /**
  * Predict diabetes readmission risk for a patient
  * @param {Object} patientData - Patient clinical data
  * @returns {Promise<Object>} Prediction response with severity score and SHAP analysis
  */
-export async function predictDiabetesReadmission(patientData) {
+export async function predictReadmission(patientData) {
   try {
     const response = await fetch(`${API_BASE}/predict`, {
       method: 'POST',
@@ -40,7 +40,7 @@ export async function predictDiabetesReadmission(patientData) {
  * @param {string} userQuery - User's question or message
  * @returns {Promise<Object>} Chat response with AI-generated advice
  */
-export async function sendDiabetesChatMessage(chatContext, userQuery) {
+export async function sendReadmissionChatMessage(chatContext, userQuery) {
   try {
     const response = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
@@ -70,7 +70,7 @@ export async function sendDiabetesChatMessage(chatContext, userQuery) {
  * @param {File} file - Patient data file
  * @returns {Promise<Object>} Upload response with parsed patient data
  */
-export async function uploadDiabetesPatientFile(file) {
+export async function uploadReadmissionPatientFile(file) {
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -96,7 +96,7 @@ export async function uploadDiabetesPatientFile(file) {
  * Get model information and performance metrics
  * @returns {Promise<Object>} Model info response
  */
-export async function getDiabetesModelInfo() {
+export async function getReadmissionModelInfo() {
   try {
     const response = await fetch(`${API_BASE}/model-info`, {
       method: 'GET',
@@ -118,7 +118,7 @@ export async function getDiabetesModelInfo() {
  * Health check endpoint
  * @returns {Promise<Object>} Health status
  */
-export async function checkDiabetesHealth() {
+export async function checkReadmissionHealth() {
   try {
     const response = await fetch(`${API_BASE}/health`, {
       method: 'GET',

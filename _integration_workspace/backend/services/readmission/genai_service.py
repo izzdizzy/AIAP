@@ -125,7 +125,7 @@ CLINICAL SEVERITY INTERPRETATION - TAILORED ADVICE BY URGENCY LEVEL:
 # DIABETES GEN AI SERVICE CLASS
 # =============================================================================
 
-class DiabetesGenAIService:
+class ReadmissionGenAIService:
     """
     AI-powered Care Navigation Assistant for Singapore healthcare context (Diabetes module).
     
@@ -406,17 +406,17 @@ Provide your response following all the rules above. Remember to be conversation
 
 _diabetes_genai_service_instance = None
 
-def get_diabetes_genai_service(api_key: Optional[str] = None) -> DiabetesGenAIService:
+def get_readmission_genai_service(api_key: Optional[str] = None) -> ReadmissionGenAIService:
     """
-    Get or create the singleton DiabetesGenAIService instance.
+    Get or create the singleton ReadmissionGenAIService instance.
     
     Args:
         api_key: Optional API key override
         
     Returns:
-        DiabetesGenAIService instance
+        ReadmissionGenAIService instance
     """
     global _diabetes_genai_service_instance
     if _diabetes_genai_service_instance is None:
-        _diabetes_genai_service_instance = DiabetesGenAIService(api_key=api_key)
+        _diabetes_genai_service_instance = ReadmissionGenAIService(api_key=api_key)
     return _diabetes_genai_service_instance

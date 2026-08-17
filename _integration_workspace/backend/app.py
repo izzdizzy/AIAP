@@ -32,10 +32,10 @@ if settings.ENABLE_CAD:
     app.include_router(predict_router, prefix='/api', tags=['CAD Prediction'])
     app.include_router(chatbot_router, prefix='/api', tags=['CAD Chat'])
 
-# Include diabetes routes (new module)
+# Include readmission routes (new module)
 if settings.ENABLE_DIABETES:
-    from .routers.diabetes.readmission import router as diabetes_router
-    app.include_router(diabetes_router, prefix='/api', tags=['Diabetes'])
+    from .routers.readmission.readmission import router as readmission_router
+    app.include_router(readmission_router, prefix='/api', tags=['Hospital Readmission'])
 
 
 # =============================================================================
@@ -58,10 +58,10 @@ async def root():
         "endpoints": {
             "cad_predict": "POST /api/predict" if settings.ENABLE_CAD else None,
             "cad_chat": "POST /api/chat/session" if settings.ENABLE_CAD else None,
-            "diabetes_health": "GET /api/v1/diabetes/health" if settings.ENABLE_DIABETES else None,
-            "diabetes_predict": "POST /api/v1/diabetes/predict" if settings.ENABLE_DIABETES else None,
-            "diabetes_chat": "POST /api/v1/diabetes/chat" if settings.ENABLE_DIABETES else None,
-            "diabetes_upload": "POST /api/v1/diabetes/upload" if settings.ENABLE_DIABETES else None,
-            "diabetes_model_info": "GET /api/v1/diabetes/model-info" if settings.ENABLE_DIABETES else None,
+            "readmission_health": "GET /api/v1/readmission/health" if settings.ENABLE_DIABETES else None,
+            "readmission_predict": "POST /api/v1/readmission/predict" if settings.ENABLE_DIABETES else None,
+            "readmission_chat": "POST /api/v1/readmission/chat" if settings.ENABLE_DIABETES else None,
+            "readmission_upload": "POST /api/v1/readmission/upload" if settings.ENABLE_DIABETES else None,
+            "readmission_model_info": "GET /api/v1/readmission/model-info" if settings.ENABLE_DIABETES else None,
         }
     }
