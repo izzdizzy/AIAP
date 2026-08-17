@@ -19,6 +19,32 @@ import numpy as np
 # =============================================================================
 # This dictionary provides explicit, strict mapping from CSV column names 
 # to the exact 82 model feature names expected by the trained model.
+# 
+# XLSX COLUMN -> MODEL FEATURE MAPPING TABLE:
+# --------------------------------------------
+# | XLSX Column Name(s)          | Model Feature               | Default |
+# |------------------------------|-----------------------------|---------|
+# | age, patient_age, age_numeric| age_numeric                 | 0       |
+# | prior_admissions             | total_prior_admissions      | 0       |
+# | number_inpatient, inpatient_visits | number_inpatient      | 0       |
+# | number_outpatient, outpatient_visits | number_outpatient   | 0       |
+# | number_emergency, emergency_visits | number_emergency      | 0       |
+# | comorbidity_count, comorbidities, num_comorbidities | comorbidity_count | 0 |
+# | diagnosis, condition, symptoms | number_diagnoses          | 0       |
+# | num_medications, medication_count, total_medications | total_medications | 0 |
+# | time_in_hospital             | time_in_hospital            | 0       |
+# | admission_type_id            | admission_type_id           | 1       |
+# | discharge_disposition_id     | discharge_disposition_id    | 1       |
+# | admission_source_id          | admission_source_id         | 1       |
+# | diabetes_diag_count, diabetes_diagnoses | diabetes_diag_count | 0    |
+# | metformin, metformin_encoded | metformin_encoded           | 0       |
+# | insulin, insulin_encoded     | insulin_encoded             | 0       |
+# | on_insulin, insulin_therapy  | on_insulin                  | 0       |
+# | bp, systolic_bp, blood_pressure | (stored for display)     | N/A     |
+# | hba1c, a1c, hemoglobin_a1c   | (stored for display)        | N/A     |
+# | symptoms, patient_symptoms, reported_symptoms | symptoms (array) | [] |
+# | chas_tier, chas_plan         | chas_tier                   | 'None'  |
+# | high_risk_flag, high_risk, risk_flag | high_risk_flag      | 0       |
 # =============================================================================
 
 CSV_TO_MODEL_MAPPING: Dict[str, str] = {
@@ -158,6 +184,21 @@ CSV_TO_MODEL_MAPPING: Dict[str, str] = {
     'reported_symptoms': 'symptoms',
     'chas_tier': 'chas_tier',
     'chas_plan': 'chas_tier',
+    
+    # Diagnosis/symptom column synonyms - map to comorbidity_count and number_diagnoses
+    'diagnosis': 'number_diagnoses',
+    'condition': 'number_diagnoses',
+    'diagnoses': 'number_diagnoses',
+    
+    # Blood pressure column synonyms (stored for display, not used in model directly)
+    'bp': 'blood_pressure_display',
+    'systolic_bp': 'blood_pressure_display',
+    'blood_pressure': 'blood_pressure_display',
+    
+    # HbA1c column synonyms (stored for display, not used in model directly)
+    'hba1c': 'hba1c_display',
+    'a1c': 'hba1c_display',
+    'hemoglobin_a1c': 'hba1c_display',
 }
 
 
