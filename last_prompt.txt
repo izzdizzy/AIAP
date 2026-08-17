@@ -44,10 +44,10 @@ You heart has issues with circulating oxygen, this limits the exercise you can d
 - If you encounter chest pain, stop exercising immediately and breathe.
 
 # Patient's Assessment
-age: 22
+age: 35
 sex: 0
 cp: 4
-exang: 0
+exang: 1
 trestbps: None
 chol: None
 fbs: None
@@ -61,17 +61,17 @@ thal: None
 #Prediction Results
 
 Risk Level:
-Low
+Moderate
 
 Estimated CAD Risk:
-17.6%
+47.9%
 
 Top Contributing Factors:
-- {'feature': 'Number of Major Vessels', 'impact': -0.836, 'direction': 'decrease'}
-- {'feature': 'Chest Pain (Asymptomatic)', 'impact': 0.677, 'direction': 'increase'}
-- {'feature': 'Sex', 'impact': -0.319, 'direction': 'decrease'}
-- {'feature': 'Exercise-Induced Angina', 'impact': -0.276, 'direction': 'decrease'}
-- {'feature': 'ST Depression', 'impact': -0.196, 'direction': 'decrease'}
+- {'feature': 'Number of Major Vessels', 'impact': -0.831, 'direction': 'decrease'}
+- {'feature': 'Chest Pain (Asymptomatic)', 'impact': 0.605, 'direction': 'increase'}
+- {'feature': 'Exercise-Induced Angina', 'impact': 0.529, 'direction': 'increase'}
+- {'feature': 'Sex', 'impact': -0.289, 'direction': 'decrease'}
+- {'feature': 'Cholesterol', 'impact': 0.285, 'direction': 'increase'}
 
 # Reference Information
 === Knowledge Start ===
@@ -82,7 +82,22 @@ Top Contributing Factors:
 
 # Conversation History (Latest message is current message)
 
-User: Test
+User: test
+
+Assistant: Hello! I am your lifestyle coach. 
+
+Your CAD risk is moderate at 47.9%. CAD means narrowed heart arteries. 
+
+Your results show exercise-induced angina. This means chest pain during physical activity. 
+
+Here are some safe steps:
+* Do only light walking.
+* Stop immediately if your chest hurts.
+* Avoid strenuous workouts.
+
+Please consult a doctor for a checkup.
+
+User: test
 
 
 Assistant:
