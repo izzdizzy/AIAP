@@ -113,7 +113,23 @@ export default function App() {
     });
   }
 
-  // Navigation pages & loading
+  // Render standalone pages (no AppShell wrapper)
+  if (route === 'landing') {
+    return (
+      <LandingPage
+        onStartCADAssessment={handleStartCADAssessment}
+        onStartReadmissionAssessment={handleStartReadmissionAssessment}
+      />
+    );
+  }
+
+  if (route === 'readmission') {
+    return (
+      <ReadmissionAssessmentPage onBackToLanding={handleBackToLanding} />
+    );
+  }
+
+  // CAD routes wrapped in AppShell
   return (
     <AppShell
       currentRoute={route}
@@ -121,13 +137,6 @@ export default function App() {
       hasPrediction={hasPrediction}
       onBackToLanding={handleBackToLanding}
     >
-      {route === 'landing' && (
-        <LandingPage
-          onStartCADAssessment={handleStartCADAssessment}
-          onStartReadmissionAssessment={handleStartReadmissionAssessment}
-        />
-      )}
-
       {route === 'assessment' && (
         <AssessmentPage
           onSubmitAssessment={handleSubmitAssessment}
@@ -168,10 +177,6 @@ export default function App() {
           onStartCADAssessment={handleStartCADAssessment}
           onStartReadmissionAssessment={handleStartReadmissionAssessment}
         />
-      )}
-
-      {route === 'readmission' && (
-        <ReadmissionAssessmentPage onBackToLanding={handleBackToLanding} />
       )}
     </AppShell>
   );

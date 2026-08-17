@@ -47,8 +47,8 @@ async def health_check():
 # PREDICTION ENDPOINT
 # =============================================================================
 
-@router.post("/predict", response_model=DiabetesPredictionResponse)
-async def predict_readmission(patient_data: DiabetesPatientData):
+@router.post("/predict", response_model=ReadmissionPredictionResponse)
+async def predict_readmission(patient_data: ReadmissionPatientData):
     """
     Predict hospital readmission risk for a patient.
     
@@ -62,7 +62,7 @@ async def predict_readmission(patient_data: DiabetesPatientData):
         patient_data: Patient features (partial data accepted, missing features filled with defaults)
         
     Returns:
-        DiabetesPredictionResponse with severity score, urgency level, and SHAP analysis
+        ReadmissionPredictionResponse with severity score, urgency level, and SHAP analysis
     """
     try:
         ml_service = get_readmission_ml_service()
@@ -77,9 +77,9 @@ async def predict_readmission(patient_data: DiabetesPatientData):
         shap_values = []
         if result.get('shap_values'):
             for sv in result['shap_values']:
-                shap_values.append(DiabetesSHAPValue(**sv))
+                shap_values.append(ReadmissionSHAPValue(**sv))
         
-        return DiabetesPredictionResponse(
+        return ReadmissionPredictionResponse(
             raw_probability=result['raw_probability'],
             clinical_severity_score=result['clinical_severity_score'],
             urgency_level=result['urgency_level'],
@@ -103,8 +103,8 @@ async def predict_readmission(patient_data: DiabetesPatientData):
 # CHAT ENDPOINT
 # =============================================================================
 
-@router.post("/chat", response_model=DiabetesChatResponse)
-async def chat_with_assistant(chat_request: DiabetesChatRequest):
+@router.post("/chat", response_model=ReadmissionChatResponse)
+async def chat_with_assistant(chat_request: ReadmissionChatRequest):
     """
     Get AI-powered healthcare advice based on patient context.
     
@@ -117,10 +117,10 @@ async def chat_with_assistant(chat_request: DiabetesChatRequest):
     - Retry logic with exponential backoff
     
     Args:
-        chat_request: DiabetesChatRequest with severity score, symptoms, CHAS tier, and query
+        chat_request: ReadmissionChatRequest with severity score, symptoms, CHAS tier, and query
         
     Returns:
-        DiabetesChatResponse with AI-generated advice
+        ReadmissionChatResponse with AI-generated advice
     """
     try:
         genai_service = get_readmission_genai_service()
@@ -133,7 +133,7 @@ async def chat_with_assistant(chat_request: DiabetesChatRequest):
             user_query=chat_request.user_query
         )
         
-        return DiabetesChatResponse(
+        return ReadmissionChatResponse(
             response=result['response'],
             is_fallback=result['is_fallback'],
             safety_warning=result.get('safety_warning')
@@ -142,7 +142,7 @@ async def chat_with_assistant(chat_request: DiabetesChatRequest):
     except Exception as e:
         # CRITICAL: Catch ALL exceptions to prevent 500 errors
         print(f"[Hospital Readmission Router] CHAT ENDPOINT ERROR: {str(e)}")
-        return DiabetesChatResponse(
+        return ReadmissionChatResponse(
             response="[System Error] Unable to connect to live care navigation. Please follow standard post-discharge protocols. Seek immediate medical attention if symptoms worsen.",
             is_fallback=True,
             safety_warning=None
@@ -153,7 +153,7 @@ async def chat_with_assistant(chat_request: DiabetesChatRequest):
 # FILE UPLOAD ENDPOINT
 # =============================================================================
 
-@router.post("/upload", response_model=DiabetesUploadResponse)
+@router.post("/upload", response_model=ReadmissionUploadResponse)
 async def upload_patient_file(file: UploadFile = File(...)):
     """
     Upload and parse patient data from CSV or Excel file.
@@ -166,7 +166,7 @@ async def upload_patient_file(file: UploadFile = File(...)):
         file: Uploaded file (CSV or Excel format)
         
     Returns:
-        DiabetesUploadResponse with parsed patient data and completeness metrics
+        ReadmissionUploadResponse with parsed patient data and completeness metrics
     """
     try:
         # Read file bytes
@@ -236,7 +236,7 @@ async def upload_patient_file(file: UploadFile = File(...)):
         provided_count = sum(1 for f in key_features if patient_data.get(f) is not None and patient_data.get(f) != 0)
         data_completeness_pct = (provided_count / len(key_features)) * 100 if key_features else 0
         
-        return DiabetesUploadResponse(
+        return ReadmissionUploadResponse(
             success=True,
             message=f"Successfully parsed {filename}",
             patient_data=patient_data,
@@ -266,7 +266,7 @@ async def upload_patient_file(file: UploadFile = File(...)):
             'insulin_encoded': 0,
             'on_insulin': 0,
         }
-        return DiabetesUploadResponse(
+        return ReadmissionUploadResponse(
             success=False,
             message="Failed to parse file",
             patient_data=default_patient_data,
@@ -295,7 +295,7 @@ async def upload_patient_file(file: UploadFile = File(...)):
             'insulin_encoded': 0,
             'on_insulin': 0,
         }
-        return DiabetesUploadResponse(
+        return ReadmissionUploadResponse(
             success=False,
             message="Unexpected error during file processing",
             patient_data=default_patient_data,
@@ -308,7 +308,7 @@ async def upload_patient_file(file: UploadFile = File(...)):
 # MODEL INFO ENDPOINT
 # =============================================================================
 
-@router.get("/model-info", response_model=DiabetesModelInfoResponse)
+@router.get("/model-info", response_model=ReadmissionModelInfoResponse)
 async def get_model_information():
     """
     Get model metadata, performance metrics, and theoretical ceiling citations.
@@ -322,13 +322,13 @@ async def get_model_information():
     This endpoint allows the frontend to display model transparency information.
     
     Returns:
-        DiabetesModelInfoResponse with metrics and citations
+        ReadmissionModelInfoResponse with metrics and citations
     """
     try:
         ml_service = get_readmission_ml_service()
         info = ml_service.get_model_info()
         
-        return DiabetesModelInfoResponse(
+        return ReadmissionModelInfoResponse(
             model_type=info['model_type'],
             feature_count=info['feature_count'],
             roc_auc=info.get('roc_auc'),
