@@ -8,6 +8,9 @@ from .services.chatbot import router as chatbot_router
 # Import diabetes module routers (conditionally based on feature flag)
 from .config import settings
 
+# Mount the original readmission backend as a sub-app
+from my_original.backend.main import app as original_readmission_app
+
 app = FastAPI(
     title='Healthcare Risk Assessment API',
     version='0.2.0',
@@ -37,6 +40,9 @@ if settings.ENABLE_DIABETES:
     from .routers.readmission.readmission import router as readmission_router
     app.include_router(readmission_router, prefix='/api', tags=['Hospital Readmission'])
 
+# Mount the original readmission backend as a sub-app at /readmission
+app.mount("/readmission", original_readmission_app)
+
 
 # =============================================================================
 # ROOT ENDPOINT
@@ -63,5 +69,12 @@ async def root():
             "readmission_chat": "POST /api/v1/readmission/chat" if settings.ENABLE_DIABETES else None,
             "readmission_upload": "POST /api/v1/readmission/upload" if settings.ENABLE_DIABETES else None,
             "readmission_model_info": "GET /api/v1/readmission/model-info" if settings.ENABLE_DIABETES else None,
+            "original_readmission": {
+                "health": "GET /readmission/health",
+                "predict": "POST /readmission/api/predict",
+                "chat": "POST /readmission/api/chat",
+                "upload": "POST /readmission/api/upload",
+                "model_info": "GET /readmission/api/model-info"
+            }
         }
     }

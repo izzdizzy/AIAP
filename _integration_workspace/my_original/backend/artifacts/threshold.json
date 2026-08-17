@@ -1,0 +1,16 @@
+{
+  "optimal_threshold_for_85_recall": 0.34674370288848877,
+  "target_recall": 0.85,
+  "metrics_at_threshold": {
+    "precision": 0.13676605991925775,
+    "recall": 0.8502862175253192,
+    "f1": 0.2356314826113484
+  },
+  "default_threshold_metrics": {
+    "accuracy": 0.6789820182765058,
+    "precision": 0.18557309337660421,
+    "recall": 0.5539409951563188,
+    "f1": 0.2780110497237569,
+    "roc_auc": 0.6703033541237622
+  }
+}

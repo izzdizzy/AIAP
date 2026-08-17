@@ -1,0 +1,2 @@
+patient_id,risk_profile,prior_admissions,comorbidity_count,age_numeric,num_medications,discharge_diagnosis,high_risk_flag,time_in_hospital,num_lab_procedures,num_procedures,number_outpatient,number_emergency,number_inpatient,number_diagnoses,diabetes_diag_count,metformin_encoded,insulin_encoded,on_insulin,change_encoded,diabetesMed_encoded,symptoms,chas_tier
+PATIENT_MODERATE_001,Moderate Risk Patient,2,4,60,10,250.01,0,5,45,3,2,2,2,5,2,1,0,0,0,1,"Fatigue, Frequent urination",Orange

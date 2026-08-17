@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/readmission/api';
+const API_BASE = '/api';
 
 /**
- * Send prediction request to FastAPI backend for hospital readmission
+ * Send prediction request to FastAPI backend
  * @param {Object} data - Patient data matching PatientData Pydantic model
  * @returns {Promise<Object>} PredictionResponse with severity score, urgency level, and SHAP analysis
  */
@@ -57,14 +57,5 @@ export const sendChatMessage = async (context, query) => {
  */
 export const getModelInfo = async () => {
   const response = await axios.get(`${API_BASE}/model-info`);
-  return response.data;
-};
-
-/**
- * Health check endpoint
- * @returns {Promise<Object>} Health status
- */
-export const checkHealth = async () => {
-  const response = await axios.get(`${API_BASE}/health`);
   return response.data;
 };
