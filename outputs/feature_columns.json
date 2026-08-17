@@ -80,5 +80,7 @@
   "admissions_per_year",
   "emerg_inpatient_combo",
   "insulin_complexity",
-  "diabetes_med_intensity"
+  "diabetes_med_intensity",
+  "diabetes_risk_score",
+  "cad_risk_score"
 ]

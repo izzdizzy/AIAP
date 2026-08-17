@@ -72,7 +72,7 @@ except ImportError:
 # CONFIGURATION CONSTANTS
 # =============================================================================
 
-# Define the 82 features used by the model (matching backend expectations)
+# Define the 84 features used by the model (matching backend expectations)
 FEATURE_COLUMNS = [
     # Base admission features
     'admission_type_id', 'discharge_disposition_id', 'admission_source_id',
@@ -120,7 +120,10 @@ FEATURE_COLUMNS = [
     'emergency_admission', 'not_home_discharge', 'er_admission',
     'age_comorbidity_interaction', 'med_per_comorbidity',
     'admissions_per_year', 'emerg_inpatient_combo',
-    'insulin_complexity', 'diabetes_med_intensity'
+    'insulin_complexity', 'diabetes_med_intensity',
+    
+    # External risk scores from other modules (0-100 percentage values)
+    'diabetes_risk_score', 'cad_risk_score'
 ]
 
 
@@ -247,6 +250,13 @@ def preprocess_diabetes_data(df: pd.DataFrame) -> pd.DataFrame:
     
     # Comorbidity count (using diagnoses as proxy)
     df_clean['comorbidity_count'] = df_clean['number_diagnoses'].clip(0, 10)
+    
+    # External risk scores from other modules (default to 0 if not available)
+    # These are percentage values (0-100) from Diabetes Risk Classifier and CAD Risk Assessment
+    if 'diabetes_risk_score' not in df_clean.columns:
+        df_clean['diabetes_risk_score'] = 0.0
+    if 'cad_risk_score' not in df_clean.columns:
+        df_clean['cad_risk_score'] = 0.0
     
     return df_clean
 

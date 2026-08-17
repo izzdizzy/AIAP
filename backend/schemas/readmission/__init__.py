@@ -52,6 +52,10 @@ class PatientData(BaseModel):
     insulin_encoded: Optional[int] = None
     on_insulin: Optional[int] = None
     
+    # External risk scores from other modules (0-100 percentage values)
+    diabetes_risk_score: Optional[float] = Field(None, description="Diabetes risk score from Diabetes Risk Classifier module (0-100)")
+    cad_risk_score: Optional[float] = Field(None, description="Coronary Artery Disease risk score from CAD Risk Assessment module (0-100)")
+    
     # Allow additional fields for flexibility
     class Config:
         extra = "allow"
