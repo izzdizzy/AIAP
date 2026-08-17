@@ -1,8 +1,8 @@
 """
-Diabetes Readmission Prediction Router
+Hospital Readmission Prediction Router
 =======================================
 
-This module defines the FastAPI router for Diabetes Readmission Prediction endpoints.
+This module defines the FastAPI router for Hospital Readmission Prediction endpoints.
 All routes are prefixed with /api/v1/diabetes to avoid conflicts with CAD routes.
 
 Endpoints:
@@ -30,7 +30,7 @@ from backend.services.diabetes.ml_service import get_diabetes_ml_service
 from backend.services.diabetes.genai_service import get_diabetes_genai_service
 
 
-router = APIRouter(prefix="/v1/diabetes", tags=["Diabetes Readmission Prediction"])
+router = APIRouter(prefix="/v1/diabetes", tags=["Hospital Readmission Prediction"])
 
 
 # =============================================================================
@@ -50,7 +50,7 @@ async def health_check():
 @router.post("/predict", response_model=DiabetesPredictionResponse)
 async def predict_readmission(patient_data: DiabetesPatientData):
     """
-    Predict hospital readmission risk for a diabetes patient.
+    Predict hospital readmission risk for a patient.
     
     Accepts JSON patient data, runs ML inference, and returns:
     - Raw probability from model
@@ -106,7 +106,7 @@ async def predict_readmission(patient_data: DiabetesPatientData):
 @router.post("/chat", response_model=DiabetesChatResponse)
 async def chat_with_assistant(chat_request: DiabetesChatRequest):
     """
-    Get AI-powered healthcare advice based on diabetes patient context.
+    Get AI-powered healthcare advice based on patient context.
     
     Accepts clinical severity score, symptoms, CHAS tier, and user query.
     Returns personalized healthcare advice with Singapore context.
@@ -141,7 +141,7 @@ async def chat_with_assistant(chat_request: DiabetesChatRequest):
         
     except Exception as e:
         # CRITICAL: Catch ALL exceptions to prevent 500 errors
-        print(f"[Diabetes Router] CHAT ENDPOINT ERROR: {str(e)}")
+        print(f"[Hospital Readmission Router] CHAT ENDPOINT ERROR: {str(e)}")
         return DiabetesChatResponse(
             response="[System Error] Unable to connect to live care navigation. Please follow standard post-discharge protocols. Seek immediate medical attention if symptoms worsen.",
             is_fallback=True,

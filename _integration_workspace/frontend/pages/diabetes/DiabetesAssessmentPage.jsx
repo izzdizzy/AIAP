@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { predictDiabetesReadmission, uploadDiabetesPatientFile, sendDiabetesChatMessage } from '../services/diabetes/api';
 
 /**
- * Diabetes Readmission Assessment Page
+ * Hospital Readmission Assessment Page
  * 
- * This page provides the complete diabetes readmission prediction workflow:
+ * This page provides the complete hospital readmission prediction workflow:
  * - Patient data input form
  * - File upload for CSV/Excel data
  * - Risk dashboard with Clinical Severity Score and SHAP analysis
@@ -22,7 +22,7 @@ export default function DiabetesAssessmentPage() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
 
-  // Handle form submission for diabetes prediction
+  // Handle form submission for hospital readmission prediction
   const handleFormSubmit = async (formData, file) => {
     setLoading(true);
     setError(null);
@@ -118,7 +118,7 @@ export default function DiabetesAssessmentPage() {
       
       return response;
     } catch (err) {
-      console.error('[Diabetes Page] Chat error:', err);
+      console.error('[Hospital Readmission Page] Chat error:', err);
       throw err;
     } finally {
       setChatLoading(false);
@@ -160,7 +160,7 @@ export default function DiabetesAssessmentPage() {
       {/* Header */}
       <header className="bg-gray-800 text-gray-100 shadow-md border-b border-gray-700">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">Diabetes Readmission Prediction</h1>
+          <h1 className="text-2xl font-bold">Hospital Readmission Prediction</h1>
           <p className="text-sm text-gray-400 mt-1">ML-Powered Clinical Decision Support for Hospital Readmission Risk</p>
         </div>
       </header>
@@ -308,7 +308,7 @@ export default function DiabetesAssessmentPage() {
 
             {activeTab === 'assessment' && !patientData?.prediction && (
               <div className="bg-gray-800 p-12 rounded-lg shadow-lg border border-gray-700 text-center">
-                <p className="text-gray-400">Enter patient data to see diabetes readmission risk assessment results.</p>
+                <p className="text-gray-400">Enter patient data to see hospital readmission risk assessment results.</p>
               </div>
             )}
 
@@ -322,7 +322,7 @@ export default function DiabetesAssessmentPage() {
                       <div className="flex-1 overflow-y-auto space-y-3 mb-4">
                         {chatMessages.length === 0 ? (
                           <p className="text-gray-400 text-sm text-center py-8">
-                            Ask questions about your diabetes care plan, medications, or lifestyle recommendations.
+                            Ask questions about your care plan, medications, or lifestyle recommendations.
                           </p>
                         ) : (
                           chatMessages.map((msg, idx) => (

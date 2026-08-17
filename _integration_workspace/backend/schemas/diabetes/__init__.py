@@ -1,8 +1,8 @@
 """
-Pydantic Schemas for Diabetes Readmission Prediction Module
+Pydantic Schemas for Hospital Readmission Prediction Module
 ============================================================
 
-This module defines request/response models for the Diabetes Readmission API.
+This module defines request/response models for the Hospital Readmission API.
 Separated from CAD schemas to avoid conflicts.
 """
 
@@ -16,11 +16,11 @@ from pydantic import BaseModel, Field
 
 class DiabetesPatientData(BaseModel):
     """
-    Request model for diabetes patient data input.
+    Request model for patient data input.
     Accepts any subset of features - missing features will be filled with defaults.
     
-    This schema is specific to the Diabetes Readmission model and uses
-    feature names from the diabetes dataset.
+    This schema is specific to the Hospital Readmission model and uses
+    feature names from the dataset.
     """
     # Core clinical features (commonly provided)
     prior_admissions: Optional[int] = Field(None, description="Number of prior hospital admissions")
@@ -58,7 +58,7 @@ class DiabetesPatientData(BaseModel):
 
 
 class DiabetesSHAPValue(BaseModel):
-    """Model for individual SHAP value in diabetes prediction."""
+    """Model for individual SHAP value in hospital readmission prediction."""
     feature: str
     importance: float
     shap_value: float
@@ -66,7 +66,7 @@ class DiabetesSHAPValue(BaseModel):
 
 class DiabetesPredictionResponse(BaseModel):
     """
-    Response model for diabetes ML prediction endpoint.
+    Response model for hospital readmission ML prediction endpoint.
     Contains raw probability, severity score, urgency level, and SHAP analysis.
     """
     # Raw model output
@@ -96,12 +96,12 @@ class DiabetesPredictionResponse(BaseModel):
 
 
 # =============================================================================
-# CHAT ENDPOINT MODELS (Diabetes-specific)
+# CHAT ENDPOINT MODELS
 # =============================================================================
 
 class DiabetesChatRequest(BaseModel):
     """
-    Request model for Gen AI chat endpoint (Diabetes module).
+    Request model for Gen AI chat endpoint.
     Includes patient context and user query.
     All fields are Optional with defaults to prevent validation errors from frontend.
     """
@@ -123,7 +123,7 @@ class DiabetesChatRequest(BaseModel):
 
 class DiabetesChatResponse(BaseModel):
     """
-    Response model for Gen AI chat endpoint (Diabetes module).
+    Response model for Gen AI chat endpoint.
     Contains AI-generated advice with safety guardrails.
     """
     response: str = Field(..., description="AI-generated healthcare advice")
@@ -137,7 +137,7 @@ class DiabetesChatResponse(BaseModel):
 
 class DiabetesUploadResponse(BaseModel):
     """
-    Response model for file upload endpoint (Diabetes module).
+    Response model for file upload endpoint.
     Returns parsed patient data ready to pre-fill the form.
     """
     success: bool = Field(..., description="Whether upload was successful")
@@ -153,7 +153,7 @@ class DiabetesUploadResponse(BaseModel):
 
 class DiabetesModelInfoResponse(BaseModel):
     """
-    Response model for model info endpoint (Diabetes module).
+    Response model for model info endpoint.
     Contains model metrics and theoretical ceiling citations.
     """
     model_type: str = Field(..., description="Type of ML model")
