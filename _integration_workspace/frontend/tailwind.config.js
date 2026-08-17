@@ -2,6 +2,7 @@
 export default {
   content: [
     "./index.html",
+    "./src/**/*.{js,jsx}",
     "./pages/readmission/**/*.{js,jsx}",
     "./pages/LandingPage.jsx"
   ],
