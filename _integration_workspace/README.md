@@ -1,105 +1,149 @@
-# Integration Workspace
+# Healthcare Risk Assessment Application - Integration Workspace
 
 **Purpose:** Safe integration environment for merging teammate and my code
 
 **Branch:** `IntegrationP`
 
+**Status:** Phase 2 Integration Complete - Modular Multi-Assessment Architecture Implemented
+
+---
+
+## Quick Start
+
+### Backend
+```bash
+pip install -r requirements.merged.txt
+python -m uvicorn backend.main:app --reload
+```
+
+### Frontend
+```bash
+cd frontend && npm install
+npm run dev
+```
+
+### Access
+- Frontend: http://localhost:5173
+- API Docs: http://localhost:8000/docs
+
+---
+
+## Modules
+
+| Module | Domain | API Prefix | Status |
+|--------|--------|------------|--------|
+| CAD Risk Assessment | Teammate | `/api/*` | Preserved |
+| Diabetes Readmission | My Domain | `/api/v1/diabetes/*` | Added |
+
 ---
 
 ## Structure
 
-```
-_integration_workspace/
-├── backend/                 # Teammate's backend structure (mirrored)
-│   ├── services/           # Service layer (prediction, genai, knowledge, etc.)
-│   ├── routes/             # API route handlers
-│   ├── model/              # ML model layer (schemas, pipeline, etc.)
-│   ├── genai_documents/    # RAG knowledge base
-│   ├── app.py              # FastAPI wrapper
-│   ├── main.py             # Uvicorn entry point
-│   └── ...
-│
-├── frontend/                # Teammate's frontend structure (mirrored)
-│   ├── components/         # Reusable UI components
-│   ├── pages/              # Page components (routes)
-│   ├── hooks/              # Custom React hooks
-│   ├── services/           # API client layer
-│   ├── styles/             # CSS stylesheets
-│   ├── utils/              # Utility functions
-│   ├── App.jsx             # Main app with hash routing
-│   └── main.jsx            # React entry point
-│
-├── conflicts/               # My conflicting files (for manual review)
-│   ├── my_backend_main.py  # My complete FastAPI app
-│   ├── my_models.py        # My Pydantic models
-│   ├── my_ml_service.py    # My ML service with SHAP
-│   ├── my_genai_service.py # My GenAI service
-│   ├── my_utils.py         # My utilities
-│   ├── my_App.jsx          # My tab-based App
-│   ├── my_main.jsx         # My React entry
-│   ├── my_index.css        # My Tailwind CSS
-│   ├── my_api.js           # My API service
-│   └── my_components/      # My React components
-│
-├── unmapped_my_files/       # My files without clear teammate mapping
-│   ├── ChatInterface.jsx
-│   ├── PatientDataManager.jsx
-│   ├── PatientForm.jsx
-│   ├── RiskDashboard.jsx
-│   └── scripts/            # Training scripts
-│
-├── docker-compose.yml       # My Docker orchestration
-└── requirements.txt.my      # My Python dependencies
-```
+See full tree in original README. Key additions marked with [NEW]:
+
+- `backend/app.py` - Modified with feature flags
+- `backend/config.py` - Added ENABLE_CAD/ENABLE_DIABETES
+- `backend/routers/diabetes/` [NEW]
+- `backend/services/diabetes/` [NEW]
+- `backend/schemas/diabetes/` [NEW]
+- `frontend/pages/diabetes/` [NEW]
+- `frontend/services/diabetes/` [NEW]
+- `requirements.merged.txt` [NEW]
 
 ---
 
 ## Integration Status
 
-### Completed
-- [x] Created `_integration_workspace/` directory
-- [x] Mirrored teammate's backend structure
-- [x] Mirrored teammate's frontend structure
-- [x] Copied conflicting my files to `conflicts/`
-- [x] Copied unmapped my files to `unmapped_my_files/`
-- [x] Generated audit reports in `_integration_audit/`
+### Phase 2 Completed - Modular Architecture Implemented
 
-### Pending Manual Review
-1. **backend/main.py** - Choose between teammate's uvicorn runner vs my full FastAPI app
-2. **frontend/App.jsx** - Choose between teammate's hash routing vs my tab navigation
-3. **Domain alignment** - CAD (teammate) vs Diabetes Readmission (my)
-4. **Gemini package** - `google-genai` (teammate) vs `google-generativeai` (my)
-5. **Styling approach** - Custom CSS (teammate) vs Tailwind (my)
+#### Backend
+- [x] Modified app.py with feature flags and conditional router registration
+- [x] Modified config.py with ENABLE_CAD/ENABLE_DIABETES flags
+- [x] Created routers/diabetes/readmission.py with full REST API
+- [x] Created services/diabetes/ml_service.py for XGBoost inference
+- [x] Created services/diabetes/genai_service.py with google-generativeai SDK
+- [x] Created schemas/diabetes/__init__.py with Pydantic models
+- [x] Preserved all teammate CAD functionality
 
-### Blocked (Requires Package Installation)
-- Installing merged requirements.txt
-- Installing frontend npm dependencies
-- Running the application
-- Testing integration
+#### Frontend
+- [x] Created pages/diabetes/DiabetesAssessmentPage.jsx (standalone page)
+- [x] Created services/diabetes/api.js API client
+- [x] Preserved all teammate CAD pages and components
+- [x] Preserved hash routing in App.jsx
+
+#### Documentation
+- [x] Updated README.md with integration summary
+- [x] Created requirements.merged.txt
+- [x] Created _integration_audit/genai_dependency_decision.md
+
+### Pending Manual Steps
+
+1. Install Dependencies (blocked by rules - user must run)
+   ```bash
+   pip install -r requirements.merged.txt
+   cd frontend && npm install
+   ```
+
+2. Port PatientForm Component (optional enhancement)
+   - Copy from conflicts/my_components/PatientForm.jsx to frontend/components/diabetes/
+   - Update imports in DiabetesAssessmentPage.jsx
+
+3. Add Diabetes Route to Main Navigation (optional)
+   - Update frontend/App.jsx to include diabetes in hash routing
+   - Add navigation button in AppShell or HomePage
+
+4. Place Model Files
+   - Ensure diabetes model exists at artifacts/diabetes/model.joblib
+   - Or run training script to generate artifacts
+
+5. Configure .env
+   ```
+   GEMINI_KEY=your_api_key
+   ENABLE_CAD=true
+   ENABLE_DIABETES=true
+   ```
+
+---
+
+## API Endpoints
+
+### CAD Module (Teammate)
+- GET / - Root endpoint
+- POST /api/predict - CAD prediction
+- POST /api/chat/session - Create chat session
+- POST /api/chat/message - Send message
+
+### Diabetes Module (New)
+- GET /api/v1/diabetes/health - Health check
+- POST /api/v1/diabetes/predict - Readmission prediction
+- POST /api/v1/diabetes/chat - Care navigation chat
+- POST /api/v1/diabetes/upload - File upload
+- GET /api/v1/diabetes/model-info - Model metadata
+
+---
+
+## GenAI SDK Decision
+
+Both modules use different Google Gemini SDKs that coexist:
+- CAD: `google-genai` (new SDK)
+- Diabetes: `google-generativeai` (legacy SDK)
+
+See `_integration_audit/genai_dependency_decision.md` for full analysis.
+
+---
+
+## Known Issues
+
+1. PatientForm component placeholder in DiabetesAssessmentPage.jsx
+2. Diabetes module not integrated into main App.jsx navigation
+3. Model files must be placed manually before testing
 
 ---
 
 ## Next Steps
 
-1. Review files in `conflicts/` directory
-2. Decide on architecture choices (see `_integration_audit/integration_plan.md`)
-3. Manually merge conflicting files
-4. Install dependencies (when allowed):
-   ```bash
-   pip install -r requirements.txt
-   cd frontend && npm install
-   ```
-5. Test backend: `python backend/main.py`
-6. Test frontend: `npm run dev`
-
----
-
-## Reference Documents
-
-See `_integration_audit/` folder for:
-- `file_inventory.md` - Complete file listing
-- `teammate_structure.md` - Teammate's architecture
-- `my_structure.md` - My architecture
-- `dependency_map.md` - Dependencies and imports
-- `conflict_report.md` - Identified conflicts
-- `integration_plan.md` - Detailed integration strategy
+1. User installs dependencies
+2. User places diabetes model files
+3. User configures .env with GEMINI_KEY
+4. Test backend endpoints via /docs
+5. Optionally port PatientForm and integrate into main nav
