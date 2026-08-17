@@ -1,2 +1,0 @@
-patient_id,risk_profile,prior_admissions,comorbidity_count,age_numeric,num_medications,discharge_diagnosis,high_risk_flag,time_in_hospital,num_lab_procedures,num_procedures,number_outpatient,number_emergency,number_inpatient,number_diagnoses,diabetes_diag_count,metformin_encoded,insulin_encoded,on_insulin,change_encoded,diabetesMed_encoded,symptoms,chas_tier
-PATIENT_HIGH_001,High Risk Patient,5,8,75,18,250.01,1,8,70,8,10,4,5,9,3,1,1,1,1,1,"Fatigue, Frequent urination, Blurred vision, Slow-healing sores, Tingling in hands/feet, Excessive thirst",Pioneer
