@@ -11,6 +11,9 @@ from .config import settings
 # Import the readmission router from the new location
 from .routers.readmission import router as readmission_router
 
+# Import the diabetes risk classifier router
+from .routers.diabetes import router as diabetes_router
+
 app = FastAPI(
     title='Healthcare Risk Assessment API',
     version='0.2.0',
@@ -38,6 +41,8 @@ if settings.ENABLE_CAD:
 # Include readmission routes via the new router at /readmission prefix
 if settings.ENABLE_DIABETES:
     app.include_router(readmission_router, prefix='/readmission', tags=['Hospital Readmission'])
+    # Include diabetes risk classifier routes at /diabetes prefix
+    app.include_router(diabetes_router, prefix='/diabetes', tags=['Diabetes Risk Classifier'])
 
 
 # =============================================================================
@@ -52,6 +57,7 @@ async def root():
         modules.append("CAD Risk Assessment")
     if settings.ENABLE_DIABETES:
         modules.append("Diabetes Readmission Prediction")
+        modules.append("Diabetes Risk Classifier")
     
     return {
         "message": "Healthcare Risk Assessment API",
@@ -71,6 +77,11 @@ async def root():
                 "chat": "POST /readmission/api/chat",
                 "upload": "POST /readmission/api/upload",
                 "model_info": "GET /readmission/api/model-info"
+            },
+            "diabetes": {
+                "health": "GET /diabetes/health",
+                "predict": "POST /diabetes/predict",
+                "explain": "POST /diabetes/explain"
             }
         }
     }

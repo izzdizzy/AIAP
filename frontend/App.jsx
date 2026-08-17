@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage';
 import ResultsPage from './pages/ResultsPage';
 import ChatPage from './pages/ChatbotPage';
 import ReadmissionApp from './pages/readmission/App.jsx';
+import DiabetesPage from './pages/diabetes/DiabetesPage.jsx';
 import { submitAssessment } from './services/predictionService';
 import {
   loadStoredAssessmentState,
@@ -13,7 +14,7 @@ import {
 
 function getRouteFromHash() {
   const hash = window.location.hash.replace('#', '');
-  return ['assessment', 'results', 'chat', 'readmission'].includes(hash)
+  return ['assessment', 'results', 'chat', 'readmission', 'diabetes'].includes(hash)
     ? hash
     : 'landing';
 }
@@ -88,6 +89,11 @@ export default function App() {
     navigate('readmission');
   }
 
+  // Navigate to Diabetes Risk Classifier from Landing Page
+  function handleStartDiabetesAssessment() {
+    navigate('diabetes');
+  }
+
   // Navigate back to Landing Page
   function handleBackToLanding() {
     navigate('landing');
@@ -119,6 +125,7 @@ export default function App() {
       <LandingPage
         onStartCADAssessment={handleStartCADAssessment}
         onStartReadmissionAssessment={handleStartReadmissionAssessment}
+        onStartDiabetesAssessment={handleStartDiabetesAssessment}
       />
     );
   }
@@ -126,6 +133,12 @@ export default function App() {
   if (route === 'readmission') {
     return (
       <ReadmissionApp onBackToLanding={handleBackToLanding} />
+    );
+  }
+
+  if (route === 'diabetes') {
+    return (
+      <DiabetesPage onBackToLanding={handleBackToLanding} />
     );
   }
 

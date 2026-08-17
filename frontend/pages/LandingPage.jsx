@@ -6,10 +6,11 @@ import React from 'react';
  * This is the main entry point for users to choose between:
  * 1. CAD Risk Assessment (Coronary Artery Disease screening)
  * 2. Hospital Readmission Predictor
+ * 3. Diabetes Risk Classifier
  * 
  * Route: #/ or #/home (default landing page)
  */
-export default function LandingPage({ onStartCADAssessment, onStartReadmissionAssessment }) {
+export default function LandingPage({ onStartCADAssessment, onStartReadmissionAssessment, onStartDiabetesAssessment }) {
   return (
     <div style={{
       minHeight: '100vh',
@@ -183,6 +184,75 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
               }}
             >
               Start Readmission Assessment
+            </button>
+          </div>
+
+          {/* Diabetes Risk Classifier Card */}
+          <div
+            onClick={onStartDiabetesAssessment}
+            style={{
+              backgroundColor: '#1f2937',
+              borderRadius: '12px',
+              padding: '2rem',
+              border: '2px solid #374151',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#0f766e';
+              e.currentTarget.style.transform = 'translateY(-4px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#374151';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <div style={{
+              width: '60px',
+              height: '60px',
+              backgroundColor: '#0f766e',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '1.5rem'
+            }}>
+              <svg style={{ width: '32px', height: '32px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              color: '#f3f4f6',
+              marginBottom: '0.75rem'
+            }}>
+              Diabetes Risk Classifier
+            </h2>
+            <p style={{
+              color: '#9ca3af',
+              lineHeight: '1.6',
+              marginBottom: '1.5rem'
+            }}>
+              Assess your diabetes risk using a trained Random Forest model. 
+              Enter your health profile to receive a personalized risk score with AI-powered explanation and actionable health guidance.
+            </p>
+            <button
+              onClick={onStartDiabetesAssessment}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#0f766e',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Start Diabetes Assessment
             </button>
           </div>
         </div>
