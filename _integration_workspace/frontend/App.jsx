@@ -4,7 +4,7 @@ import AssessmentPage from './pages/AssessmentPage';
 import LandingPage from './pages/LandingPage';
 import ResultsPage from './pages/ResultsPage';
 import ChatPage from './pages/ChatbotPage';
-import ReadmissionAssessmentPage from './pages/readmission/ReadmissionAssessmentPage';
+import ReadmissionApp from './pages/readmission/App.jsx';
 import { submitAssessment } from './services/predictionService';
 import {
   loadStoredAssessmentState,
@@ -125,7 +125,7 @@ export default function App() {
 
   if (route === 'readmission') {
     return (
-      <ReadmissionAssessmentPage onBackToLanding={handleBackToLanding} />
+      <ReadmissionApp onBackToLanding={handleBackToLanding} />
     );
   }
 

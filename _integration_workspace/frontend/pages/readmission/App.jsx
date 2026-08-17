@@ -21,15 +21,15 @@ function App() {
       if (file) {
         setUploading(true);
         const uploadResponse = await uploadPatientFile(file);
-        
+
         // Check for upload error - don't throw, just handle gracefully
         if (!uploadResponse?.success) {
           throw new Error(uploadResponse?.error || 'Failed to parse file');
         }
-        
+
         // Safe access to patient_data with defaults
         const uploadedData = uploadResponse?.patient_data || {};
-        
+
         // Map uploaded patient data to prediction request format with strict optional chaining
         const patientInput = {
           age: uploadedData?.age_numeric ?? undefined,
@@ -51,14 +51,14 @@ function App() {
           insulin_encoded: uploadedData?.insulin_encoded ?? undefined,
           on_insulin: uploadedData?.on_insulin ?? undefined,
         };
-        
+
         // Clean undefined values
         Object.keys(patientInput).forEach(key => {
           if (patientInput[key] === undefined || patientInput[key] === null) {
             delete patientInput[key];
           }
         });
-        
+
         // Get prediction using parsed data
         predictionData = await predictPatient(patientInput);
         setPatientData({ form: { ...formData, ...uploadedData }, prediction: predictionData });
@@ -82,18 +82,18 @@ function App() {
     try {
       // Build context object matching ChatRequest schema with strict optional chaining
       // Ensure symptoms array is correctly extracted from form data
-      const symptomsArray = Array.isArray(patientData?.form?.symptoms) 
-        ? patientData.form.symptoms 
-        : (Array.isArray(patientData?.form?.symptoms_list) 
-            ? patientData.form.symptoms_list 
-            : []);
-      
+      const symptomsArray = Array.isArray(patientData?.form?.symptoms)
+        ? patientData.form.symptoms
+        : (Array.isArray(patientData?.form?.symptoms_list)
+          ? patientData.form.symptoms_list
+          : []);
+
       const chatContext = {
         clinical_severity_score: patientData?.prediction?.clinical_severity_score ?? 0,
         symptoms: symptomsArray,
         chas_tier: patientData?.form?.chas_tier ?? null
       };
-      
+
       const response = await sendChatMessage(chatContext, query);
       return response;
     } catch (err) {
@@ -115,29 +115,36 @@ function App() {
       <div className="container mx-auto px-4 py-6">
         <div className="bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-6">
           <p className="text-sm text-yellow-200">
-            <strong>Medical Disclaimer:</strong> This tool is for educational and demonstration purposes only. 
+            <strong>Medical Disclaimer:</strong> This tool is for educational and demonstration purposes only.
             It does not provide medical advice, diagnosis, or treatment. Always consult qualified healthcare professionals.
           </p>
-        </div>
 
+        </div>
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => { window.location.hash = '/'; }}
+            className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600 transition"
+          >
+            Back to Home
+          </button>
+        </div>
         <div className="flex border-b border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('assessment')}
-            className={`px-6 py-3 font-medium ${
-              activeTab === 'assessment'
-                ? 'border-b-2 border-blue-500 text-blue-400'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`px-6 py-3 font-medium ${activeTab === 'assessment'
+              ? 'border-b-2 border-blue-500 text-blue-400'
+              : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             Risk Assessment
           </button>
           <button
             onClick={() => setActiveTab('navigation')}
-            className={`px-6 py-3 font-medium ${
-              activeTab === 'navigation'
-                ? 'border-b-2 border-blue-500 text-blue-400'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`px-6 py-3 font-medium ${activeTab === 'navigation'
+              ? 'border-b-2 border-blue-500 text-blue-400'
+              : 'text-gray-400 hover:text-gray-200'
+              }`}
           >
             Care Navigation
           </button>

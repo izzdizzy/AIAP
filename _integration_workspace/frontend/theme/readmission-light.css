@@ -1,0 +1,114 @@
+/* Readmission Light Theme Overrides
+ * 
+ * This stylesheet provides light mode styling for the Hospital Readmission page.
+ * It remaps Tailwind color utilities under [data-theme='light'] with sufficient specificity.
+ * 
+ * Dark mode (default) uses the original design with dark cards, gray-900 backgrounds, etc.
+ * Light mode transforms these to light colors while maintaining layout and typography.
+ */
+
+[data-theme='light'] .min-h-screen {
+  background-color: #f3f4f6 !important; /* gray-100 instead of gray-900 */
+}
+
+[data-theme='light'] header.bg-gray-800 {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+[data-theme='light'] header.bg-gray-800 h1,
+[data-theme='light'] header.bg-gray-800 p {
+  color: #1f2937 !important; /* gray-800 */
+}
+
+[data-theme='light'] .text-gray-100 {
+  color: #1f2937 !important; /* gray-800 */
+}
+
+[data-theme='light'] .text-gray-400 {
+  color: #6b7280 !important; /* gray-500 */
+}
+
+[data-theme='light'] .bg-gray-800 {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+[data-theme='light'] .bg-gray-700 {
+  background-color: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+[data-theme='light'] .border-gray-700 {
+  border-color: #e5e7eb !important;
+}
+
+[data-theme='light'] .text-gray-300 {
+  color: #374151 !important; /* gray-700 */
+}
+
+[data-theme='light'] .text-blue-400 {
+  color: #2563eb !important; /* blue-600 */
+}
+
+[data-theme='light'] .text-green-400 {
+  color: #059669 !important; /* green-600 */
+}
+
+[data-theme='light'] .text-white {
+  color: #1f2937 !important; /* gray-800 */
+}
+
+/* Yellow warning banner - adjust for light mode */
+[data-theme='light'] .bg-yellow-900\/30 {
+  background-color: rgba(234, 179, 8, 0.15) !important;
+  border-left-color: #eab308 !important;
+}
+
+[data-theme='light'] .text-yellow-200 {
+  color: #854d0e !important; /* yellow-800 */
+}
+
+/* Blue loading states - adjust for light mode */
+[data-theme='light'] .bg-blue-900\/30 {
+  background-color: rgba(37, 99, 235, 0.1) !important;
+  border-color: #bfdbfe !important;
+}
+
+[data-theme='light'] .text-blue-300 {
+  color: #1e40af !important; /* blue-800 */
+}
+
+/* Red error states - adjust for light mode */
+[data-theme='light'] .bg-red-900\/30 {
+  background-color: rgba(220, 38, 38, 0.1) !important;
+  border-color: #fecaca !important;
+}
+
+[data-theme='light'] .text-red-300 {
+  color: #991b1b !important; /* red-800 */
+}
+
+/* Tab navigation borders */
+[data-theme='light'] .border-gray-700 {
+  border-color: #e5e7eb !important;
+}
+
+[data-theme='light'] .text-gray-200 {
+  color: #374151 !important;
+}
+
+/* Button styles in header */
+[data-theme='light'] button[style*="background-color: rgb(55, 65, 81)"],
+[data-theme='light'] button[style*="#374151"] {
+  background-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+/* Ensure proper contrast for all text elements */
+[data-theme='light'] p,
+[data-theme='light'] span,
+[data-theme='light'] li,
+[data-theme='light'] strong {
+  color: inherit;
+}
