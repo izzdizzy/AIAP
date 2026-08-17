@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from backend.shared.config import settings
+
 # Try importing the google-generativeai library (different from teammate's google.genai)
 try:
     import google.generativeai as genai
@@ -143,7 +145,7 @@ class ReadmissionGenAIService:
             api_key: Google Gemini API key. If None, will read from GEMINI_API_KEY env var.
             model_name: Name of the Gemini model to use. Default is "gemini-2.0-flash".
         """
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.api_key = api_key or settings.GEMINI_API_KEY
         self.model_name = model_name
         self.model = None
         self.is_available = False
