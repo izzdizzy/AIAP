@@ -1,20 +1,36 @@
+import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../theme/ThemeToggle';
 import Disclaimer from './Disclaimer';
 
 export default function AppShell({
   children,
-  currentRoute,
-  onNavigate,
-  hasPrediction,
-  onBackToLanding
+  hasPrediction = false
 }) {
-  const moduleInfo = {
-    assessment: { title: 'Coronary Artery Disease Risk', eyebrow: 'Cardiovascular Module' },
-    results: { title: 'CAD Risk Results & Recommendations', eyebrow: 'Cardiovascular Module' },
-    chat: { title: 'AI Lifestyle Assistant', eyebrow: 'Cardiovascular Module' },
-    readmission: { title: '30-Day Hospital Readmission Monitor', eyebrow: 'Inpatient Care Module' },
-    diabetes: { title: 'Diabetes Chronic Risk Classifier', eyebrow: 'Endocrine Module' }
-  }[currentRoute] || { title: 'Clinical Health Assessment Hub', eyebrow: 'AI Clinical Platform' };
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPath = location.pathname;
+
+  let moduleInfo = { title: 'Clinical Health Assessment Hub', eyebrow: 'AI Clinical Platform' };
+
+  if (currentPath.startsWith('/cad/assessment')) {
+    moduleInfo = { title: 'Coronary Artery Disease Risk Assessment', eyebrow: 'Cardiovascular Module' };
+  } else if (currentPath.startsWith('/cad/results')) {
+    moduleInfo = { title: 'CAD Screening Results & Recommendations', eyebrow: 'Cardiovascular Module' };
+  } else if (currentPath.startsWith('/cad/chat')) {
+    moduleInfo = { title: 'AI Lifestyle Assistant', eyebrow: 'Cardiovascular Module' };
+  } else if (currentPath.startsWith('/readmission/assessment')) {
+    moduleInfo = { title: '30-Day Hospital Readmission Monitor', eyebrow: 'Inpatient Care Module' };
+  } else if (currentPath.startsWith('/readmission/results')) {
+    moduleInfo = { title: 'Hospital Readmission Risk Findings', eyebrow: 'Inpatient Care Module' };
+  } else if (currentPath.startsWith('/diabetes/assessment')) {
+    moduleInfo = { title: 'Diabetes Chronic Risk Classifier', eyebrow: 'Endocrine Module' };
+  } else if (currentPath.startsWith('/diabetes/results')) {
+    moduleInfo = { title: 'Diabetes Assessment Findings', eyebrow: 'Endocrine Module' };
+  }
+
+  const isCadActive = currentPath.startsWith('/cad');
+  const isReadmissionActive = currentPath.startsWith('/readmission');
+  const isDiabetesActive = currentPath.startsWith('/diabetes');
 
   return (
     <div className="app-shell">
@@ -64,7 +80,7 @@ export default function AppShell({
             <button
               type="button"
               className="nav-link"
-              onClick={() => onNavigate ? onNavigate('landing') : onBackToLanding?.()}
+              onClick={() => navigate('/')}
             >
               ← Hub Home
             </button>
@@ -84,22 +100,22 @@ export default function AppShell({
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <button
               type="button"
-              className={['assessment', 'results', 'chat'].includes(currentRoute) ? 'nav-link active' : 'nav-link'}
-              onClick={() => onNavigate('assessment')}
+              className={isCadActive ? 'nav-link active' : 'nav-link'}
+              onClick={() => navigate('/cad/assessment')}
             >
               CAD Screening
             </button>
             <button
               type="button"
-              className={currentRoute === 'readmission' ? 'nav-link active' : 'nav-link'}
-              onClick={() => onNavigate('readmission')}
+              className={isReadmissionActive ? 'nav-link active' : 'nav-link'}
+              onClick={() => navigate('/readmission/assessment')}
             >
               Hospital Readmission
             </button>
             <button
               type="button"
-              className={currentRoute === 'diabetes' ? 'nav-link active' : 'nav-link'}
-              onClick={() => onNavigate('diabetes')}
+              className={isDiabetesActive ? 'nav-link active' : 'nav-link'}
+              onClick={() => navigate('/diabetes/assessment')}
             >
               Diabetes Classifier
             </button>

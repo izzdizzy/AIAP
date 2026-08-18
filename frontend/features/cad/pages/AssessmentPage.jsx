@@ -196,12 +196,13 @@ export default function AssessmentPage({
     <div className="page-stack">
       <div className="assessment-layout">
         <div className="assessment-main">
-          {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC) */}
+          {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC, min 16px gap) */}
           <h2 style={{
             fontSize: '22px',
             fontWeight: 700,
             color: '#F8FAFC',
-            marginBottom: '12px',
+            marginTop: '16px',
+            marginBottom: '16px',
             letterSpacing: '-0.01em'
           }}>
             {sectionTitle}

@@ -1,192 +1,203 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import AppShell from './components/AppShell';
-import AssessmentPage from './features/cad/pages/AssessmentPage';
 import LandingPage from './pages/LandingPage';
+
+// CAD
+import AssessmentPage from './features/cad/pages/AssessmentPage';
 import ResultsPage from './features/cad/pages/ResultsPage';
 import ChatPage from './features/cad/pages/ChatbotPage';
-import ReadmissionApp from './features/readmission/pages/ReadmissionPage';
-import DiabetesPage from './features/diabetes/pages/DiabetesPage';
 import { submitAssessment } from './features/cad/services/predictionService';
 import {
   loadStoredAssessmentState,
   saveStoredAssessmentState
 } from './features/cad/utils/storage';
 
-function getRouteFromHash() {
-  const hash = window.location.hash.replace('#', '');
-  return ['assessment', 'results', 'chat', 'readmission', 'diabetes'].includes(hash)
-    ? hash
-    : 'landing';
-}
+// Readmission
+import PatientForm from './features/readmission/components/PatientForm';
+import ReadmissionResults from './features/readmission/components/ReadmissionResults';
+import { predictReadmission } from './features/readmission/services/api';
+
+// Diabetes
+import DiabetesPage from './features/diabetes/pages/DiabetesPage';
+import DiabetesResults from './features/diabetes/components/DiabetesResults';
+import { predictRisk as predictDiabetesRisk } from './features/diabetes/services/api';
 
 export default function App() {
-  const [route, setRoute] = useState(() => (typeof window === 'undefined' ? 'landing' : getRouteFromHash()));
-  const [assessmentState, setAssessmentState] = useState(() =>
-    loadStoredAssessmentState()
-  );
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const chatMessages = assessmentState?.chatMessages ?? [];
-  const [loading, setLoading] = useState(false);
+  // CAD State
+  const [assessmentState, setAssessmentState] = useState(() => loadStoredAssessmentState());
+  const [cadLoading, setCadLoading] = useState(false);
 
-  // Verify if user has done an assessment, blocks access to Results & Chatbot otherwise.
-  const hasAssessment = Boolean(assessmentState?.assessment);
-  const hasPrediction = Boolean(assessmentState?.prediction);
+  // Readmission State
+  const [readmissionPrediction, setReadmissionPrediction] = useState(null);
+  const [readmissionLoading, setReadmissionLoading] = useState(false);
 
-  useEffect(() => {
-    const handleHashChange = () => setRoute(getRouteFromHash());
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  // Diabetes State
+  const [diabetesPrediction, setDiabetesPrediction] = useState(null);
+  const [diabetesLoading, setDiabetesLoading] = useState(false);
 
   useEffect(() => {
     saveStoredAssessmentState(assessmentState);
   }, [assessmentState]);
 
-  function navigate(nextRoute) {
-    window.location.hash = nextRoute === 'landing' ? '' : nextRoute;
-    setRoute(nextRoute);
-  }
-
-  // Submit assessment
-  async function handleSubmitAssessment(values) {
-    setLoading(true);
+  // CAD Handlers
+  async function handleSubmitCAD(values) {
+    setCadLoading(true);
     try {
       const formValues = structuredClone(values);
       const response = await submitAssessment(values);
-
       setAssessmentState({
         ...response,
         assessmentForm: formValues,
         sessionId: null,
         chatMessages: []
       });
-
-      navigate('results');
+      navigate('/cad/results');
     } catch (error) {
-      alert(error.message);
+      alert(error.message || 'Failed to calculate CAD risk.');
     } finally {
-      setLoading(false);
+      setCadLoading(false);
     }
   }
 
-  // Clear assessment if restarted
-  function handleRestart() {
-    setAssessmentState(null);
-    navigate('landing');
+  // Readmission Handlers
+  async function handleSubmitReadmission(values) {
+    setReadmissionLoading(true);
+    try {
+      const result = await predictReadmission(values);
+      setReadmissionPrediction(result);
+      navigate('/readmission/results');
+    } catch (error) {
+      alert(error.message || 'Failed to calculate readmission risk.');
+    } finally {
+      setReadmissionLoading(false);
+    }
   }
 
-  function handleEditAssessment() {
-    navigate('assessment');
+  // Diabetes Handlers
+  async function handleSubmitDiabetes(values) {
+    setDiabetesLoading(true);
+    try {
+      const result = await predictDiabetesRisk(values);
+      setDiabetesPrediction(result);
+      navigate('/diabetes/results');
+    } catch (error) {
+      alert(error.message || 'Failed to calculate diabetes risk.');
+    } finally {
+      setDiabetesLoading(false);
+    }
   }
 
-  // Navigate to CAD Assessment from Landing Page
-  function handleStartCADAssessment() {
-    navigate('assessment');
-  }
+  const isLanding = location.pathname === '/' || location.pathname === '/home';
 
-  // Navigate to Readmission Assessment from Landing Page
-  function handleStartReadmissionAssessment() {
-    navigate('readmission');
-  }
-
-  // Navigate to Diabetes Risk Classifier from Landing Page
-  function handleStartDiabetesAssessment() {
-    navigate('diabetes');
-  }
-
-  // Navigate back to Landing Page
-  function handleBackToLanding() {
-    navigate('landing');
-  }
-
-  function setChatMessages(messagesOrUpdater) {
-    setAssessmentState(previous => {
-      if (!previous) {
-        return previous;
-      }
-
-      const currentMessages = previous.chatMessages ?? [];
-
-      const nextMessages =
-        typeof messagesOrUpdater === 'function'
-          ? messagesOrUpdater(currentMessages)
-          : messagesOrUpdater;
-
-      return {
-        ...previous,
-        chatMessages: nextMessages
-      };
-    });
-  }
-
-  // Render landing page standalone
-  if (route === 'landing') {
+  if (isLanding) {
     return (
       <LandingPage
-        onStartCADAssessment={handleStartCADAssessment}
-        onStartReadmissionAssessment={handleStartReadmissionAssessment}
-        onStartDiabetesAssessment={handleStartDiabetesAssessment}
+        onStartCADAssessment={() => navigate('/cad/assessment')}
+        onStartReadmissionAssessment={() => navigate('/readmission/assessment')}
+        onStartDiabetesAssessment={() => navigate('/diabetes/assessment')}
       />
     );
   }
 
-  // All assessment routes wrapped in unified AppShell
   return (
-    <AppShell
-      currentRoute={route}
-      onNavigate={navigate}
-      hasPrediction={hasPrediction}
-      onBackToLanding={handleBackToLanding}
-    >
-      {route === 'readmission' && (
-        <ReadmissionApp onBackToLanding={handleBackToLanding} />
-      )}
-
-      {route === 'diabetes' && (
-        <DiabetesPage onBackToLanding={handleBackToLanding} />
-      )}
-
-      {route === 'assessment' && (
-        <AssessmentPage
-          onSubmitAssessment={handleSubmitAssessment}
-          loading={loading}
-          onCancel={handleBackToLanding}
-          initialValues={assessmentState?.assessmentForm}
+    <AppShell>
+      <Routes>
+        {/* CAD Routes */}
+        <Route
+          path="/cad/assessment"
+          element={
+            <AssessmentPage
+              onSubmitAssessment={handleSubmitCAD}
+              loading={cadLoading}
+              onCancel={() => navigate('/')}
+              initialValues={assessmentState?.assessmentForm}
+            />
+          }
         />
-      )}
-
-      {route === 'results' && hasPrediction && (
-        <ResultsPage
-          assessmentState={assessmentState}
-          onRestart={handleRestart}
-          onEditAssessment={handleEditAssessment}
-          onOpenChat={() => navigate('chat')}
+        <Route
+          path="/cad/results"
+          element={
+            <ResultsPage
+              assessmentState={assessmentState}
+              onRestart={() => {
+                setAssessmentState(null);
+                navigate('/');
+              }}
+              onEditAssessment={() => navigate('/cad/assessment')}
+              onOpenChat={() => navigate('/cad/chat')}
+            />
+          }
         />
-      )}
-
-      {route === 'chat' && hasAssessment && hasPrediction && (
-        <ChatPage
-          assessmentState={assessmentState}
-          setAssessmentState={setAssessmentState}
-          chatMessages={chatMessages}
-          setChatMessages={setChatMessages}
-          onBack={() => navigate('results')}
+        <Route
+          path="/cad/chat"
+          element={
+            <ChatPage
+              assessmentState={assessmentState}
+              setAssessmentState={setAssessmentState}
+              chatMessages={assessmentState?.chatMessages ?? []}
+              setChatMessages={(updater) => {
+                setAssessmentState(prev => {
+                  if (!prev) return prev;
+                  const current = prev.chatMessages ?? [];
+                  const next = typeof updater === 'function' ? updater(current) : updater;
+                  return { ...prev, chatMessages: next };
+                });
+              }}
+              onBack={() => navigate('/cad/results')}
+            />
+          }
         />
-      )}
 
-      {route === 'results' && !hasPrediction && (
-        <LandingPage
-          onStartCADAssessment={handleStartCADAssessment}
-          onStartReadmissionAssessment={handleStartReadmissionAssessment}
+        {/* Readmission Routes */}
+        <Route
+          path="/readmission/assessment"
+          element={
+            <PatientForm
+              onSubmit={handleSubmitReadmission}
+              loading={readmissionLoading}
+            />
+          }
         />
-      )}
+        <Route
+          path="/readmission/results"
+          element={
+            <ReadmissionResults
+              prediction={readmissionPrediction}
+              onResetPrediction={() => navigate('/readmission/assessment')}
+              onBackToLanding={() => navigate('/')}
+            />
+          }
+        />
 
-      {route === 'chat' && (!hasAssessment || !hasPrediction) && (
-        <LandingPage
-          onStartCADAssessment={handleStartCADAssessment}
-          onStartReadmissionAssessment={handleStartReadmissionAssessment}
+        {/* Diabetes Routes */}
+        <Route
+          path="/diabetes/assessment"
+          element={
+            <DiabetesPage
+              onSubmitAssessment={handleSubmitDiabetes}
+              loading={diabetesLoading}
+            />
+          }
         />
-      )}
+        <Route
+          path="/diabetes/results"
+          element={
+            <DiabetesResults
+              prediction={diabetesPrediction}
+              onResetPrediction={() => navigate('/diabetes/assessment')}
+              onBackToLanding={() => navigate('/')}
+              onOpenChat={() => navigate('/cad/chat')}
+            />
+          }
+        />
+
+        {/* Fallback redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </AppShell>
   );
 }

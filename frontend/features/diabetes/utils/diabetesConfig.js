@@ -6,7 +6,6 @@
 import { DIABETES_FIELD_OPTIONS } from './diabetesMappings';
 
 export const diabetesSteps = [
-  { id: 'intro', title: 'Overview & Profile Mode', description: 'Complete clinical fields or prefill sample data.' },
   { id: 'demographics', title: '1. Demographics & Metrics', description: 'General health, BMI, age group, and biological sex.' },
   { id: 'lifestyle', title: '2. Lifestyle & Medical History', description: 'Blood pressure, cholesterol, physical activity, and habits.' }
 ];

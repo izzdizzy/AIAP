@@ -3,54 +3,71 @@ import { useNavigate } from 'react-router-dom';
 import PrimaryButton from '../../../components/PrimaryButton';
 import SectionCard from '../../../components/SectionCard';
 import FeatureImportanceBar from '../../../components/FeatureImportanceBar';
-import { describeFactorDirection, formatPercent } from '../utils/risk';
 
-const emptyResult = {
-  riskProbability: 0,
-  riskPercent: '0.0%',
-  riskLevel: 'Low',
-  topFactors: []
-};
-
-export default function ResultsPage({
-  assessmentState,
-  onRestart,
-  onEditAssessment,
-  onOpenChat
+export default function ReadmissionResults({
+  prediction,
+  onResetPrediction,
+  onBackToLanding
 }) {
   const navigate = useNavigate();
-  const displayResult = assessmentState?.prediction ?? emptyResult;
 
-  const handleChat = onOpenChat || (() => navigate('/cad/chat'));
-  const handleEdit = onEditAssessment || (() => navigate('/cad/assessment'));
-  const handleOverview = onRestart || (() => navigate('/'));
+  const handleEdit = onResetPrediction || (() => navigate('/readmission/assessment'));
+  const handleOverview = onBackToLanding || (() => navigate('/'));
 
-  const riskLevelText = (displayResult.riskLevel || 'Low').toLowerCase();
-  const pillClass = riskLevelText.includes('high')
+  if (!prediction) {
+    return (
+      <div className="page-stack">
+        <h2 style={{
+          fontSize: '22px',
+          fontWeight: 700,
+          color: '#F8FAFC',
+          marginTop: '16px',
+          marginBottom: '16px',
+          letterSpacing: '-0.01em'
+        }}>
+          Hospital Readmission Risk Findings
+        </h2>
+        <SectionCard>
+          <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+            <p style={{ color: '#94A3B8', marginBottom: '20px', fontSize: '1.05rem' }}>
+              No readmission assessment prediction found. Please complete the assessment form first.
+            </p>
+            <PrimaryButton
+              type="button"
+              variant="primary"
+              onClick={() => navigate('/readmission/assessment')}
+            >
+              Start Readmission Assessment
+            </PrimaryButton>
+          </div>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  const riskProbPct = prediction?.raw_probability !== undefined
+    ? (prediction.raw_probability * 100).toFixed(1)
+    : '0.0';
+
+  const riskCat = prediction?.risk_category || 'Standard';
+  const pillClass = riskCat.toLowerCase().includes('high')
     ? 'risk-pill--high'
-    : riskLevelText.includes('mod')
+    : riskCat.toLowerCase().includes('mod')
     ? 'risk-pill--moderate'
     : 'risk-pill--low';
 
-  const riskProbPct = assessmentState
-    ? displayResult.riskPercent
-    : formatPercent(displayResult.riskProbability);
+  const severityScore = prediction?.clinical_severity_score ?? 0;
 
-  const severityScore = displayResult.riskProbability !== undefined
-    ? Math.round(displayResult.riskProbability * 100)
-    : 0;
-
-  const formattedFactors = (displayResult.topFactors || []).map((f) => ({
-    label: f.feature,
-    value: Math.abs(f.impact || 0.2),
-    impact: f.impact,
-    displayValue: `${describeFactorDirection(f.direction)} (${f.impact > 0 ? '+' : ''}${f.impact})`,
-    direction: f.impact < 0 ? 'negative' : 'positive'
+  const formattedShap = (prediction?.shap_values || []).map(s => ({
+    label: s.feature,
+    value: Math.abs(s.importance || 0),
+    impact: s.importance,
+    direction: (s.importance || 0) < 0 ? 'negative' : 'positive'
   }));
 
   return (
     <div className="page-stack">
-      {/* Extracted Section Title OUTSIDE and ABOVE Main Card (22px bold #F8FAFC, min 16px gap) */}
+      {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC, min 16px gap) */}
       <h2 style={{
         fontSize: '22px',
         fontWeight: 700,
@@ -59,7 +76,7 @@ export default function ResultsPage({
         marginBottom: '16px',
         letterSpacing: '-0.01em'
       }}>
-        CAD Screening Results
+        Hospital Readmission Risk Findings
       </h2>
 
       <SectionCard>
@@ -77,14 +94,14 @@ export default function ResultsPage({
             gap: '12px'
           }}>
             <div>
-              <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Metric Probability</span>
-              <strong style={{ fontSize: '1.6rem', color: '#38BDF8', fontWeight: 700 }}>{riskProbPct}</strong>
+              <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Readmission Probability</span>
+              <strong style={{ fontSize: '1.6rem', color: '#38BDF8', fontWeight: 700 }}>{riskProbPct}%</strong>
             </div>
 
             <div>
               <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Risk Badge</span>
               <span className={`risk-pill ${pillClass}`}>
-                {displayResult.riskLevel} Risk
+                {riskCat} Risk
               </span>
             </div>
 
@@ -94,19 +111,19 @@ export default function ResultsPage({
             </div>
           </div>
 
-          {/* Body: Contributing Risk Factors / Feature Importance (SHAP horizontal bar visualizer) */}
+          {/* Body: Contributing Risk Factors / Feature Importance (SHAP horizontal bar visualizers) */}
           <div style={{ padding: '16px 20px', borderRadius: '12px', background: '#1E293B', border: '1px solid #334155' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '1.05rem', color: '#F8FAFC', fontWeight: 600 }}>
               Contributing Risk Factors (SHAP Feature Importance)
             </h3>
-            {formattedFactors.length ? (
-              <FeatureImportanceBar factors={formattedFactors} />
+            {formattedShap.length > 0 ? (
+              <FeatureImportanceBar factors={formattedShap} />
             ) : (
-              <p style={{ color: '#94A3B8' }}>No model factors available yet.</p>
+              <p style={{ color: '#94A3B8' }}>No SHAP factors calculated yet.</p>
             )}
           </div>
 
-          {/* Bottom Action Area: Prominent Ask AI Assistant + Standardized Navigation */}
+          {/* Bottom Action Area: Prominent Ask AI Assistant + Standard Actions */}
           <div style={{
             display: 'flex',
             gap: '12px',
@@ -118,8 +135,7 @@ export default function ResultsPage({
             <PrimaryButton
               type="button"
               variant="ai"
-              onClick={handleChat}
-              disabled={!assessmentState?.prediction}
+              onClick={() => navigate('/cad/chat')}
             >
               Ask AI Assistant
             </PrimaryButton>
@@ -145,4 +161,3 @@ export default function ResultsPage({
     </div>
   );
 }
-

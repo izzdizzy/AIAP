@@ -4,7 +4,6 @@
  */
 
 export const readmissionSteps = [
-  { id: 'intro', title: 'File Import & Overview', description: 'Upload patient CSV/XLSX record or complete inputs manually.' },
   { id: 'demographics', title: '1. Patient Profile', description: 'Age group, subsidies, and current symptoms.' },
   { id: 'hospitalization', title: '2. Admission Details', description: 'Inpatient stay duration, visit counts, and admission classification.' },
   { id: 'clinical', title: '3. Clinical Metrics', description: 'Comorbidities, lab procedures, diagnoses, and medication flags.' }

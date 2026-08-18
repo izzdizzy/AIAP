@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Landing Page - Healthcare Risk Assessment Portal
@@ -7,10 +8,14 @@ import React from 'react';
  * 1. CAD Risk Assessment (Coronary Artery Disease screening)
  * 2. Hospital Readmission Predictor
  * 3. Diabetes Risk Classifier
- * 
- * Route: #/ or #/home (default landing page)
  */
 export default function LandingPage({ onStartCADAssessment, onStartReadmissionAssessment, onStartDiabetesAssessment }) {
+  const navigate = useNavigate();
+
+  const handleStartCAD = onStartCADAssessment || (() => navigate('/cad/assessment'));
+  const handleStartReadmission = onStartReadmissionAssessment || (() => navigate('/readmission/assessment'));
+  const handleStartDiabetes = onStartDiabetesAssessment || (() => navigate('/diabetes/assessment'));
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -51,7 +56,7 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
         }}>
           {/* CAD Risk Assessment Card */}
           <div
-            onClick={onStartCADAssessment}
+            onClick={handleStartCAD}
             style={{
               backgroundColor: '#1f2937',
               borderRadius: '12px',
@@ -101,7 +106,7 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
               Answer questions about age, symptoms, and clinic results. ECG and lab fields are optional.
             </p>
             <button
-              onClick={onStartCADAssessment}
+              onClick={(e) => { e.stopPropagation(); handleStartCAD(); }}
               style={{
                 width: '100%',
                 padding: '0.75rem 1.5rem',
@@ -120,7 +125,7 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
 
           {/* Hospital Readmission Predictor Card */}
           <div
-            onClick={onStartReadmissionAssessment}
+            onClick={handleStartReadmission}
             style={{
               backgroundColor: '#1f2937',
               borderRadius: '12px',
@@ -170,7 +175,7 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
               Analyze patient history, admissions, comorbidities, and medications to assess readmission probability.
             </p>
             <button
-              onClick={onStartReadmissionAssessment}
+              onClick={(e) => { e.stopPropagation(); handleStartReadmission(); }}
               style={{
                 width: '100%',
                 padding: '0.75rem 1.5rem',
@@ -189,7 +194,7 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
 
           {/* Diabetes Risk Classifier Card */}
           <div
-            onClick={onStartDiabetesAssessment}
+            onClick={handleStartDiabetes}
             style={{
               backgroundColor: '#1f2937',
               borderRadius: '12px',
@@ -239,7 +244,7 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
               Enter your health profile to receive a personalized risk score with AI-powered explanation and actionable health guidance.
             </p>
             <button
-              onClick={onStartDiabetesAssessment}
+              onClick={(e) => { e.stopPropagation(); handleStartDiabetes(); }}
               style={{
                 width: '100%',
                 padding: '0.75rem 1.5rem',

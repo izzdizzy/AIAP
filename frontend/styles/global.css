@@ -89,6 +89,7 @@ button {
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
   padding: 24px 0 48px;
+  border-radius: 20px;
 }
 
 .app-header {
@@ -144,6 +145,7 @@ button {
 
 .app-main {
   margin-top: 24px;
+  padding: 20px;
 }
 
 .page-stack {
@@ -177,12 +179,15 @@ button {
 .result-card {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: 16px;
   box-shadow: var(--shadow);
+  overflow: hidden;
+  padding-bottom: 32px;
 }
 
 .section-card {
   padding: 24px;
+  padding-bottom: 32px;
 }
 
 .section-card__header h2,
@@ -656,15 +661,20 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .form-field {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  height: auto;
   gap: 8px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--surface-muted);
+  box-sizing: border-box;
 }
 
 .form-field__label {
@@ -689,6 +699,9 @@ button {
   background: white;
   color: var(--text);
   padding: 12px 14px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .form-field input:focus,

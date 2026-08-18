@@ -29,7 +29,7 @@ const DEFAULT_READMISSION_VALUES = {
 };
 
 export default function PatientForm({ onSubmit, loading = false, onFileUpload, prediction = null, onResetPrediction }) {
-  const [stepIndex, setStepIndex] = useState(1);
+  const [stepIndex, setStepIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [uploadMessage, setUploadStatus] = useState(null);
@@ -48,7 +48,9 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
     fieldOrder: Object.keys(readmissionFields)
   });
 
-  const currentStep = readmissionSteps[stepIndex] || readmissionSteps[1];
+  const currentStep = readmissionSteps[stepIndex] || readmissionSteps[0];
+  const canGoPrevious = stepIndex > 0;
+  const canGoNext = stepIndex < readmissionSteps.length - 1;
 
   function handleSymptomToggle(symptom) {
     setSelectedSymptoms(prev =>
@@ -117,12 +119,25 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
   }
 
   function goPrevious() {
-    setStepIndex(prev => Math.max(prev - 1, 1));
+    setStepIndex(prev => Math.max(prev - 1, 0));
   }
 
   function handleSubmitForm(e) {
     e.preventDefault();
-    if (!validateAll()) return;
+
+    if (!validateAll()) {
+      const errorKeys = Object.keys(errors).filter(k => errors[k]);
+      if (errorKeys.length > 0) {
+        for (const step of readmissionSteps) {
+          const fields = getStepFieldNames(step.id);
+          if (fields.some(f => errorKeys.includes(f))) {
+            setStepIndex(readmissionSteps.indexOf(step));
+            break;
+          }
+        }
+      }
+      return;
+    }
 
     const ageNum = values.age ? parseInt(String(values.age).split('-')[0], 10) + 5 : 55;
 
@@ -164,39 +179,18 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
     };
   });
 
-  const sectionTitle = !prediction
-    ? currentStep.title.replace(/^\d+\.\s*/, '')
-    : 'Hospital Readmission Risk Findings';
-
-  const riskProbPct = prediction?.raw_probability !== undefined
-    ? (prediction.raw_probability * 100).toFixed(1)
-    : '0.0';
-
-  const riskCat = prediction?.risk_category || 'Standard';
-  const pillClass = riskCat.toLowerCase().includes('high')
-    ? 'risk-pill--high'
-    : riskCat.toLowerCase().includes('mod')
-    ? 'risk-pill--moderate'
-    : 'risk-pill--low';
-
-  const severityScore = prediction?.clinical_severity_score ?? 0;
-
-  const formattedShap = (prediction?.shap_values || []).map(s => ({
-    label: s.feature,
-    value: Math.abs(s.importance || 0),
-    displayValue: `${(s.importance || 0) > 0 ? '+' : ''}${(s.importance || 0).toFixed(3)}`,
-    direction: (s.importance || 0) < 0 ? 'negative' : 'positive'
-  }));
+  const sectionTitle = currentStep.title.replace(/^\d+\.\s*/, '');
 
   return (
     <div className="assessment-layout">
       <div className="assessment-main">
-        {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC) */}
+        {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC, min 16px gap) */}
         <h2 style={{
           fontSize: '22px',
           fontWeight: 700,
           color: '#F8FAFC',
-          marginBottom: '12px',
+          marginTop: '16px',
+          marginBottom: '16px',
           letterSpacing: '-0.01em'
         }}>
           {sectionTitle}
@@ -209,8 +203,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
             </div>
           )}
 
-          {!prediction ? (
-            <form onSubmit={handleSubmitForm} noValidate className="assessment-form">
+          <form onSubmit={handleSubmitForm} noValidate className="assessment-form">
               {currentStep.id === 'demographics' && (
                 <div className="assessment-group">
                   <FileUploadZone
@@ -351,7 +344,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
               )}
 
               <div className="form-actions" style={{ marginTop: '24px' }}>
-                {stepIndex > 1 && (
+                {canGoPrevious ? (
                   <PrimaryButton
                     type="button"
                     variant="secondary"
@@ -359,10 +352,11 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
                   >
                     Previous Step
                   </PrimaryButton>
-                )}
+                ) : null}
 
-                {stepIndex < readmissionSteps.length - 1 ? (
+                {canGoNext ? (
                   <PrimaryButton
+                    key="next-button"
                     type="button"
                     variant="primary"
                     onClick={goNext}
@@ -371,6 +365,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
                   </PrimaryButton>
                 ) : (
                   <PrimaryButton
+                    key="submit-button"
                     type="submit"
                     variant="primary"
                     disabled={loading}
@@ -403,86 +398,6 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
                 </PrimaryButton>
               </div>
             </form>
-          ) : (
-            /* Standardized Results Layout: Left Main Canvas & Right Action Panel */
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-              {/* Top Summary Bar: Probability, Risk Badge, Severity Score */}
-              <div style={{
-                display: 'flex',
-                justify: 'space-between',
-                alignItems: 'center',
-                padding: '16px 20px',
-                borderRadius: '12px',
-                background: '#1E293B',
-                border: '1px solid #334155',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Readmission Probability</span>
-                  <strong style={{ fontSize: '1.6rem', color: '#38BDF8', fontWeight: 700 }}>{riskProbPct}%</strong>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Risk Badge</span>
-                  <span className={`risk-pill ${pillClass}`}>
-                    {riskCat} Risk
-                  </span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Clinical Severity Score</span>
-                  <strong style={{ fontSize: '1.3rem', color: '#F8FAFC', fontWeight: 700 }}>{severityScore}/100</strong>
-                </div>
-              </div>
-
-              {/* Body: Contributing Risk Factors / Feature Importance (SHAP horizontal bar visualizers) */}
-              <div style={{ padding: '16px 20px', borderRadius: '12px', background: '#1E293B', border: '1px solid #334155' }}>
-                <h3 style={{ margin: '0 0 12px', fontSize: '1.05rem', color: '#F8FAFC', fontWeight: 600 }}>
-                  Contributing Risk Factors (SHAP Feature Importance)
-                </h3>
-                {formattedShap.length > 0 ? (
-                  <FeatureImportanceBar factors={formattedShap} />
-                ) : (
-                  <p style={{ color: '#94A3B8' }}>No SHAP factors calculated yet.</p>
-                )}
-              </div>
-
-              {/* Bottom Action Area: Prominent Ask AI Assistant + Standard Actions */}
-              <div style={{
-                display: 'flex',
-                gap: '12px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                paddingTop: '12px',
-                borderTop: '1px solid #334155'
-              }}>
-                <PrimaryButton
-                  type="button"
-                  variant="ai"
-                  onClick={() => window.location.hash = 'chat'}
-                >
-                  Ask AI Assistant
-                </PrimaryButton>
-
-                <PrimaryButton
-                  type="button"
-                  variant="secondary"
-                  onClick={onResetPrediction}
-                >
-                  ← Edit Inputs
-                </PrimaryButton>
-
-                <PrimaryButton
-                  type="button"
-                  variant="secondary"
-                  onClick={() => window.location.hash = ''}
-                >
-                  Return to Module Overview
-                </PrimaryButton>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -492,8 +407,8 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
           totalCount={totalFields}
           groups={groupProgress}
           steps={readmissionSteps}
-          currentStepIndex={stepIndex}
-          onSelectStep={setStepIndex}
+          currentStepIndex={stepIndex + 1}
+          onSelectStep={(idx) => setStepIndex(idx - 1)}
         />
       </div>
     </div>
