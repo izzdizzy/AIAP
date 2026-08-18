@@ -2,6 +2,9 @@
 # Data files
 /backend/data/readmission/diabetic_data.csv
 
+# Account system database
+app.db
+
 # Python
 __pycache__/
 *.pyc

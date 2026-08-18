@@ -28,6 +28,12 @@ import { predictReadmission } from './features/readmission/services/api';
 import DiabetesPage from './features/diabetes/pages/DiabetesPage';
 import DiabetesResults from './features/diabetes/components/DiabetesResults';
 import { predictRisk as predictDiabetesRisk } from './features/diabetes/services/api';
+import { saveAssessment as saveDiabetesAssessment, saveModuleAssessment } from './features/diabetes/services/historyApi';
+
+// Auth
+import { useAuth } from './context/AuthContext';
+import LoginPage from './features/auth/pages/LoginPage';
+import RegisterPage from './features/auth/pages/RegisterPage';
 
 // AI Insights Workspace
 import AIWorkspacePage from './pages/AIWorkspacePage';
@@ -35,6 +41,7 @@ import AIWorkspacePage from './pages/AIWorkspacePage';
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   // CAD State
   const [assessmentState, setAssessmentState] = useState(() => loadStoredCADState());
@@ -86,6 +93,10 @@ export default function App() {
       };
       setAssessmentState(newState);
       saveStoredCADState(newState);
+      if (user) {
+        saveModuleAssessment('cad', formValues, response?.prediction ?? response ?? {})
+          .catch((e) => console.warn('[history] CAD save failed:', e.message));
+      }
       navigate('/cad/results');
     } catch (error) {
       alert(error.message || 'Failed to calculate CAD risk.');
@@ -106,6 +117,10 @@ export default function App() {
       };
       setReadmissionState(newState);
       saveStoredReadmissionState(newState);
+      if (user) {
+        saveModuleAssessment('readmission', formValues, result ?? {})
+          .catch((e) => console.warn('[history] Readmission save failed:', e.message));
+      }
       if (formValues.chas_tier) {
         setSubsidyTier(formValues.chas_tier);
         saveStoredSubsidyTier(formValues.chas_tier);
@@ -130,6 +145,10 @@ export default function App() {
       };
       setDiabetesState(newState);
       saveStoredDiabetesState(newState);
+      if (user) {
+        saveDiabetesAssessment(formValues)
+          .catch((e) => console.warn('[history] Diabetes save failed:', e.message));
+      }
       navigate('/diabetes/results');
     } catch (error) {
       alert(error.message || 'Failed to calculate diabetes risk.');
@@ -142,16 +161,11 @@ export default function App() {
   const readmissionCompleted = Boolean(readmissionPrediction);
   const diabetesCompleted = Boolean(diabetesPrediction);
 
-  const isLanding = location.pathname === '/' || location.pathname === '/home';
-
-  if (isLanding) {
-    return (
-      <LandingPage
-        onStartCADAssessment={() => navigate('/cad/assessment')}
-        onStartReadmissionAssessment={() => navigate('/readmission/assessment')}
-        onStartDiabetesAssessment={() => navigate('/diabetes/assessment')}
-      />
-    );
+  if (location.pathname === '/login') {
+    return <LoginPage />;
+  }
+  if (location.pathname === '/register') {
+    return <RegisterPage />;
   }
 
   return (
@@ -159,8 +173,26 @@ export default function App() {
       cadCompleted={cadCompleted}
       readmissionCompleted={readmissionCompleted}
       diabetesCompleted={diabetesCompleted}
+      user={user}
+      onLogout={() => {
+        logout();
+        navigate('/');
+      }}
     >
       <Routes>
+        {/* Dashboard (Home) */}
+        <Route
+          path="/"
+          element={
+            <LandingPage
+              onStartCADAssessment={() => navigate('/cad/assessment')}
+              onStartReadmissionAssessment={() => navigate('/readmission/assessment')}
+              onStartDiabetesAssessment={() => navigate('/diabetes/assessment')}
+            />
+          }
+        />
+        <Route path="/home" element={<Navigate to="/" replace />} />
+
         {/* CAD Routes */}
         <Route
           path="/cad/assessment"
@@ -236,6 +268,7 @@ export default function App() {
             />
           }
         />
+        <Route path="/diabetes/dashboard" element={<Navigate to="/" replace />} />
 
         {/* AI Workspace Route */}
         <Route

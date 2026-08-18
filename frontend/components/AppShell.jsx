@@ -1,36 +1,25 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../theme/ThemeToggle';
 import Disclaimer from './Disclaimer';
+import ChangePasswordModal from '../features/auth/components/ChangePasswordModal';
 
 export default function AppShell({
   children,
   cadCompleted = false,
   readmissionCompleted = false,
-  diabetesCompleted = false
+  diabetesCompleted = false,
+  user = null,
+  onLogout = () => {}
 }) {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
-  let moduleInfo = { title: 'Clinical Health Assessment Hub', eyebrow: 'Patient Health Assessment' };
-
-  if (currentPath.startsWith('/cad/assessment')) {
-    moduleInfo = { title: 'Coronary Artery Disease Risk Assessment', eyebrow: 'Cardiovascular Module' };
-  } else if (currentPath.startsWith('/cad/results')) {
-    moduleInfo = { title: 'CAD Screening Results & Recommendations', eyebrow: 'Cardiovascular Module' };
-  } else if (currentPath.startsWith('/cad/chat')) {
-    moduleInfo = { title: 'AI Lifestyle Assistant', eyebrow: 'Cardiovascular Module' };
-  } else if (currentPath.startsWith('/readmission/assessment')) {
-    moduleInfo = { title: '30-Day Hospital Readmission Monitor', eyebrow: 'Inpatient Care Module' };
-  } else if (currentPath.startsWith('/readmission/results')) {
-    moduleInfo = { title: 'Hospital Readmission Risk Findings', eyebrow: 'Inpatient Care Module' };
-  } else if (currentPath.startsWith('/diabetes/assessment')) {
-    moduleInfo = { title: 'Diabetes Chronic Risk Classifier', eyebrow: 'Endocrine Module' };
-  } else if (currentPath.startsWith('/diabetes/results')) {
-    moduleInfo = { title: 'Diabetes Assessment Findings', eyebrow: 'Endocrine Module' };
-  } else if (currentPath.startsWith('/ai-insights')) {
-    moduleInfo = { title: 'Unified AI Insights & Care Navigation Workspace', eyebrow: 'GenAI Multi-Assistant Hub' };
-  }
+  // App name stays constant across every route.
+  const moduleInfo = { title: 'Clinical Health Assessment Hub', eyebrow: 'Patient Health Assessment' };
 
   const isCadActive = currentPath.startsWith('/cad');
   const isReadmissionActive = currentPath.startsWith('/readmission');
@@ -38,27 +27,15 @@ export default function AppShell({
   const isAIActive = currentPath.startsWith('/ai-insights');
 
   function handleCadClick() {
-    if (cadCompleted && !currentPath.startsWith('/cad')) {
-      navigate('/cad/results');
-    } else {
-      navigate('/cad/assessment');
-    }
+    navigate('/cad/assessment');
   }
 
   function handleReadmissionClick() {
-    if (readmissionCompleted && !currentPath.startsWith('/readmission')) {
-      navigate('/readmission/results');
-    } else {
-      navigate('/readmission/assessment');
-    }
+    navigate('/readmission/assessment');
   }
 
   function handleDiabetesClick() {
-    if (diabetesCompleted && !currentPath.startsWith('/diabetes')) {
-      navigate('/diabetes/results');
-    } else {
-      navigate('/diabetes/assessment');
-    }
+    navigate('/diabetes/assessment');
   }
 
   return (
@@ -75,14 +52,26 @@ export default function AppShell({
         {/* Top Tier: Branding (Left) & Utility Actions (Right) */}
         <div style={{
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '12px',
           width: '100%'
         }}>
-          {/* Left branding area */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Left branding area — clickable, returns to the dashboard */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/');
+              }
+            }}
+            title="Back to Dashboard"
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+          >
             <div style={{ position: 'relative' }}>
               <div style={{
                 width: '34px',
@@ -117,48 +106,115 @@ export default function AppShell({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              background: 'var(--surface-muted)',
-              border: '1px solid var(--border)',
-              fontSize: '0.8rem',
-              color: 'var(--text-muted)'
-            }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: 'var(--risk-low-text)'
-              }} />
-              <span>Service Online</span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
             <ThemeToggle />
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                background: 'var(--surface-muted, rgba(255,255,255,0.05))',
-                color: 'var(--text, #f8fafc)',
-                border: '1px solid var(--border)',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-              title="Dashboard"
-            >
-              <span>🏠</span>
-              <span>Dashboard</span>
-            </button>
+            {user ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen(prev => !prev)}
+                  title={user.name}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'var(--accent)',
+                    color: 'white',
+                    border: '1px solid var(--border)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'grid',
+                    placeItems: 'center'
+                  }}
+                >
+                  {(user.name || '?').trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}
+                </button>
+                {accountMenuOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 'calc(100% + 6px)',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    boxShadow: 'var(--shadow, 0 8px 24px rgba(0,0,0,0.25))',
+                    minWidth: '180px',
+                    zIndex: 50,
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      padding: '10px 14px',
+                      borderBottom: '1px solid var(--border)',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-muted)'
+                    }}>
+                      Signed in as<br />
+                      <strong style={{ color: 'var(--text)' }}>{user.name}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setChangePasswordOpen(true);
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 14px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text)',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Change password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        onLogout();
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 14px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--danger, #dc2626)',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: '#1e3a8a',
+                  color: 'white',
+                  border: '1px solid #1e3a8a',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Sign in
+              </button>
+            )}
           </div>
         </div>
 
@@ -291,8 +347,45 @@ export default function AppShell({
       </header>
       <main className="app-main">
         <Disclaimer />
+        {(currentPath.startsWith('/cad') ||
+          currentPath.startsWith('/readmission') ||
+          currentPath.startsWith('/diabetes')) && (
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              alignSelf: 'flex-start',
+              padding: '6px 14px',
+              marginBottom: '12px',
+              borderRadius: '8px',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border)',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'color 160ms ease, border-color 160ms ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--text)';
+              e.currentTarget.style.borderColor = 'var(--accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.borderColor = 'var(--border)';
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+        )}
         {children}
       </main>
+      {changePasswordOpen && (
+        <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />
+      )}
     </div>
   );
 }

@@ -72,6 +72,47 @@ export default function UnifiedResultsCard({
 
       <SectionCard>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+          {/* Top Action Area: Prominent Ask AI Assistant + Standard Actions */}
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            paddingBottom: '12px',
+            borderBottom: '1px solid var(--border)'
+          }}>
+            {onOpenChat && (
+              <PrimaryButton
+                type="button"
+                variant="ai"
+                onClick={onOpenChat}
+                disabled={disableChat}
+              >
+                Ask AI Assistant
+              </PrimaryButton>
+            )}
+
+            {onEditAssessment && (
+              <PrimaryButton
+                type="button"
+                variant="secondary"
+                onClick={onEditAssessment}
+              >
+                New Assessment
+              </PrimaryButton>
+            )}
+
+            {onBackToOverview && (
+              <PrimaryButton
+                type="button"
+                variant="secondary"
+                onClick={onBackToOverview}
+              >
+                Return to Module Overview
+              </PrimaryButton>
+            )}
+          </div>
+
           {/* Top Summary Bar: 3-Column CSS Grid for Exact Horizontal Label Alignment */}
           <div style={{
             display: 'grid',
@@ -125,46 +166,6 @@ export default function UnifiedResultsCard({
             )}
           </div>
 
-          {/* Bottom Action Area: Prominent Ask AI Assistant + Standard Actions */}
-          <div style={{
-            display: 'flex',
-            gap: '12px',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            paddingTop: '12px',
-            borderTop: '1px solid var(--border)'
-          }}>
-            {onOpenChat && (
-              <PrimaryButton
-                type="button"
-                variant="ai"
-                onClick={onOpenChat}
-                disabled={disableChat}
-              >
-                Ask AI Assistant
-              </PrimaryButton>
-            )}
-
-            {onEditAssessment && (
-              <PrimaryButton
-                type="button"
-                variant="secondary"
-                onClick={onEditAssessment}
-              >
-                Edit Inputs
-              </PrimaryButton>
-            )}
-
-            {onBackToOverview && (
-              <PrimaryButton
-                type="button"
-                variant="secondary"
-                onClick={onBackToOverview}
-              >
-                Return to Module Overview
-              </PrimaryButton>
-            )}
-          </div>
         </div>
       </SectionCard>
     </div>

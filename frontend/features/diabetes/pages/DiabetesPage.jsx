@@ -157,14 +157,14 @@ export default function DiabetesPage({ onSubmitAssessment, loading = false, init
   const sectionTitle = currentStep.title.replace(/^\d+\.\s*/, '');
 
   return (
-    <div className="page-stack">
+    <div className="page-stack diabetes-scope">
       <div className="assessment-layout">
         <div className="assessment-main">
           {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC, min 16px gap) */}
           <h2 style={{
             fontSize: '22px',
             fontWeight: 700,
-            color: '#F8FAFC',
+            color: 'var(--dia-text, var(--text, #F8FAFC))',
             marginTop: '16px',
             marginBottom: '16px',
             letterSpacing: '-0.01em'

@@ -4,6 +4,8 @@
  * common headers, JSON parsing, error normalization, and support for file uploads.
  */
 
+import { getToken } from '../features/auth/services/authStorage';
+
 const DEFAULT_BASE_URL = 'http://localhost:8000';
 
 function getBaseUrl() {
@@ -28,6 +30,11 @@ export async function apiClient(endpoint, options = {}) {
     ...options.headers,
   };
 
+  const token = getToken();
+  if (token && !headers.Authorization) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const config = {
     ...options,
     headers,
@@ -45,6 +52,10 @@ export async function apiClient(endpoint, options = {}) {
         // Response is not JSON
       }
       throw new Error(errorMessage);
+    }
+
+    if (response.status === 204) {
+      return null;
     }
 
     return await response.json();

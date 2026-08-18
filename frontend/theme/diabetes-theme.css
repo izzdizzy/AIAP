@@ -1,0 +1,466 @@
+/* ============================================================================
+   Diabetes Module — Premium Minimal Theme
+   Every rule is scoped under .diabetes-scope so nothing leaks into the
+   CAD or Readmission modules, which share the same global class names.
+   ============================================================================ */
+
+/* ---- Design tokens ---- */
+
+.diabetes-scope {
+  /* Light is the base; dark overrides below. */
+  --dia-bg: #fafaf9;
+  --dia-surface: #ffffff;
+  --dia-surface-elevated: #f5f5f4;
+  --dia-border: #e7e5e4;
+  --dia-text: #1c1917;
+  --dia-text-muted: #78716c;
+  --dia-accent: #0f766e;
+  --dia-accent-strong: #115e59;
+  --dia-accent-soft: rgba(15, 118, 110, 0.08);
+  --dia-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  --dia-sp-1: 4px;
+  --dia-sp-2: 8px;
+  --dia-sp-3: 12px;
+  --dia-sp-4: 16px;
+  --dia-sp-5: 20px;
+  --dia-sp-6: 24px;
+  --dia-sp-8: 32px;
+  --dia-sp-10: 40px;
+  --dia-sp-12: 48px;
+
+  --dia-radius-sm: 8px;
+  --dia-radius-md: 12px;
+  --dia-radius-lg: 16px;
+
+  color: var(--dia-text);
+}
+
+[data-theme='dark'] .diabetes-scope {
+  --dia-bg: #101312;
+  --dia-surface: #161a19;
+  --dia-surface-elevated: #1c211f;
+  --dia-border: #262b29;
+  --dia-text: #f2f4f3;
+  --dia-text-muted: #8b938f;
+  --dia-accent: #14b8a6;
+  --dia-accent-strong: #0f766e;
+  --dia-accent-soft: rgba(20, 184, 166, 0.12);
+  --dia-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- Repaint of shared components, scope-contained ---- */
+
+.diabetes-scope .section-card {
+  background: var(--dia-surface);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-lg);
+  box-shadow: var(--dia-shadow);
+  padding: var(--dia-sp-8);
+}
+
+.diabetes-scope .form-field input,
+.diabetes-scope .form-field select {
+  background: var(--dia-surface-elevated);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-sm);
+  color: var(--dia-text);
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.diabetes-scope .form-field input:focus,
+.diabetes-scope .form-field select:focus {
+  border-color: var(--dia-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--dia-accent-soft);
+}
+
+.diabetes-scope .form-field label {
+  color: var(--dia-text);
+}
+
+.diabetes-scope .btn-primary-teal {
+  background: var(--dia-accent);
+  border: 1px solid var(--dia-accent);
+  border-radius: var(--dia-radius-sm);
+  color: #ffffff;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.diabetes-scope .btn-primary-teal:hover {
+  background: var(--dia-accent-strong);
+}
+
+.diabetes-scope .btn-secondary-slate,
+.diabetes-scope .btn-utility-ghost {
+  background: transparent;
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-sm);
+  color: var(--dia-text-muted);
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.diabetes-scope .btn-secondary-slate:hover,
+.diabetes-scope .btn-utility-ghost:hover {
+  border-color: var(--dia-accent);
+  color: var(--dia-text);
+}
+
+/* ---- Typography helpers ---- */
+
+.diabetes-scope .dia-display-number {
+  font-weight: 300;
+  font-size: clamp(3rem, 6vw, 4.5rem);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--dia-text);
+}
+
+.diabetes-scope .dia-eyebrow {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dia-text-muted);
+  font-weight: 600;
+  margin: 0;
+}
+
+.diabetes-scope .dia-section-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--dia-text);
+  margin: 0;
+}
+
+.diabetes-scope .dia-muted {
+  color: var(--dia-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ---- Cards and layout primitives ---- */
+
+.diabetes-scope .dia-card {
+  background: var(--dia-surface);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-lg);
+  box-shadow: var(--dia-shadow);
+  padding: var(--dia-sp-6);
+}
+
+.diabetes-scope .dia-card--elevated {
+  background: var(--dia-surface-elevated);
+}
+
+.diabetes-scope .dia-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--dia-sp-4);
+}
+
+.diabetes-scope .dia-stat-tile {
+  background: var(--dia-surface);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-md);
+  padding: var(--dia-sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dia-sp-2);
+}
+
+.diabetes-scope .dia-stat-value {
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--dia-text);
+}
+
+/* ---- Risk pills (self-contained, not relying on global risk-pill) ---- */
+
+.diabetes-scope .dia-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.diabetes-scope .dia-pill--low {
+  background: var(--risk-low-bg, rgba(22, 163, 74, 0.12));
+  color: var(--risk-low-text, #16a34a);
+  border-color: var(--risk-low-border, rgba(22, 163, 74, 0.35));
+}
+
+.diabetes-scope .dia-pill--moderate {
+  background: var(--risk-mod-bg, rgba(245, 158, 11, 0.12));
+  color: var(--risk-mod-text, #d97706);
+  border-color: var(--risk-mod-border, rgba(245, 158, 11, 0.35));
+}
+
+.diabetes-scope .dia-pill--high {
+  background: var(--risk-high-bg, rgba(220, 38, 38, 0.12));
+  color: var(--risk-high-text, #dc2626);
+  border-color: var(--risk-high-border, rgba(220, 38, 38, 0.35));
+}
+
+/* ---- Segmented control (Overview / History) ---- */
+
+.diabetes-scope .dia-segmented {
+  display: inline-flex;
+  background: var(--dia-surface-elevated);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.diabetes-scope .dia-segmented button {
+  border: none;
+  background: transparent;
+  color: var(--dia-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.diabetes-scope .dia-segmented button.active {
+  background: var(--dia-surface);
+  color: var(--dia-text);
+  box-shadow: var(--dia-shadow);
+}
+
+/* ---- History list ---- */
+
+.diabetes-scope .dia-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dia-sp-4);
+  padding: var(--dia-sp-4) var(--dia-sp-5);
+  border-bottom: 1px solid var(--dia-border);
+  transition: background-color 160ms ease;
+}
+
+.diabetes-scope .dia-history-row:last-child {
+  border-bottom: none;
+}
+
+.diabetes-scope .dia-history-row:hover {
+  background: var(--dia-accent-soft);
+}
+
+.diabetes-scope .dia-delete-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--dia-radius-sm);
+  color: var(--dia-text-muted);
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.diabetes-scope .dia-delete-btn:hover {
+  color: var(--danger, #dc2626);
+  border-color: var(--danger, #dc2626);
+}
+
+/* ---- Factor breakdown ---- */
+
+.diabetes-scope .dia-factor-row {
+  display: flex;
+  align-items: center;
+  gap: var(--dia-sp-3);
+  padding: var(--dia-sp-3) 0;
+  border-bottom: 1px solid var(--dia-border);
+}
+
+.diabetes-scope .dia-factor-row:last-child {
+  border-bottom: none;
+}
+
+.diabetes-scope .dia-factor-bar-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--dia-surface-elevated);
+  overflow: hidden;
+}
+
+.diabetes-scope .dia-factor-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--dia-accent);
+  transition: width 400ms ease;
+}
+
+.diabetes-scope .dia-factor-bar-fill--protective {
+  background: var(--risk-low-text, #16a34a);
+}
+
+/* ---- Auth pages (login/register share the scope) ---- */
+
+.diabetes-scope.dia-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dia-bg);
+  padding: var(--dia-sp-6);
+}
+
+.diabetes-scope .dia-auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--dia-surface);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-lg);
+  box-shadow: var(--dia-shadow);
+  padding: var(--dia-sp-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dia-sp-5);
+}
+
+.diabetes-scope .dia-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--dia-surface-elevated);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-sm);
+  color: var(--dia-text);
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.diabetes-scope .dia-input:focus {
+  border-color: var(--dia-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--dia-accent-soft);
+}
+
+.diabetes-scope .dia-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--dia-accent);
+  border: 1px solid var(--dia-accent);
+  border-radius: var(--dia-radius-sm);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.diabetes-scope .dia-btn:hover {
+  background: var(--dia-accent-strong);
+}
+
+.diabetes-scope .dia-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.diabetes-scope .dia-btn--ghost {
+  background: transparent;
+  color: var(--dia-text-muted);
+  border-color: var(--dia-border);
+}
+
+.diabetes-scope .dia-btn--ghost:hover {
+  background: transparent;
+  border-color: var(--dia-accent);
+  color: var(--dia-text);
+}
+
+.diabetes-scope .dia-error {
+  background: var(--risk-high-bg, rgba(220, 38, 38, 0.1));
+  border: 1px solid var(--risk-high-border, rgba(220, 38, 38, 0.35));
+  color: var(--risk-high-text, #dc2626);
+  border-radius: var(--dia-radius-sm);
+  font-size: 0.85rem;
+  padding: 10px 14px;
+}
+
+.diabetes-scope .dia-link {
+  color: var(--dia-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.diabetes-scope .dia-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Assessment detail modal ---- */
+
+.diabetes-scope .dia-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--dia-sp-6);
+}
+
+.diabetes-scope .dia-modal {
+  background: var(--dia-surface);
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-lg);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  width: 100%;
+  max-width: 620px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--dia-sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--dia-sp-5);
+}
+
+.diabetes-scope .dia-modal-close {
+  background: transparent;
+  border: 1px solid var(--dia-border);
+  border-radius: var(--dia-radius-sm);
+  color: var(--dia-text-muted);
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.diabetes-scope .dia-modal-close:hover {
+  border-color: var(--dia-accent);
+  color: var(--dia-text);
+}
+
+/* ---- Guest banner on results ---- */
+
+.diabetes-scope .dia-guest-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--dia-sp-3);
+  background: var(--dia-accent-soft);
+  border: 1px solid var(--dia-accent);
+  border-radius: var(--dia-radius-md);
+  padding: var(--dia-sp-4) var(--dia-sp-5);
+  font-size: 0.9rem;
+  color: var(--dia-text);
+}

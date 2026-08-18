@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .core.db import Base, engine
+from .features.auth import router as auth_router
+from .features.history import router as history_router
 from .features.cad import router as cad_router
 from .features.readmission import router as readmission_router
 from .features.diabetes import router as diabetes_router
@@ -21,12 +24,16 @@ app.add_middleware(
     allow_headers=['*']
 )
 
+Base.metadata.create_all(bind=engine)
+
 
 # =============================================================================
 # MODULE ROUTER REGISTRATION
 # =============================================================================
 
 app.include_router(genai_router)
+app.include_router(auth_router, prefix='/auth', tags=['Authentication'])
+app.include_router(history_router, prefix='/history', tags=['Assessment History'])
 
 if settings.ENABLE_CAD:
     app.include_router(cad_router, prefix='/api', tags=['CAD Risk Assessment & Chat'])

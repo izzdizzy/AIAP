@@ -1,352 +1,429 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import {
+  getHistory,
+  deleteAssessment,
+  getModuleHistory,
+  deleteModuleAssessment
+} from '../features/diabetes/services/historyApi';
+import RiskTrendChart from '../features/diabetes/components/RiskTrendChart';
+import HistoryList from '../features/diabetes/components/HistoryList';
 
 /**
- * Landing Page - Healthcare Risk Assessment Portal
- * 
- * This is the main entry point for users to choose between:
- * 1. CAD Risk Assessment (Coronary Artery Disease screening)
- * 2. Hospital Readmission Predictor
- * 3. Diabetes Risk Classifier
+ * Dashboard (Landing Page) - Healthcare Risk Assessment Portal
+ *
+ * Two tabs: Modules (assessment picker) and History (per-module saved
+ * assessments for the signed-in user, with a compact summary strip and a
+ * clickable, expandable log).
  */
+
+const MODULES = [
+  {
+    key: 'cad',
+    title: 'CAD Risk Assessment',
+    accent: '#3b82f6',
+    icon: (
+      <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    ),
+    description: 'Estimate coronary artery disease risk from standard clinical information. ECG and lab fields are optional.',
+    cta: 'Start CAD Assessment'
+  },
+  {
+    key: 'readmission',
+    title: 'Hospital Readmission Predictor',
+    accent: '#10b981',
+    icon: (
+      <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    description: 'Predict 30-day readmission risk from patient history, admissions, comorbidities, and medications.',
+    cta: 'Start Readmission Assessment'
+  },
+  {
+    key: 'diabetes',
+    title: 'Diabetes Risk Classifier',
+    accent: '#0f766e',
+    icon: (
+      <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    description: 'Assess diabetes risk with a personalized score, AI-powered explanation, and actionable health guidance.',
+    cta: 'Start Diabetes Assessment'
+  },
+  {
+    key: 'ai',
+    title: 'AI Insights Workspace',
+    accent: '#8b5cf6',
+    icon: <span style={{ fontSize: '20px' }}>✨</span>,
+    description: 'Interactive 3-chatbot workspace: CAD Lifestyle Coach, SHAP Diabetes Explainer, and Care Navigator.',
+    cta: 'Open AI Insights Workspace'
+  }
+];
+
+const HISTORY_CATEGORIES = [
+  { key: 'diabetes', label: 'Diabetes' },
+  { key: 'cad', label: 'CAD' },
+  { key: 'readmission', label: 'Readmission' }
+];
+
+function pillClass(band) {
+  const b = (band || '').toLowerCase();
+  if (b.includes('high')) return 'dia-pill dia-pill--high';
+  if (b.includes('mod')) return 'dia-pill dia-pill--moderate';
+  return 'dia-pill dia-pill--low';
+}
+
+function normalizeDiabetesRow(row) {
+  return {
+    id: row.id,
+    created_at: row.created_at,
+    probability: row.risk_probability ?? null,
+    band: row.risk_band || null,
+    label: row.risk_label || null,
+    factors: row.top_factors || [],
+    inputs: row.profile || {}
+  };
+}
+
+function normalizeGenericRow(row) {
+  const r = row.result || {};
+  const probability =
+    r.risk_probability ?? r.raw_probability ?? r.riskProbability ?? null;
+  const band = r.risk_band ?? r.risk_category ?? r.riskLevel ?? null;
+  return {
+    id: row.id,
+    created_at: row.created_at,
+    probability,
+    band,
+    label: r.risk_label ?? (band ? `${band} Risk` : null),
+    factors: r.top_factors ?? r.shap_values ?? r.topFactors ?? [],
+    inputs: row.payload || {}
+  };
+}
+
+function ModuleCard({ module, onOpen }) {
+  return (
+    <div
+      className="dia-card"
+      onClick={onOpen}
+      style={{
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--dia-sp-4)',
+        transition: 'border-color 180ms ease, transform 180ms ease'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = module.accent;
+        e.currentTarget.style.transform = 'translateY(-2px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--dia-border)';
+        e.currentTarget.style.transform = 'translateY(0)';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--dia-sp-3)' }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: 'var(--dia-radius-sm)',
+          background: module.accent,
+          color: 'white',
+          display: 'grid',
+          placeItems: 'center',
+          flexShrink: 0
+        }}>
+          {module.icon}
+        </div>
+        <h2 className="dia-section-title">{module.title}</h2>
+      </div>
+      <p className="dia-muted" style={{ margin: 0, flex: 1 }}>{module.description}</p>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onOpen(); }}
+        style={{
+          width: '100%',
+          padding: '10px 16px',
+          background: 'transparent',
+          color: module.accent,
+          border: `1px solid ${module.accent}`,
+          borderRadius: 'var(--dia-radius-sm)',
+          fontWeight: 600,
+          fontSize: '0.9rem',
+          cursor: 'pointer',
+          transition: 'background-color 180ms ease, color 180ms ease'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = module.accent;
+          e.currentTarget.style.color = 'white';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.color = module.accent;
+        }}
+      >
+        {module.cta}
+      </button>
+    </div>
+  );
+}
+
 export default function LandingPage({ onStartCADAssessment, onStartReadmissionAssessment, onStartDiabetesAssessment }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const handleStartCAD = onStartCADAssessment || (() => navigate('/cad/assessment'));
-  const handleStartReadmission = onStartReadmissionAssessment || (() => navigate('/readmission/assessment'));
-  const handleStartDiabetes = onStartDiabetesAssessment || (() => navigate('/diabetes/assessment'));
+  const [tab, setTab] = useState('modules');
+  const [category, setCategory] = useState('diabetes');
+  const [histories, setHistories] = useState({ diabetes: null, cad: null, readmission: null });
+  const [historyError, setHistoryError] = useState(null);
+
+  const moduleHandlers = {
+    cad: onStartCADAssessment || (() => navigate('/cad/assessment')),
+    readmission: onStartReadmissionAssessment || (() => navigate('/readmission/assessment')),
+    diabetes: onStartDiabetesAssessment || (() => navigate('/diabetes/assessment')),
+    ai: () => navigate('/ai-insights')
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setHistories({ diabetes: null, cad: null, readmission: null });
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      getHistory().catch(() => []),
+      getModuleHistory('cad').catch(() => []),
+      getModuleHistory('readmission').catch(() => [])
+    ]).then(([diabetesRows, cadRows, readmissionRows]) => {
+      if (cancelled) return;
+      setHistories({
+        diabetes: diabetesRows.map(normalizeDiabetesRow),
+        cad: cadRows.map(normalizeGenericRow),
+        readmission: readmissionRows.map(normalizeGenericRow)
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  async function handleDelete(id) {
+    try {
+      if (category === 'diabetes') {
+        await deleteAssessment(id);
+      } else {
+        await deleteModuleAssessment(category, id);
+      }
+      setHistories((prev) => ({
+        ...prev,
+        [category]: (prev[category] || []).filter((row) => row.id !== id)
+      }));
+    } catch (err) {
+      setHistoryError(err.message || 'Failed to delete the assessment.');
+    }
+  }
+
+  const entries = histories[category] || [];
+  const loaded = histories.diabetes !== null;
+  const latest = entries[0] || null;
+  const previous = entries[1] || null;
+  const trendDelta =
+    latest?.probability != null && previous?.probability != null
+      ? Math.round((latest.probability - previous.probability) * 1000) / 10
+      : null;
+  const trendRows = entries
+    .filter((e) => e.probability != null)
+    .map((e) => ({ created_at: e.created_at, risk_probability: e.probability }));
+
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+    : null;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#111827',
-      padding: '2rem'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
-        {/* Header */}
-        <header style={{
-          textAlign: 'center',
-          marginBottom: '3rem'
-        }}>
-          <h1 style={{
-            fontSize: '2.5rem',
-            fontWeight: 'bold',
-            color: '#f3f4f6',
-            marginBottom: '0.5rem'
-          }}>
-            Healthcare Risk Assessment Portal
-          </h1>
-          <p style={{
-            color: '#9ca3af',
-            fontSize: '1.1rem'
-          }}>
-            Select a module below to begin your clinical risk assessment
+    <div className="diabetes-scope page-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--dia-sp-6)' }}>
+      {/* Hero / greeting */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--dia-sp-4)' }}>
+        <div>
+          <p className="dia-eyebrow">Healthcare Risk Assessment Portal</p>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 600, letterSpacing: '-0.01em', margin: '8px 0 4px' }}>
+            {user ? `Welcome back, ${user.name?.split(' ')[0] || 'there'}` : 'Your health, clearly assessed'}
+          </h2>
+          <p className="dia-muted" style={{ margin: 0 }}>
+            {user
+              ? (memberSince ? `Member since ${memberSince}` : 'Your saved assessments are in the History tab.')
+              : 'Select a module below to begin a clinical risk assessment.'}
           </p>
-        </header>
+        </div>
+        {!user && (
+          <div style={{ display: 'flex', gap: 'var(--dia-sp-3)' }}>
+            <Link
+              to="/login"
+              className="dia-btn"
+              style={{ textDecoration: 'none', background: '#1e3a8a', borderColor: '#1e3a8a' }}
+            >
+              Sign in
+            </Link>
+            <Link to="/register" className="dia-btn" style={{ textDecoration: 'none' }}>
+              Create account
+            </Link>
+          </div>
+        )}
+      </div>
 
-        {/* Module Selection Cards */}
+      {/* Modules / History toggle */}
+      <div className="dia-segmented" role="tablist" style={{ alignSelf: 'flex-start' }}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'modules'}
+          className={tab === 'modules' ? 'active' : ''}
+          onClick={() => setTab('modules')}
+        >
+          Modules
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'history'}
+          className={tab === 'history' ? 'active' : ''}
+          onClick={() => setTab('history')}
+        >
+          History
+        </button>
+      </div>
+
+      {/* ---- Modules tab ---- */}
+      {tab === 'modules' && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-          gap: '2rem',
-          marginTop: '2rem'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 'var(--dia-sp-5)'
         }}>
-          {/* CAD Risk Assessment Card */}
-          <div
-            onClick={handleStartCAD}
-            style={{
-              backgroundColor: '#1f2937',
-              borderRadius: '12px',
-              padding: '2rem',
-              border: '2px solid #374151',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#3b82f6';
-              e.currentTarget.style.transform = 'translateY(-4px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#374151';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <div style={{
-              width: '60px',
-              height: '60px',
-              backgroundColor: '#3b82f6',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '1.5rem'
-            }}>
-              <svg style={{ width: '32px', height: '32px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: '600',
-              color: '#f3f4f6',
-              marginBottom: '0.75rem'
-            }}>
-              CAD Risk Assessment
-            </h2>
-            <p style={{
-              color: '#9ca3af',
-              lineHeight: '1.6',
-              marginBottom: '1.5rem'
-            }}>
-              Estimate coronary artery disease (CAD) risk from standard clinical information. 
-              Answer questions about age, symptoms, and clinic results. ECG and lab fields are optional.
-            </p>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleStartCAD(); }}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: '600',
-                fontSize: '1rem',
-                cursor: 'pointer'
-              }}
-            >
-              Start CAD Assessment
-            </button>
-          </div>
-
-          {/* Hospital Readmission Predictor Card */}
-          <div
-            onClick={handleStartReadmission}
-            style={{
-              backgroundColor: '#1f2937',
-              borderRadius: '12px',
-              padding: '2rem',
-              border: '2px solid #374151',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#10b981';
-              e.currentTarget.style.transform = 'translateY(-4px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#374151';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <div style={{
-              width: '60px',
-              height: '60px',
-              backgroundColor: '#10b981',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '1.5rem'
-            }}>
-              <svg style={{ width: '32px', height: '32px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: '600',
-              color: '#f3f4f6',
-              marginBottom: '0.75rem'
-            }}>
-              Hospital Readmission Predictor
-            </h2>
-            <p style={{
-              color: '#9ca3af',
-              lineHeight: '1.6',
-              marginBottom: '1.5rem'
-            }}>
-              Predict hospital readmission risk using ML-powered clinical decision support. 
-              Analyze patient history, admissions, comorbidities, and medications to assess readmission probability.
-            </p>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleStartReadmission(); }}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: '600',
-                fontSize: '1rem',
-                cursor: 'pointer'
-              }}
-            >
-              Start Readmission Assessment
-            </button>
-          </div>
-
-          {/* Diabetes Risk Classifier Card */}
-          <div
-            onClick={handleStartDiabetes}
-            style={{
-              backgroundColor: '#1f2937',
-              borderRadius: '12px',
-              padding: '2rem',
-              border: '2px solid #374151',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#0f766e';
-              e.currentTarget.style.transform = 'translateY(-4px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#374151';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <div style={{
-              width: '60px',
-              height: '60px',
-              backgroundColor: '#0f766e',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '1.5rem'
-            }}>
-              <svg style={{ width: '32px', height: '32px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: '600',
-              color: '#f3f4f6',
-              marginBottom: '0.75rem'
-            }}>
-              Diabetes Risk Classifier
-            </h2>
-            <p style={{
-              color: '#9ca3af',
-              lineHeight: '1.6',
-              marginBottom: '1.5rem'
-            }}>
-              Assess your diabetes risk using a trained Random Forest model. 
-              Enter your health profile to receive a personalized risk score with AI-powered explanation and actionable health guidance.
-            </p>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleStartDiabetes(); }}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#0f766e',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: '600',
-                fontSize: '1rem',
-                cursor: 'pointer'
-              }}
-            >
-              Start Diabetes Assessment
-            </button>
-          </div>
-
-          {/* AI Insights Workspace Card */}
-          <div
-            onClick={() => navigate('/ai-insights')}
-            style={{
-              backgroundColor: '#1f2937',
-              borderRadius: '12px',
-              padding: '2rem',
-              border: '2px solid #8b5cf6',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 4px 14px rgba(139, 92, 246, 0.25)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#a78bfa';
-              e.currentTarget.style.transform = 'translateY(-4px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#8b5cf6';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <div style={{
-              width: '60px',
-              height: '60px',
-              backgroundColor: '#8b5cf6',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '1.5rem'
-            }}>
-              <span style={{ fontSize: '28px' }}>✨</span>
-            </div>
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: '600',
-              color: '#f3f4f6',
-              marginBottom: '0.75rem'
-            }}>
-              AI Insights Workspace
-            </h2>
-            <p style={{
-              color: '#9ca3af',
-              lineHeight: '1.6',
-              marginBottom: '1.5rem'
-            }}>
-              Interactive 3-Chatbot Workspace powered by centralized GenAI. Access CAD Lifestyle Coach, SHAP Diabetes Explainer, and Care Navigator with generative UI widgets.
-            </p>
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate('/ai-insights'); }}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: '600',
-                fontSize: '1rem',
-                cursor: 'pointer'
-              }}
-            >
-              Open AI Insights Workspace
-            </button>
-          </div>
+          {MODULES.map((module) => (
+            <ModuleCard
+              key={module.key}
+              module={module}
+              onOpen={moduleHandlers[module.key]}
+            />
+          ))}
         </div>
+      )}
 
-        {/* Medical Disclaimer */}
-        <div style={{
-          marginTop: '3rem',
-          padding: '1rem',
-          backgroundColor: 'rgba(234, 179, 8, 0.1)',
-          borderLeft: '4px solid #eab308',
-          borderRadius: '8px'
-        }}>
-          <p style={{
-            fontSize: '0.875rem',
-            color: '#fef08a',
-            lineHeight: '1.5'
-          }}>
-            <strong>Medical Disclaimer:</strong> This tool is for educational and demonstration purposes only. 
-            It does not provide medical advice, diagnosis, or treatment. Always consult qualified healthcare professionals 
-            for medical decisions.
+      {/* ---- History tab ---- */}
+      {tab === 'history' && !user && (
+        <div className="dia-card" style={{ textAlign: 'center', padding: 'var(--dia-sp-12)' }}>
+          <h3 className="dia-section-title" style={{ marginBottom: 'var(--dia-sp-2)' }}>
+            Sign in to see your assessment history
+          </h3>
+          <p className="dia-muted" style={{ marginTop: 0, marginBottom: 'var(--dia-sp-5)' }}>
+            Your assessments are saved to your account automatically and tracked over time.
           </p>
+          <div style={{ display: 'flex', gap: 'var(--dia-sp-3)', justifyContent: 'center' }}>
+            <Link
+              to="/login"
+              className="dia-btn"
+              style={{ textDecoration: 'none', background: '#1e3a8a', borderColor: '#1e3a8a' }}
+            >
+              Sign in
+            </Link>
+            <Link to="/register" className="dia-btn" style={{ textDecoration: 'none' }}>
+              Create account
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
+
+      {tab === 'history' && user && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--dia-sp-4)' }}>
+          {/* Category selector */}
+          <div className="dia-segmented" role="tablist" style={{ alignSelf: 'flex-start' }}>
+            {HISTORY_CATEGORIES.map((cat) => {
+              const count = (histories[cat.key] || []).length;
+              return (
+                <button
+                  key={cat.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={category === cat.key}
+                  className={category === cat.key ? 'active' : ''}
+                  onClick={() => setCategory(cat.key)}
+                >
+                  {cat.label}{count > 0 ? ` (${count})` : ''}
+                </button>
+              );
+            })}
+          </div>
+
+          {historyError && <div className="dia-error" role="alert">{historyError}</div>}
+
+          {!loaded && <p className="dia-muted">Loading your assessments…</p>}
+
+          {loaded && (
+            <>
+              {/* Compact summary strip */}
+              {latest && (
+                <div
+                  className="dia-card"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 'var(--dia-sp-6)',
+                    padding: 'var(--dia-sp-4) var(--dia-sp-5)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--dia-sp-3)' }}>
+                    <span className="dia-eyebrow">Latest</span>
+                    <span style={{ fontSize: '1.3rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {latest.probability != null ? `${(latest.probability * 100).toFixed(1)}%` : '—'}
+                    </span>
+                    {latest.band && <span className={pillClass(latest.band)}>{latest.band}</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--dia-sp-2)' }}>
+                    <span className="dia-eyebrow">Total</span>
+                    <span style={{ fontSize: '1.05rem', fontWeight: 600 }}>{entries.length}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--dia-sp-2)' }}>
+                    <span className="dia-eyebrow">Trend</span>
+                    {trendDelta === null ? (
+                      <span className="dia-muted" style={{ fontSize: '0.85rem' }}>—</span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '1.05rem',
+                          fontWeight: 600,
+                          fontVariantNumeric: 'tabular-nums',
+                          color:
+                            trendDelta < 0
+                              ? 'var(--risk-low-text, #16a34a)'
+                              : trendDelta > 0
+                              ? 'var(--risk-high-text, #dc2626)'
+                              : 'var(--dia-text)'
+                        }}
+                      >
+                        {trendDelta > 0 ? '+' : ''}{trendDelta}%
+                      </span>
+                    )}
+                  </div>
+                  {trendRows.length >= 2 && (
+                    <div style={{ flex: 1, minWidth: '240px' }}>
+                      <RiskTrendChart history={trendRows} height={90} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* History log — the main content */}
+              <HistoryList entries={entries} onDelete={handleDelete} />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

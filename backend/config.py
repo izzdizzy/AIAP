@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     ENABLE_CAD: bool = True
     ENABLE_DIABETES: bool = True
 
+    # Account system settings
+    SECRET_KEY: str = "dev-insecure-secret-change-me"
+    DATABASE_URL: str = "sqlite:///./app.db"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+
     # Tell Pydantic to read from the .env file
     model_config = SettingsConfigDict(
         env_file='.env', 
