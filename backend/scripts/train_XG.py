@@ -30,7 +30,7 @@ from typing import Dict, Any, Tuple, List
 
 # Dynamically resolve project root regardless of current working directory
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "diabetic_data.csv"
+DEFAULT_DATA_PATH = PROJECT_ROOT / "backend" / "data" / "readmission" / "diabetic_data.csv"
 
 import numpy as np
 import pandas as pd
@@ -402,8 +402,8 @@ def train_model(
     print("HOSPITAL READMISSION PREDICTOR - TRAINING PIPELINE")
     print("=" * 70)
     
-    # Create output directory in backend/outputs to match unified backend structure
-    output_path = PROJECT_ROOT / "backend" / "outputs"
+    # Create output directory at PROJECT_ROOT/outputs to match unified structure
+    output_path = PROJECT_ROOT / "outputs"
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"\nOutput directory: {output_path}")
     

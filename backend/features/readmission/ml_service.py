@@ -19,7 +19,7 @@ except ImportError:
     shap = None
 
 # Paths
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 ARTIFACTS_DIR = Path(__file__).resolve().parent / "artifacts"
 
 DEFAULT_MODEL_PATH = ARTIFACTS_DIR / "readmission_model.joblib"
@@ -28,10 +28,10 @@ DEFAULT_METADATA_PATH = ARTIFACTS_DIR / "model_metadata.json"
 DEFAULT_FEATURE_DEFAULTS_PATH = ARTIFACTS_DIR / "feature_defaults.json"
 DEFAULT_THRESHOLD_PATH = ARTIFACTS_DIR / "threshold.json"
 
-FALLBACK_MODEL_PATH = BASE_DIR.parent / "outputs" / "readmission_model.joblib"
-FALLBACK_FEATURE_COLUMNS_PATH = BASE_DIR.parent / "outputs" / "feature_columns.json"
-FALLBACK_METADATA_PATH = BASE_DIR.parent / "outputs" / "model_metadata.json"
-FALLBACK_FEATURE_DEFAULTS_PATH = BASE_DIR.parent / "outputs" / "feature_defaults.json"
+FALLBACK_MODEL_PATH = PROJECT_ROOT / "outputs" / "readmission_model.joblib"
+FALLBACK_FEATURE_COLUMNS_PATH = PROJECT_ROOT / "outputs" / "feature_columns.json"
+FALLBACK_METADATA_PATH = PROJECT_ROOT / "outputs" / "model_metadata.json"
+FALLBACK_FEATURE_DEFAULTS_PATH = PROJECT_ROOT / "outputs" / "feature_defaults.json"
 
 
 class MLService:

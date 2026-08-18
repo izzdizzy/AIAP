@@ -10,6 +10,41 @@ import pandas as pd
 import numpy as np
 
 
+def convert_to_native(obj: Any) -> Any:
+    """
+    Recursively convert numpy/pandas types to native Python types.
+    
+    This is required because Pydantic v2 cannot serialize numpy types like
+    np.int64, np.float64, np.bool_, np.ndarray, pd.Timestamp, etc.
+    
+    Args:
+        obj: Object to convert (dict, list, or scalar value)
+        
+    Returns:
+        Object with all numpy/pandas types converted to native Python types
+    """
+    if isinstance(obj, dict):
+        return {k: convert_to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_native(item) for item in obj]
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.int64, np.int32, np.int16, np.int8)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32, np.float16)):
+        return float(obj)
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    elif isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    elif isinstance(obj, (pd.Series, pd.DataFrame)):
+        return convert_to_native(obj.to_dict())
+    elif pd.isna(obj):
+        return None
+    else:
+        return obj
+
+
 CSV_TO_MODEL_MAPPING: Dict[str, str] = {
     'prior_admissions': 'total_prior_admissions',
     'admission_type_id': 'admission_type_id',
@@ -285,6 +320,10 @@ def parse_uploaded_file_bytes(file_bytes: bytes, file_name: str) -> Dict[str, An
                 extracted_data['chas_tier'] = 'None'
         else:
             extracted_data['chas_tier'] = 'None'
+
+        # Convert all numpy/pandas types to native Python types before returning
+        # This is required for Pydantic v2 serialization compatibility
+        extracted_data = convert_to_native(extracted_data)
 
         return extracted_data
 
