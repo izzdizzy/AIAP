@@ -12,7 +12,7 @@ export default function AppShell({
   const navigate = useNavigate();
   const currentPath = location.pathname;
 
-  let moduleInfo = { title: 'Clinical Health Assessment Hub', eyebrow: 'AI Clinical Platform' };
+  let moduleInfo = { title: 'Clinical Health Assessment Hub', eyebrow: 'Patient Health Assessment' };
 
   if (currentPath.startsWith('/cad/assessment')) {
     moduleInfo = { title: 'Coronary Artery Disease Risk Assessment', eyebrow: 'Cardiovascular Module' };
@@ -60,25 +60,57 @@ export default function AppShell({
 
   return (
     <div className="app-shell">
-      <header className="app-header" style={{ flexDirection: 'column', gap: '16px', alignItems: 'stretch' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              background: 'var(--accent)',
-              display: 'grid',
-              placeItems: 'center',
-              color: 'white',
-              fontWeight: '700',
-              fontSize: '18px'
-            }}>
-              +
+      <header className="app-header" style={{
+        padding: '12px 20px',
+        gap: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
+        {/* Top Tier: Branding (Left) & Utility Actions (Right) */}
+        <div style={{
+          display: 'flex',
+          justify: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          width: '100%'
+        }}>
+          {/* Left branding area */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                background: 'var(--accent)',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'white',
+                fontWeight: '700',
+                fontSize: '16px'
+              }}>
+                +
+              </div>
+              <span
+                title="Service Online"
+                style={{
+                  position: 'absolute',
+                  bottom: '-2px',
+                  right: '-2px',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#16a34a',
+                  border: '2px solid var(--surface, #0f172a)'
+                }}
+              />
             </div>
             <div>
-              <p className="eyebrow" style={{ margin: 0 }}>{moduleInfo.eyebrow}</p>
-              <h1 className="app-title" style={{ fontSize: '1.4rem', margin: 0 }}>{moduleInfo.title}</h1>
+              <p className="eyebrow" style={{ margin: 0, fontSize: '0.75rem' }}>{moduleInfo.eyebrow}</p>
+              <h1 className="app-title" style={{ fontSize: '1.15rem', margin: 0, lineHeight: 1.2 }}>{moduleInfo.title}</h1>
             </div>
           </div>
 
@@ -105,53 +137,130 @@ export default function AppShell({
             <ThemeToggle />
             <button
               type="button"
-              className="nav-link"
               onClick={() => navigate('/')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: 'var(--surface-muted, rgba(255,255,255,0.05))',
+                color: 'var(--text, #f8fafc)',
+                border: '1px solid var(--border)',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Dashboard"
             >
-              ← Hub Home
+              <span>🏠</span>
+              <span>Dashboard</span>
             </button>
           </div>
         </div>
 
-        {/* Module Switcher Tabs */}
+        {/* Bottom Tier: Segmented Module Navigation Tabs */}
         <div style={{
           display: 'flex',
-          justify: 'space-between',
           alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px',
+          gap: '6px',
           borderTop: '1px solid var(--border)',
-          paddingTop: '12px'
+          paddingTop: '8px',
+          width: '100%',
+          justifyContent: 'flex-start',
+          overflowX: 'auto'
         }}>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className={isCadActive ? 'nav-link active' : 'nav-link'}
-              onClick={handleCadClick}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <span>CAD Screening</span>
-              {cadCompleted && <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>✓ Done</span>}
-            </button>
-            <button
-              type="button"
-              className={isReadmissionActive ? 'nav-link active' : 'nav-link'}
-              onClick={handleReadmissionClick}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <span>Hospital Readmission</span>
-              {readmissionCompleted && <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>✓ Done</span>}
-            </button>
-            <button
-              type="button"
-              className={isDiabetesActive ? 'nav-link active' : 'nav-link'}
-              onClick={handleDiabetesClick}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <span>Diabetes Classifier</span>
-              {diabetesCompleted && <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>✓ Done</span>}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleCadClick}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: isCadActive ? 600 : 500,
+              background: isCadActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: isCadActive ? 'var(--text, #ffffff)' : 'var(--text-muted, #94a3b8)',
+              border: isCadActive ? '1px solid var(--accent, #38bdf8)' : '1px solid transparent',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: cadCompleted ? '#16a34a' : '#f59e0b'
+              }}
+              title={cadCompleted ? 'Complete' : 'Pending'}
+            />
+            <span>CAD</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReadmissionClick}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: isReadmissionActive ? 600 : 500,
+              background: isReadmissionActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: isReadmissionActive ? 'var(--text, #ffffff)' : 'var(--text-muted, #94a3b8)',
+              border: isReadmissionActive ? '1px solid var(--accent, #38bdf8)' : '1px solid transparent',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: readmissionCompleted ? '#16a34a' : '#f59e0b'
+              }}
+              title={readmissionCompleted ? 'Complete' : 'Pending'}
+            />
+            <span>Readmission</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDiabetesClick}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: isDiabetesActive ? 600 : 500,
+              background: isDiabetesActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: isDiabetesActive ? 'var(--text, #ffffff)' : 'var(--text-muted, #94a3b8)',
+              border: isDiabetesActive ? '1px solid var(--accent, #38bdf8)' : '1px solid transparent',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: diabetesCompleted ? '#16a34a' : '#f59e0b'
+              }}
+              title={diabetesCompleted ? 'Complete' : 'Pending'}
+            />
+            <span>Diabetes</span>
+          </button>
+
+          <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 4px' }} />
         </div>
       </header>
       <main className="app-main">
