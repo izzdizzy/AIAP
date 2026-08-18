@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import PrimaryButton from '../components/PrimaryButton';
-import SectionCard from '../components/SectionCard';
+import PrimaryButton from '../../../components/PrimaryButton';
+import SectionCard from '../../../components/SectionCard';
 import ChatWindow from '../components/ChatWindow';
-import '../styles/chatbot.css';
+import '../../../styles/chatbot.css';
 
 import {
     createChatSession,

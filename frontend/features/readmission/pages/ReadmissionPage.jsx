@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import PatientForm from '../../components/readmission/PatientForm';
-import { predictReadmission } from '../../services/readmission/api';
+import PatientForm from '../components/PatientForm';
+import { predictReadmission } from '../services/api';
 
 export default function ReadmissionApp({ onBackToLanding }) {
   const [loading, setLoading] = useState(false);

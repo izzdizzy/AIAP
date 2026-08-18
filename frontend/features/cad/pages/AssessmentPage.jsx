@@ -1,19 +1,19 @@
-import PrimaryButton from '../../components/PrimaryButton';
-import FormField from '../../components/FormField';
-import SectionCard from '../../components/SectionCard';
-import ProgressSidebar from '../../components/ProgressSidebar';
+import PrimaryButton from '../../../components/PrimaryButton';
+import FormField from '../../../components/FormField';
+import SectionCard from '../../../components/SectionCard';
+import ProgressSidebar from '../../../components/ProgressSidebar';
 import {
   assessmentFieldGroups,
   assessmentSteps,
   fieldOrder,
   getFieldDefinition,
   stepFieldMap
-} from '../../utils/assessmentConfig';
+} from '../utils/assessmentConfig';
 import {
   getChestPainTriageAnswers,
   isFieldAnswered
-} from '../../utils/payload';
-import { useAssessmentForm } from '../../hooks/useAssessmentForm';
+} from '../utils/payload';
+import { useAssessmentForm } from '../hooks/useAssessmentForm';
 import { useMemo, useState } from 'react';
 
 function formatFieldValue(field, values, fieldName) {

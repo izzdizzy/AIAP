@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import AppShell from './components/AppShell';
-import AssessmentPage from './pages/cad/AssessmentPage.jsx';
+import AssessmentPage from './features/cad/pages/AssessmentPage';
 import LandingPage from './pages/LandingPage';
-import ResultsPage from './pages/ResultsPage';
-import ChatPage from './pages/ChatbotPage';
-import ReadmissionApp from './pages/readmission/App.jsx';
-import DiabetesPage from './pages/diabetes/DiabetesPage.jsx';
-import { submitAssessment } from './services/predictionService';
+import ResultsPage from './features/cad/pages/ResultsPage';
+import ChatPage from './features/cad/pages/ChatbotPage';
+import ReadmissionApp from './features/readmission/pages/ReadmissionPage';
+import DiabetesPage from './features/diabetes/pages/DiabetesPage';
+import { submitAssessment } from './features/cad/services/predictionService';
 import {
   loadStoredAssessmentState,
   saveStoredAssessmentState
-} from './utils/storage';
+} from './features/cad/utils/storage';
 
 function getRouteFromHash() {
   const hash = window.location.hash.replace('#', '');

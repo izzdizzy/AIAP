@@ -1,6 +1,6 @@
-import PrimaryButton from '../components/PrimaryButton';
-import SectionCard from '../components/SectionCard';
-import FeatureImportanceBar from '../components/FeatureImportanceBar';
+import PrimaryButton from '../../../components/PrimaryButton';
+import SectionCard from '../../../components/SectionCard';
+import FeatureImportanceBar from '../../../components/FeatureImportanceBar';
 import { describeFactorDirection, formatPercent } from '../utils/risk';
 
 const emptyResult = {

@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import FormField from '../FormField';
-import ProgressSidebar from '../ProgressSidebar';
-import FileUploadZone from '../FileUploadZone';
-import PrimaryButton from '../PrimaryButton';
-import FeatureImportanceBar from '../FeatureImportanceBar';
+import FormField from '../../../components/FormField';
+import ProgressSidebar from '../../../components/ProgressSidebar';
+import FileUploadZone from '../../../components/FileUploadZone';
+import PrimaryButton from '../../../components/PrimaryButton';
+import FeatureImportanceBar from '../../../components/FeatureImportanceBar';
 import {
   readmissionSteps,
   readmissionFieldGroups,
   readmissionFields,
   READMISSION_SYMPTOMS_LIST,
   validateReadmissionField
-} from '../../utils/readmissionConfig';
-import { useFormValidation } from '../../hooks/useFormValidation';
-import { uploadReadmissionPatientFile } from '../../services/readmission/api';
+} from '../utils/readmissionConfig';
+import { useFormValidation } from '../../../hooks/useFormValidation';
+import { uploadReadmissionPatientFile } from '../services/api';
 
 const DEFAULT_READMISSION_VALUES = {
   age: '50-60',

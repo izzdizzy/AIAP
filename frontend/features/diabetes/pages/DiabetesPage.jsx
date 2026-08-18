@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import SectionCard from '../../components/SectionCard';
-import FormField from '../../components/FormField';
-import PrimaryButton from '../../components/PrimaryButton';
-import ProgressSidebar from '../../components/ProgressSidebar';
-import FeatureImportanceBar from '../../components/FeatureImportanceBar';
+import SectionCard from '../../../components/SectionCard';
+import FormField from '../../../components/FormField';
+import PrimaryButton from '../../../components/PrimaryButton';
+import ProgressSidebar from '../../../components/ProgressSidebar';
+import FeatureImportanceBar from '../../../components/FeatureImportanceBar';
 import {
   diabetesSteps,
   diabetesFieldGroups,
   diabetesFields,
   validateDiabetesField
-} from '../../utils/diabetesConfig';
-import { useFormValidation } from '../../hooks/useFormValidation';
-import { predictRisk } from '../../services/diabetes/api';
+} from '../utils/diabetesConfig';
+import { useFormValidation } from '../../../hooks/useFormValidation';
+import { predictRisk } from '../services/api';
 
 const DEFAULT_DIABETES_VALUES = {
   GenHlth: '2',
