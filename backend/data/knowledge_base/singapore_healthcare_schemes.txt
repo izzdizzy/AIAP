@@ -1,0 +1,20 @@
+Singapore Healthcare System & Triage Knowledge Base
+
+1. Community Health Assist Scheme (CHAS):
+- CHAS Blue: Monthly household income per person <= $1,200 (or AV <= $21,000). Highest subsidies for chronic conditions at participating CHAS GP clinics.
+- CHAS Orange: Monthly household income per person $1,201 - $2,000 (or AV $21,001 - $25,000). Moderate subsidies for chronic conditions.
+- CHAS Green: All Singaporeans not covered under Blue/Orange. Selected subsidies for chronic conditions under Healthier SG.
+- Pioneer & Merdeka Generation: Enhanced subsidies for senior Singaporeans born in 1959 or earlier.
+
+2. Healthier SG Initiative:
+- National preventive health initiative encouraging residents to enroll with a regular family doctor (GP).
+- Free fully-subsidized health screenings, annual health plans, and subsidised chronic medications.
+
+3. Primary Healthcare & Polyclinics:
+- Polyclinics (SingHealth, NHG, NUHS networks) offer one-stop subsidized primary care, blood tests, and chronic disease consultations.
+- CHAS GP Clinics provide accessible neighborhood medical consultations with Government subsidies matching subsidy tier.
+
+4. Triage Guidelines & Emergency Response:
+- Low Urgency / Routine Monitoring: Schedule routine follow-up with regular CHAS GP or Polyclinic. Maintain lifestyle and prescribed medication.
+- Moderate Urgency / Increased Surveillance: Schedule GP/Polyclinic appointment within 3-5 days. Monitor blood pressure, blood glucose, and chest discomfort.
+- High Urgency / Immediate Intervention: Seek urgent medical care at nearest Polyclinic or Hospital A&E immediately. Call 995 if experiencing acute chest pain, shortness of breath, severe dizziness, or loss of consciousness.

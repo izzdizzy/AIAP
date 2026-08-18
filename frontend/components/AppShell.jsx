@@ -28,11 +28,14 @@ export default function AppShell({
     moduleInfo = { title: 'Diabetes Chronic Risk Classifier', eyebrow: 'Endocrine Module' };
   } else if (currentPath.startsWith('/diabetes/results')) {
     moduleInfo = { title: 'Diabetes Assessment Findings', eyebrow: 'Endocrine Module' };
+  } else if (currentPath.startsWith('/ai-insights')) {
+    moduleInfo = { title: 'Unified AI Insights & Care Navigation Workspace', eyebrow: 'GenAI Multi-Assistant Hub' };
   }
 
   const isCadActive = currentPath.startsWith('/cad');
   const isReadmissionActive = currentPath.startsWith('/readmission');
   const isDiabetesActive = currentPath.startsWith('/diabetes');
+  const isAIActive = currentPath.startsWith('/ai-insights');
 
   function handleCadClick() {
     if (cadCompleted && !currentPath.startsWith('/cad')) {
@@ -258,6 +261,29 @@ export default function AppShell({
               title={diabetesCompleted ? 'Complete' : 'Pending'}
             />
             <span>Diabetes</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/ai-insights')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: isAIActive ? 700 : 600,
+              background: isAIActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.12)',
+              color: isAIActive ? '#34d399' : '#10b981',
+              border: '1px solid #10b981',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              marginLeft: 'auto'
+            }}
+          >
+            <span>✨</span>
+            <span>AI Insights Workspace</span>
           </button>
 
           <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 4px' }} />

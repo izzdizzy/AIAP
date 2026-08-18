@@ -19,6 +19,7 @@ from .schemas import (
 )
 from .ml_service import get_ml_service, MLService
 from .genai_service import get_genai_service, GenAIService
+from ...services.genai import get_care_navigator_service, build_unified_context
 from .utils import parse_uploaded_file_bytes
 
 router = APIRouter(tags=["Hospital Readmission"])
@@ -70,18 +71,20 @@ async def predict_readmission(patient_data: PatientData):
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat_readmission(request: ChatRequest):
     try:
-        genai_service = get_genai_service()
-        result = genai_service.generate_response(
-            clinical_severity_score=request.clinical_severity_score or 0,
-            symptoms=request.symptoms or [],
-            chas_tier=request.chas_tier,
-            user_query=request.user_query or ""
-        )
+        context = build_unified_context({
+            "chas_tier": request.chas_tier,
+            "symptoms": request.symptoms or [],
+            "prediction": {
+                "clinical_severity_score": request.clinical_severity_score or 0
+            }
+        })
+        service = get_care_navigator_service()
+        genai_res = service.generate_navigation_advice(context=context, user_query=request.user_query)
 
         return ChatResponse(
-            response=result['response'],
-            is_fallback=result.get('is_fallback', False),
-            safety_warning=result.get('safety_warning')
+            response=genai_res.get("message", ""),
+            is_fallback=False,
+            safety_warning=None
         )
 
     except Exception as e:

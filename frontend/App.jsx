@@ -23,6 +23,9 @@ import DiabetesPage from './features/diabetes/pages/DiabetesPage';
 import DiabetesResults from './features/diabetes/components/DiabetesResults';
 import { predictRisk as predictDiabetesRisk } from './features/diabetes/services/api';
 
+// AI Insights Workspace
+import AIWorkspacePage from './pages/AIWorkspacePage';
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -142,28 +145,13 @@ export default function App() {
                 navigate('/');
               }}
               onEditAssessment={() => navigate('/cad/assessment')}
-              onOpenChat={() => navigate('/cad/chat')}
+              onOpenChat={() => navigate('/ai-insights')}
             />
           }
         />
         <Route
           path="/cad/chat"
-          element={
-            <ChatPage
-              assessmentState={assessmentState}
-              setAssessmentState={setAssessmentState}
-              chatMessages={assessmentState?.chatMessages ?? []}
-              setChatMessages={(updater) => {
-                setAssessmentState(prev => {
-                  if (!prev) return prev;
-                  const current = prev.chatMessages ?? [];
-                  const next = typeof updater === 'function' ? updater(current) : updater;
-                  return { ...prev, chatMessages: next };
-                });
-              }}
-              onBack={() => navigate('/cad/results')}
-            />
-          }
+          element={<Navigate to="/ai-insights" replace />}
         />
 
         {/* Readmission Routes */}
@@ -206,7 +194,23 @@ export default function App() {
               prediction={diabetesPrediction}
               onResetPrediction={() => navigate('/diabetes/assessment')}
               onBackToLanding={() => navigate('/')}
-              onOpenChat={() => navigate('/cad/chat')}
+              onOpenChat={() => navigate('/ai-insights')}
+            />
+          }
+        />
+
+        {/* AI Workspace Route */}
+        <Route
+          path="/ai-insights"
+          element={
+            <AIWorkspacePage
+              assessmentState={assessmentState}
+              diabetesPrediction={diabetesPrediction}
+              readmissionPrediction={readmissionPrediction}
+              readmissionForm={readmissionForm}
+              onNavigateToCAD={() => navigate('/cad/assessment')}
+              onNavigateToDiabetes={() => navigate('/diabetes/assessment')}
+              onNavigateToReadmission={() => navigate('/readmission/assessment')}
             />
           }
         />

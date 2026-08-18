@@ -19,6 +19,7 @@ from .session_service import (
 from .knowledge_service import get_relevant_knowledge
 from .prompt_builder import build_prompt
 from .genai_service import generate_response
+from ...services.genai import get_cad_coach_service, build_unified_context
 
 router = APIRouter(tags=["CAD Risk Assessment & Chat"])
 
@@ -49,21 +50,14 @@ def chat(payload: ChatMessageRequest):
 
     add_user_message(payload.session_id, payload.message)
 
-    knowledge = get_relevant_knowledge(
-        assessment=session["assessment"],
-        prediction=session["prediction"],
-        user_message=payload.message,
-    )
-
-    prompt = build_prompt(
-        assessment=session["assessment"],
-        prediction=session["prediction"],
-        knowledge=knowledge,
-        messages=session["messages"]
-    )
-
     try:
-        reply = generate_response(prompt)
+        context = build_unified_context({
+            "assessment": session.get("assessment"),
+            "prediction": session.get("prediction")
+        })
+        service = get_cad_coach_service()
+        res = service.generate_advice(context=context, user_query=payload.message)
+        reply = res.get("message", "Unable to generate CAD advice.")
     except Exception as e:
         reply = f"I am unable to generate a response right now. Error: {str(e)}"
 

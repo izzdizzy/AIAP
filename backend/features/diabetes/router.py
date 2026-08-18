@@ -9,6 +9,7 @@ from .schemas import (
 )
 from .model_service import DiabetesModel
 from .genai_service import generate_explanation
+from ...services.genai import get_diabetes_explainer_service, build_unified_context
 
 router = APIRouter(tags=["Diabetes Risk Classifier"])
 
@@ -46,7 +47,14 @@ async def explain(request: ExplainRequest):
         model = get_diabetes_model()
         profile_dict = request.profile.model_dump()
         prediction = model.predict(profile_dict)
-        explanation = generate_explanation(profile_dict, prediction)
+        
+        context = build_unified_context({
+            "profile": profile_dict,
+            "prediction": prediction
+        })
+        service = get_diabetes_explainer_service()
+        genai_res = service.generate_explanation(context=context)
+        explanation = genai_res.get("message", "")
         return {"prediction": prediction, "explanation": explanation}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Explanation failed: {str(e)}")

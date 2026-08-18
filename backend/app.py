@@ -5,6 +5,7 @@ from .config import settings
 from .features.cad import router as cad_router
 from .features.readmission import router as readmission_router
 from .features.diabetes import router as diabetes_router
+from .routers.genai_router import router as genai_router
 
 app = FastAPI(
     title='Healthcare Risk Assessment API',
@@ -24,6 +25,8 @@ app.add_middleware(
 # =============================================================================
 # MODULE ROUTER REGISTRATION
 # =============================================================================
+
+app.include_router(genai_router)
 
 if settings.ENABLE_CAD:
     app.include_router(cad_router, prefix='/api', tags=['CAD Risk Assessment & Chat'])

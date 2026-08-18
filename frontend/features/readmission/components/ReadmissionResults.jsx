@@ -45,7 +45,7 @@ export default function ReadmissionResults({
       pillClass={pillClass}
       severityScore={severityScore}
       factors={formattedShap}
-      onOpenChat={() => navigate('/cad/chat')}
+      onOpenChat={() => navigate('/ai-insights')}
       onEditAssessment={handleEdit}
       onBackToOverview={handleOverview}
       isMissingPrediction={!prediction}

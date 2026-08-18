@@ -260,6 +260,72 @@ export default function LandingPage({ onStartCADAssessment, onStartReadmissionAs
               Start Diabetes Assessment
             </button>
           </div>
+
+          {/* AI Insights Workspace Card */}
+          <div
+            onClick={() => navigate('/ai-insights')}
+            style={{
+              backgroundColor: '#1f2937',
+              borderRadius: '12px',
+              padding: '2rem',
+              border: '2px solid #8b5cf6',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 14px rgba(139, 92, 246, 0.25)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#a78bfa';
+              e.currentTarget.style.transform = 'translateY(-4px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#8b5cf6';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <div style={{
+              width: '60px',
+              height: '60px',
+              backgroundColor: '#8b5cf6',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '1.5rem'
+            }}>
+              <span style={{ fontSize: '28px' }}>✨</span>
+            </div>
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              color: '#f3f4f6',
+              marginBottom: '0.75rem'
+            }}>
+              AI Insights Workspace
+            </h2>
+            <p style={{
+              color: '#9ca3af',
+              lineHeight: '1.6',
+              marginBottom: '1.5rem'
+            }}>
+              Interactive 3-Chatbot Workspace powered by centralized GenAI. Access CAD Lifestyle Coach, SHAP Diabetes Explainer, and Care Navigator with generative UI widgets.
+            </p>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate('/ai-insights'); }}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Open AI Insights Workspace
+            </button>
+          </div>
         </div>
 
         {/* Medical Disclaimer */}

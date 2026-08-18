@@ -19,7 +19,7 @@ export default function ResultsPage({
   const navigate = useNavigate();
   const displayResult = assessmentState?.prediction ?? emptyResult;
 
-  const handleChat = onOpenChat || (() => navigate('/cad/chat'));
+  const handleChat = onOpenChat || (() => navigate('/ai-insights'));
   const handleEdit = onEditAssessment || (() => navigate('/cad/assessment'));
   const handleOverview = onRestart || (() => navigate('/'));
 

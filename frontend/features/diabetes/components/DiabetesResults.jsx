@@ -12,7 +12,7 @@ export default function DiabetesResults({
 
   const handleEdit = onResetPrediction || (() => navigate('/diabetes/assessment'));
   const handleOverview = onBackToLanding || (() => navigate('/'));
-  const handleChat = onOpenChat || (() => navigate('/cad/chat'));
+  const handleChat = onOpenChat || (() => navigate('/ai-insights'));
 
   const riskProbPct = prediction?.risk_probability !== undefined
     ? `${(prediction.risk_probability * 100).toFixed(1)}%`
