@@ -1,7 +1,13 @@
-```
 # Model outputs and artifacts
 /backend/outputs
-/frontend/node_modules
-outputs/
 *.joblib
-```
+.env
+
+# Node modules & frontend build cache
+node_modules/
+**/node_modules/
+
+# Python cache files
+__pycache__/
+**/__pycache__/
+*.py[cod]
