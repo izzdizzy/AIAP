@@ -30,7 +30,7 @@ from typing import Dict, Any, Tuple, List
 
 # Dynamically resolve project root regardless of current working directory
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_DATA_PATH = PROJECT_ROOT / "backend" / "data" / "readmission" / "diabetic_data.csv"
+DEFAULT_DATA_PATH = PROJECT_ROOT / "backend" / "data" / "readmission" / "raw" / "diabetic_data.csv"
 
 import numpy as np
 import pandas as pd
@@ -268,6 +268,12 @@ def preprocess_diabetes_data(df: pd.DataFrame) -> pd.DataFrame:
     
     df_clean['diabetes_risk_score'] = np.clip(base_diabetes, 0, 100)
     df_clean['cad_risk_score'] = np.clip(base_cad, 0, 100)
+    
+    # Simulate real-world usage: scores are often absent.
+    # Mask ~60% of rows to NaN so XGBoost learns to ignore them when missing.
+    missing_mask = np.random.rand(len(df_clean)) < 0.6
+    df_clean.loc[missing_mask, 'diabetes_risk_score'] = np.nan
+    df_clean.loc[missing_mask, 'cad_risk_score'] = np.nan
     
     return df_clean
 

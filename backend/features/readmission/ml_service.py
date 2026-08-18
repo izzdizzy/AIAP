@@ -19,7 +19,7 @@ except ImportError:
     shap = None
 
 # Paths
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 ARTIFACTS_DIR = Path(__file__).resolve().parent / "artifacts"
 
 DEFAULT_MODEL_PATH = ARTIFACTS_DIR / "readmission_model.joblib"
@@ -36,6 +36,8 @@ FALLBACK_FEATURE_DEFAULTS_PATH = PROJECT_ROOT / "outputs" / "feature_defaults.js
 
 class MLService:
     def __init__(self):
+        
+        self.OPTIONAL_SCORE_FEATURES = {'diabetes_risk_score', 'cad_risk_score'}
         self.model = None
         self.feature_columns = None
         self.feature_defaults = None
@@ -152,7 +154,9 @@ class MLService:
         missing_features = set(self.feature_columns) - set(aligned_data.columns)
 
         for feature in missing_features:
-            if self.feature_defaults and feature in self.feature_defaults:
+            if feature in self.OPTIONAL_SCORE_FEATURES:
+                aligned_data[feature] = np.nan  # Neutral: model ignores missing scores
+            elif self.feature_defaults and feature in self.feature_defaults:
                 aligned_data[feature] = self.feature_defaults[feature]
             else:
                 aligned_data[feature] = 0
@@ -163,15 +167,17 @@ class MLService:
 
         aligned_data = aligned_data[self.feature_columns]
         return aligned_data
-
     def _handle_missing_values(self, X: pd.DataFrame) -> pd.DataFrame:
         X_clean = X.copy()
         for col in X_clean.select_dtypes(include=[np.number]).columns:
+            if col in self.OPTIONAL_SCORE_FEATURES:
+                continue  # XGBoost handles NaN natively for optional scores
             if X_clean[col].isna().any():
                 median_val = X_clean[col].median()
                 X_clean[col] = X_clean[col].fillna(median_val)
 
-        X_clean = X_clean.fillna(0)
+        non_optional = [c for c in X_clean.columns if c not in self.OPTIONAL_SCORE_FEATURES]
+        X_clean[non_optional] = X_clean[non_optional].fillna(0)
         return X_clean
 
     def predict(self, patient_data: Dict[str, Any], return_shap: bool = True) -> Dict[str, Any]:

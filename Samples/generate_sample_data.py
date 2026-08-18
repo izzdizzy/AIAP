@@ -2,15 +2,15 @@
 Generate Sample Patient Data for Excel Upload Feature
 ======================================================
 
-This script generates three distinct sample Excel files with realistic mock data
+This script generates three distinct sample files with realistic mock data
 that matches the UCI Diabetes dataset features and the ML model's expected input columns.
 
 The generated files represent:
-1. patient_high_risk.xlsx - Patient with high readmission risk
-2. patient_moderate_risk.xlsx - Patient with moderate readmission risk  
-3. patient_low_risk.xlsx - Patient with low readmission risk
+1. patient_high_risk - Patient with high readmission risk
+2. patient_moderate_risk - Patient with moderate readmission risk
+3. patient_low_risk - Patient with low readmission risk
 
-These files can be uploaded to the Streamlit app to pre-fill patient profiles.
+Each profile is saved as both .xlsx and .csv for upload testing.
 """
 
 import pandas as pd
@@ -24,7 +24,6 @@ PROJECT_ROOT = SCRIPT_DIR.parent  # /workspace (since script is in /workspace/Sa
 # Standardized artifact paths - strictly read from outputs/ directory at project root
 ARTIFACTS_DIR = PROJECT_ROOT / "outputs"
 FEATURE_COLUMNS_PATH = ARTIFACTS_DIR / "feature_columns.json"
-FEATURE_DEFAULTS_PATH = ARTIFACTS_DIR / "feature_defaults.json"
 OUTPUT_DIR = SCRIPT_DIR  # Save CSVs and Excel files in the Samples directory
 
 
@@ -33,27 +32,31 @@ def load_feature_columns() -> list:
     print(f"Script directory: {SCRIPT_DIR}")
     print(f"Project root: {PROJECT_ROOT}")
     print(f"Checking for feature columns at: {FEATURE_COLUMNS_PATH.absolute()}")
-    
+
     if not FEATURE_COLUMNS_PATH.exists():
-        print(f"Error: Feature columns file not found at {FEATURE_COLUMNS_PATH}")
-        print("Please ensure the model has been trained first.")
+        print(f"Warning: Feature columns file not found at {FEATURE_COLUMNS_PATH}")
+        print("Skipping feature validation (sample files will still be generated).")
         return []
-    
-    with open(FEATURE_COLUMNS_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+
+    try:
+        with open(FEATURE_COLUMNS_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Warning: Failed to read feature columns ({e}). Skipping validation.")
+        return []
 
 
 def generate_patient_data(risk_level: str) -> dict:
     """
     Generate realistic patient data based on risk level.
-    
+
     Args:
         risk_level: One of "high", "moderate", or "low"
-    
+
     Returns:
         Dictionary containing patient features matching the model's expected schema
     """
-    
+
     if risk_level == "high":
         # HIGH RISK PROFILE - Must predict "Readmitted" and score 80-100
         # Values explicitly cross clinical adjustment thresholds in utils.py:
@@ -147,7 +150,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'insulin_complexity': 1,
             'diabetes_med_intensity': 2,
         }
-    
+
     elif risk_level == "moderate":
         # MODERATE RISK PROFILE - Must predict "Readmitted" or borderline, score 40-70
         # Values are below clinical adjustment thresholds but show moderate risk indicators
@@ -235,7 +238,7 @@ def generate_patient_data(risk_level: str) -> dict:
             'insulin_complexity': 0,
             'diabetes_med_intensity': 1,
         }
-    
+
     else:  # low risk
         # LOW RISK PROFILE - Must predict "Not Readmitted", score 0-30
         # All values are minimal, no clinical adjustment triggers
@@ -329,41 +332,35 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
     """
     Create a simplified version of patient data for Excel upload.
     This includes only the key features that doctors would typically have in discharge summaries.
-    
+
     The app's parse_uploaded_file function will map these to the full feature set using
     the explicit CSV_TO_MODEL_MAPPING dictionary defined in app.py.
-    
+
     Updated to include a 'symptoms' column with realistic diabetes symptoms based on risk level.
     Updated to include a 'chas_tier' column with Singapore healthcare context values.
-    
+
     TASK 3: Column names now EXACTLY match the keys in CSV_TO_MODEL_MAPPING dictionary
     to ensure perfect compatibility with the app's CSV parsing logic.
     """
     # Define realistic symptom profiles based on risk level
-    # TASK 1: Strictly separated profiles per requirements
     symptom_profiles = {
         "high": "Fatigue, Frequent urination, Blurred vision, Slow-healing sores, Tingling in hands/feet, Excessive thirst",
         "moderate": "Fatigue, Frequent urination",
         "low": "Mild thirst"
     }
-    
+
     # Define CHAS Tier assignments based on patient profile (Singapore healthcare context)
-    # TASK 1: Strictly assigned per requirements
-    # High risk (elderly, age 75): Pioneer tier
-    # Moderate risk (middle-aged, age 55): Orange tier
-    # Low risk (younger, age 45): None tier
     chas_tier_profiles = {
         "high": "Pioneer",      # Elderly patients (age 75) get Pioneer tier
         "moderate": "Orange",   # Middle-aged patients (age 55) get Orange tier
         "low": "None"           # Younger patients (age 45) get None tier
     }
-    
+
     # Simplified features that are commonly available in discharge summaries
     # Column names MUST exactly match CSV_TO_MODEL_MAPPING keys in app.py
     simplified = {
         'patient_id': f"PATIENT_{risk_level.upper()}_001",
         'risk_profile': f"{risk_level.capitalize()} Risk Patient",
-        # Use exact column names from CSV_TO_MODEL_MAPPING
         'prior_admissions': patient_data['number_inpatient'],  # Maps to total_prior_admissions + sets number_inpatient
         'comorbidity_count': patient_data['comorbidity_count'],
         'age_numeric': patient_data['age_numeric'],
@@ -390,68 +387,54 @@ def create_simplified_patient_row(patient_data: dict, risk_level: str) -> dict:
 
 
 def main():
-    """Generate sample Excel files for testing the upload feature."""
-    
+    """Generate sample CSV and Excel files for testing the upload feature."""
+
     print("=" * 60)
     print("GENERATING SAMPLE PATIENT DATA FILES")
     print("=" * 60)
-    
-    # Load feature columns to validate our data structure
+
+    # Load feature columns to validate our data structure (non-blocking)
     feature_columns = load_feature_columns()
-    if not feature_columns:
-        print("Cannot proceed without feature columns. Exiting.")
-        return
-    
-    print(f"\nLoaded {len(feature_columns)} expected feature columns")
-    
+    if feature_columns:
+        print(f"\nLoaded {len(feature_columns)} expected feature columns")
+
     # Generate data for each risk level
     risk_levels = ["high", "moderate", "low"]
-    
+
     for risk_level in risk_levels:
         print(f"\nGenerating {risk_level} risk patient data...")
-        
+
         # Generate full patient data matching model schema
         patient_data = generate_patient_data(risk_level)
-        
-        # Validate all required features are present
-        missing_features = set(feature_columns) - set(patient_data.keys())
-        if missing_features:
-            print(f"Warning: Missing features for {risk_level} risk: {missing_features}")
-        
-        # Create simplified version for Excel upload (what doctors would provide)
+
+        # Validate all required features are present (only if columns loaded)
+        if feature_columns:
+            missing_features = set(feature_columns) - set(patient_data.keys())
+            if missing_features:
+                print(f"Warning: Missing features for {risk_level} risk: {missing_features}")
+
+        # Create simplified version for upload (what doctors would provide)
         simplified_data = create_simplified_patient_row(patient_data, risk_level)
-        
-        # Create DataFrame
-        df_full = pd.DataFrame([patient_data])
         df_simplified = pd.DataFrame([simplified_data])
-        
-        # Save full data (for reference/testing) - use OUTPUT_DIR for robust path
-        full_filename = OUTPUT_DIR / f"patient_{risk_level}_risk_full.xlsx"
-        df_full.to_excel(full_filename, index=False)
-        print(f"  Created: {full_filename} (full feature set)")
-        
-        # Save simplified data (for actual upload testing) - use OUTPUT_DIR for robust path
+
+        # Save simplified data as Excel for upload testing
         simplified_filename = OUTPUT_DIR / f"patient_{risk_level}_risk.xlsx"
         df_simplified.to_excel(simplified_filename, index=False)
-        print(f"  Created: {simplified_filename} (simplified for upload)")
-        
-        # Also create CSV versions - use OUTPUT_DIR for robust path
+        print(f"  Created: {simplified_filename}")
+
+        # Save simplified data as CSV for upload testing
         csv_filename = OUTPUT_DIR / f"patient_{risk_level}_risk.csv"
         df_simplified.to_csv(csv_filename, index=False)
-        print(f"  Created: {csv_filename} (CSV format)")
-    
+        print(f"  Created: {csv_filename}")
+
     print("\n" + "=" * 60)
     print("SAMPLE DATA GENERATION COMPLETE")
     print("=" * 60)
     print("\nGenerated files:")
-    print("  - patient_high_risk.xlsx (simplified for upload)")
-    print("  - patient_moderate_risk.xlsx (simplified for upload)")
-    print("  - patient_low_risk.xlsx (simplified for upload)")
-    print("  - patient_high_risk.csv (simplified for upload)")
-    print("  - patient_moderate_risk.csv (simplified for upload)")
-    print("  - patient_low_risk.csv (simplified for upload)")
-    print("  - patient_*_risk_full.xlsx (full feature sets for reference)")
-    print("\nUpload the simplified files (without '_full' suffix) to test the Excel upload feature.")
+    print("  - patient_high_risk.xlsx / .csv")
+    print("  - patient_moderate_risk.xlsx / .csv")
+    print("  - patient_low_risk.xlsx / .csv")
+    print("\nUpload these files to test the Excel/CSV upload feature.")
 
 
 if __name__ == "__main__":
