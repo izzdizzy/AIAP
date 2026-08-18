@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function TriageChecklistWidget({ data }) {
+export default function TriageChecklistWidget({ data, onUpdateWidgetData }) {
   if (!data) return null;
 
   const { title = "Post-Discharge Care Tasks", urgency, tasks = [] } = data;
@@ -9,9 +9,16 @@ export default function TriageChecklistWidget({ data }) {
   );
 
   function toggleTask(id) {
-    setTaskList(prev =>
-      prev.map(item => item.id === id ? { ...item, completed: !item.completed } : item)
+    const updated = taskList.map(item =>
+      item.id === id ? { ...item, completed: !item.completed } : item
     );
+    setTaskList(updated);
+    if (onUpdateWidgetData) {
+      onUpdateWidgetData({
+        ...data,
+        tasks: updated
+      });
+    }
   }
 
   const completedCount = taskList.filter(t => t.completed).length;

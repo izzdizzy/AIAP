@@ -2,19 +2,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import WidgetRenderer from '../components/widgets/WidgetRenderer';
 import { sendGenAIQuery } from '../services/genaiApi';
+import { loadStoredAIMessages, saveStoredAIMessages } from '../services/storage';
 
 export default function AIHub({
   assessmentState,
   diabetesPrediction,
   readmissionPrediction,
   readmissionForm,
+  subsidyTier = 'CHAS Green',
+  onUpdateSubsidyTier,
   onNavigateToCAD,
   onNavigateToDiabetes,
   onNavigateToReadmission
 }) {
   const [activeTab, setActiveTab] = useState('cad_coach'); // 'cad_coach', 'diabetes_explainer', 'care_navigator'
 
-  const [messages, setMessages] = useState({
+  const activeSubsidy = subsidyTier || readmissionForm?.chas_tier || 'CHAS Green';
+
+  const defaultMessages = {
     cad_coach: [
       {
         role: 'assistant',
@@ -54,17 +59,26 @@ export default function AIHub({
           type: 'GOOGLE_MAPS_ACTION',
           data: {
             facility_type: 'Polyclinic',
-            subsidy_tier: readmissionForm?.chas_tier || 'CHAS Green',
-            label: 'Locate Nearest Subsidized Polyclinics on Google Maps'
+            subsidy_tier: activeSubsidy,
+            label: `Locate Nearest Subsidized Polyclinics (${activeSubsidy})`
           }
         }
       }
     ]
+  };
+
+  const [messages, setMessages] = useState(() => {
+    const saved = loadStoredAIMessages();
+    return saved || defaultMessages;
   });
 
   const [inputQuery, setInputQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    saveStoredAIMessages(messages);
+  }, [messages]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -112,13 +126,48 @@ export default function AIHub({
   const isDiabetesLoaded = Boolean(diabetesPrediction);
   const isReadmissionLoaded = Boolean(readmissionPrediction);
 
+  function handleSubsidyChange(e) {
+    const newTier = e.target.value;
+    if (onUpdateSubsidyTier) {
+      onUpdateSubsidyTier(newTier);
+    }
+  }
+
+  function handleClearTabHistory() {
+    if (window.confirm(`Clear chat history for ${currentTab.title}?`)) {
+      setMessages(prev => ({
+        ...prev,
+        [activeTab]: defaultMessages[activeTab] || []
+      }));
+    }
+  }
+
+  function handleUpdateWidgetData(msgIdx, newWidgetData) {
+    setMessages(prev => {
+      const currentList = [...(prev[activeTab] || [])];
+      if (currentList[msgIdx]) {
+        currentList[msgIdx] = {
+          ...currentList[msgIdx],
+          widget: {
+            ...currentList[msgIdx].widget,
+            data: newWidgetData
+          }
+        };
+      }
+      return {
+        ...prev,
+        [activeTab]: currentList
+      };
+    });
+  }
+
   // Construct patient context
   function getUnifiedPayload() {
     return {
       demographics: {
         age: assessmentState?.assessmentForm?.age || readmissionForm?.age,
         gender: assessmentState?.assessmentForm?.gender || readmissionForm?.gender,
-        subsidy_tier: readmissionForm?.chas_tier || 'CHAS Green'
+        subsidy_tier: activeSubsidy
       },
       form_metrics: {
         blood_pressure: assessmentState?.assessmentForm?.bp || (assessmentState?.assessmentForm?.trestbps ? `${assessmentState.assessmentForm.trestbps}` : null),
@@ -279,8 +328,48 @@ export default function AIHub({
           </span>
         </div>
 
-        <div style={{ fontSize: '0.78rem', opacity: 0.8 }}>
-          Subsidy Tier: <strong>{readmissionForm?.chas_tier || 'CHAS Green'}</strong>
+        <div style={{ fontSize: '0.78rem', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>Subsidy Tier:</span>
+          <select
+            value={activeSubsidy}
+            onChange={handleSubsidyChange}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '6px',
+              background: 'var(--surface, #1e293b)',
+              color: 'var(--text, #f8fafc)',
+              border: '1px solid var(--border, #334155)',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="CHAS Green">CHAS Green</option>
+            <option value="CHAS Orange">CHAS Orange</option>
+            <option value="CHAS Blue">CHAS Blue</option>
+            <option value="Pioneer Generation">Pioneer Generation</option>
+            <option value="Merdeka Generation">Merdeka Generation</option>
+            <option value="None">None / Non-subsidised</option>
+          </select>
+
+          <button
+            onClick={handleClearTabHistory}
+            title="Reset conversation history for this tab"
+            style={{
+              padding: '4px 8px',
+              borderRadius: '6px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#f87171',
+              border: '1px solid #ef4444',
+              fontSize: '0.75rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              marginLeft: '6px'
+            }}
+          >
+            🗑️ Clear Chat
+          </button>
         </div>
       </div>
 
@@ -337,7 +426,10 @@ export default function AIHub({
                   
                   {/* Rich-Media Component Renderer */}
                   {isAssistant && msg.widget && (
-                    <WidgetRenderer widget={msg.widget} />
+                    <WidgetRenderer
+                      widget={msg.widget}
+                      onUpdateWidgetData={(newWidgetData) => handleUpdateWidgetData(idx, newWidgetData)}
+                    />
                   )}
                 </div>
               </div>

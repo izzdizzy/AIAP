@@ -5,7 +5,7 @@ import CopyableQuestionsWidget from './CopyableQuestionsWidget';
 import ClinicMapLinkWidget from './ClinicMapLinkWidget';
 import GoogleMapsActionButton from './GoogleMapsActionButton';
 
-export default function WidgetRenderer({ widget }) {
+export default function WidgetRenderer({ widget, onUpdateWidgetData }) {
   if (!widget || !widget.type) return null;
 
   const widgetType = widget.type.toUpperCase();
@@ -14,7 +14,7 @@ export default function WidgetRenderer({ widget }) {
     case 'SHAP_FACTOR_CARD':
       return <ShapFactorCardWidget data={widget.data} />;
     case 'TRIAGE_CHECKLIST':
-      return <TriageChecklistWidget data={widget.data} />;
+      return <TriageChecklistWidget data={widget.data} onUpdateWidgetData={onUpdateWidgetData} />;
     case 'COPYABLE_DOCTOR_QUESTIONS':
       return <CopyableQuestionsWidget data={widget.data} />;
     case 'CLINIC_MAP_LINK':

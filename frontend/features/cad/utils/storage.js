@@ -1,27 +1,9 @@
-const STORAGE_KEY = 'cad-risk-assessment-state';
+import { loadStoredCADState, saveStoredCADState } from '../../../services/storage';
 
 export function loadStoredAssessmentState() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  return loadStoredCADState();
 }
 
 export function saveStoredAssessmentState(state) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (!state) {
-    window.sessionStorage.removeItem(STORAGE_KEY);
-    return;
-  }
-
-  window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveStoredCADState(state);
 }

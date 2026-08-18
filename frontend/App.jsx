@@ -9,9 +9,15 @@ import ResultsPage from './features/cad/pages/ResultsPage';
 import ChatPage from './features/cad/pages/ChatbotPage';
 import { submitAssessment } from './features/cad/services/predictionService';
 import {
-  loadStoredAssessmentState,
-  saveStoredAssessmentState
-} from './features/cad/utils/storage';
+  loadStoredCADState,
+  saveStoredCADState,
+  loadStoredDiabetesState,
+  saveStoredDiabetesState,
+  loadStoredReadmissionState,
+  saveStoredReadmissionState,
+  loadStoredSubsidyTier,
+  saveStoredSubsidyTier
+} from './services/storage';
 
 // Readmission
 import PatientForm from './features/readmission/components/PatientForm';
@@ -31,22 +37,41 @@ export default function App() {
   const location = useLocation();
 
   // CAD State
-  const [assessmentState, setAssessmentState] = useState(() => loadStoredAssessmentState());
+  const [assessmentState, setAssessmentState] = useState(() => loadStoredCADState());
   const [cadLoading, setCadLoading] = useState(false);
 
   // Readmission State
-  const [readmissionForm, setReadmissionForm] = useState(null);
-  const [readmissionPrediction, setReadmissionPrediction] = useState(null);
+  const [readmissionState, setReadmissionState] = useState(() => loadStoredReadmissionState());
   const [readmissionLoading, setReadmissionLoading] = useState(false);
 
   // Diabetes State
-  const [diabetesForm, setDiabetesForm] = useState(null);
-  const [diabetesPrediction, setDiabetesPrediction] = useState(null);
+  const [diabetesState, setDiabetesState] = useState(() => loadStoredDiabetesState());
   const [diabetesLoading, setDiabetesLoading] = useState(false);
 
+  // Subsidy Tier State
+  const [subsidyTier, setSubsidyTier] = useState(() => loadStoredSubsidyTier());
+
+  const readmissionForm = readmissionState?.form ?? null;
+  const readmissionPrediction = readmissionState?.prediction ?? null;
+
+  const diabetesForm = diabetesState?.form ?? null;
+  const diabetesPrediction = diabetesState?.prediction ?? null;
+
   useEffect(() => {
-    saveStoredAssessmentState(assessmentState);
+    saveStoredCADState(assessmentState);
   }, [assessmentState]);
+
+  useEffect(() => {
+    saveStoredReadmissionState(readmissionState);
+  }, [readmissionState]);
+
+  useEffect(() => {
+    saveStoredDiabetesState(diabetesState);
+  }, [diabetesState]);
+
+  useEffect(() => {
+    saveStoredSubsidyTier(subsidyTier);
+  }, [subsidyTier]);
 
   // CAD Handlers
   async function handleSubmitCAD(values) {
@@ -54,12 +79,13 @@ export default function App() {
     try {
       const formValues = structuredClone(values);
       const response = await submitAssessment(values);
-      setAssessmentState({
+      const newState = {
         ...response,
         assessmentForm: formValues,
-        sessionId: null,
-        chatMessages: []
-      });
+        sessionId: null
+      };
+      setAssessmentState(newState);
+      saveStoredCADState(newState);
       navigate('/cad/results');
     } catch (error) {
       alert(error.message || 'Failed to calculate CAD risk.');
@@ -74,8 +100,16 @@ export default function App() {
     try {
       const formValues = structuredClone(values);
       const result = await predictReadmission(values);
-      setReadmissionForm(formValues);
-      setReadmissionPrediction(result);
+      const newState = {
+        form: formValues,
+        prediction: result
+      };
+      setReadmissionState(newState);
+      saveStoredReadmissionState(newState);
+      if (formValues.chas_tier) {
+        setSubsidyTier(formValues.chas_tier);
+        saveStoredSubsidyTier(formValues.chas_tier);
+      }
       navigate('/readmission/results');
     } catch (error) {
       alert(error.message || 'Failed to calculate readmission risk.');
@@ -90,8 +124,12 @@ export default function App() {
     try {
       const formValues = structuredClone(values);
       const result = await predictDiabetesRisk(values);
-      setDiabetesForm(formValues);
-      setDiabetesPrediction(result);
+      const newState = {
+        form: formValues,
+        prediction: result
+      };
+      setDiabetesState(newState);
+      saveStoredDiabetesState(newState);
       navigate('/diabetes/results');
     } catch (error) {
       alert(error.message || 'Failed to calculate diabetes risk.');
@@ -208,6 +246,11 @@ export default function App() {
               diabetesPrediction={diabetesPrediction}
               readmissionPrediction={readmissionPrediction}
               readmissionForm={readmissionForm}
+              subsidyTier={subsidyTier}
+              onUpdateSubsidyTier={(tier) => {
+                setSubsidyTier(tier);
+                saveStoredSubsidyTier(tier);
+              }}
               onNavigateToCAD={() => navigate('/cad/assessment')}
               onNavigateToDiabetes={() => navigate('/diabetes/assessment')}
               onNavigateToReadmission={() => navigate('/readmission/assessment')}
