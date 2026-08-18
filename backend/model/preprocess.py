@@ -54,6 +54,32 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = PROJECT_ROOT / "models"
 BUNDLE_PATH = MODELS_DIR / "imputation_bundle.pkl"
 
+def patch_imputer(imputer):
+    """Patch scikit-learn imputer attribute differences across versions."""
+    if imputer is None:
+        return imputer
+
+    # Include top-level imputer and nested imputer (for IterativeImputer)
+    objects_to_patch = [imputer]
+    if hasattr(imputer, "initial_imputer_") and imputer.initial_imputer_ is not None:
+        objects_to_patch.append(imputer.initial_imputer_)
+
+    for obj in objects_to_patch:
+
+        # Fix 1.9.0 version vs 1.5.1 version
+        if hasattr(obj, "_fit_dtype") and not hasattr(obj, "_fill_dtype"):
+            obj._fill_dtype = obj._fit_dtype
+        elif hasattr(obj, "_fill_dtype") and not hasattr(obj, "_fit_dtype"):
+            obj._fit_dtype = obj._fill_dtype
+
+        # Fix 1.9.0 version vs 1.5.1 version
+        if hasattr(obj, "_is_empty_feature") and not hasattr(obj, "keep_empty_features"):
+            obj.keep_empty_features = obj._is_empty_feature
+        elif hasattr(obj, "keep_empty_features") and not hasattr(obj, "_is_empty_feature"):
+            obj._is_empty_feature = obj.keep_empty_features
+
+
+    return imputer
 
 def load_imputer():
     """Loads strictly the imputer object from the bundle."""
@@ -63,9 +89,8 @@ def load_imputer():
         )
 
     artifacts = joblib.load(BUNDLE_PATH)
-    if isinstance(artifacts, dict):
-        return artifacts.get("imputer")
-    return artifacts
+    imputer = artifacts.get("imputer") if isinstance(artifacts, dict) else artifacts
+    return patch_imputer(imputer)
 
 
 # Load imputer artifact on web app startup
