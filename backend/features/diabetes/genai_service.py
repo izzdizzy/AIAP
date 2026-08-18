@@ -10,8 +10,15 @@ LLM_API_KEY = os.getenv("DIABETES_GEMINI_KEY") or os.getenv("GEMINI_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-1.5-flash")
 
 
+def _format_factors(prediction: dict) -> str:
+    factors = prediction.get("top_factors", [])
+    if factors and isinstance(factors[0], dict):
+        return ", ".join([f"{f['feature']} ({f['impact']:+.2f})" for f in factors])
+    return ", ".join([str(f) for f in factors])
+
+
 def _build_prompt(profile: dict, prediction: dict) -> str:
-    factors = ", ".join(prediction["top_factors"])
+    factors = _format_factors(prediction)
     return (
         "You are a supportive health assistant for a chronic-disease monitoring app "
         "used in Singapore. Explain a diabetes risk result to a non-medical user.\n\n"
@@ -30,7 +37,7 @@ def _build_prompt(profile: dict, prediction: dict) -> str:
 
 def _template_fallback(profile: dict, prediction: dict) -> str:
     band = prediction["risk_band"]
-    factors = ", ".join(prediction["top_factors"])
+    factors = _format_factors(prediction)
     advice = ("Consider booking a check-up at your polyclinic or GP, and look into "
               "Healthier SG enrolment.") if band in ("Moderate", "High") else \
              ("Keep up your current habits and review your health yearly.")

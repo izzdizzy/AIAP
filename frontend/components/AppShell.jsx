@@ -4,7 +4,9 @@ import Disclaimer from './Disclaimer';
 
 export default function AppShell({
   children,
-  hasPrediction = false
+  cadCompleted = false,
+  readmissionCompleted = false,
+  diabetesCompleted = false
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -31,6 +33,30 @@ export default function AppShell({
   const isCadActive = currentPath.startsWith('/cad');
   const isReadmissionActive = currentPath.startsWith('/readmission');
   const isDiabetesActive = currentPath.startsWith('/diabetes');
+
+  function handleCadClick() {
+    if (cadCompleted && !currentPath.startsWith('/cad')) {
+      navigate('/cad/results');
+    } else {
+      navigate('/cad/assessment');
+    }
+  }
+
+  function handleReadmissionClick() {
+    if (readmissionCompleted && !currentPath.startsWith('/readmission')) {
+      navigate('/readmission/results');
+    } else {
+      navigate('/readmission/assessment');
+    }
+  }
+
+  function handleDiabetesClick() {
+    if (diabetesCompleted && !currentPath.startsWith('/diabetes')) {
+      navigate('/diabetes/results');
+    } else {
+      navigate('/diabetes/assessment');
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -101,23 +127,29 @@ export default function AppShell({
             <button
               type="button"
               className={isCadActive ? 'nav-link active' : 'nav-link'}
-              onClick={() => navigate('/cad/assessment')}
+              onClick={handleCadClick}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              CAD Screening
+              <span>CAD Screening</span>
+              {cadCompleted && <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>✓ Done</span>}
             </button>
             <button
               type="button"
               className={isReadmissionActive ? 'nav-link active' : 'nav-link'}
-              onClick={() => navigate('/readmission/assessment')}
+              onClick={handleReadmissionClick}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              Hospital Readmission
+              <span>Hospital Readmission</span>
+              {readmissionCompleted && <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>✓ Done</span>}
             </button>
             <button
               type="button"
               className={isDiabetesActive ? 'nav-link active' : 'nav-link'}
-              onClick={() => navigate('/diabetes/assessment')}
+              onClick={handleDiabetesClick}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              Diabetes Classifier
+              <span>Diabetes Classifier</span>
+              {diabetesCompleted && <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>✓ Done</span>}
             </button>
           </div>
         </div>

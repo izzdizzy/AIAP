@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -40,12 +41,19 @@ class HealthProfile(BaseModel):
     }
 
 
+class FactorDetail(BaseModel):
+    feature: str
+    importance: float
+    impact: float
+    shap_value: float
+
+
 class PredictionResponse(BaseModel):
     """What /predict returns."""
     risk_label: str = Field(..., description="'At risk' or 'Not at risk'")
     risk_probability: float = Field(..., description="Model probability of being at risk (0-1)")
     risk_band: str = Field(..., description="Low / Moderate / High, derived from the probability")
-    top_factors: list[str] = Field(..., description="The person's own values on the biggest risk-driving features")
+    top_factors: Union[List[FactorDetail], List[Dict[str, Any]], List[str]] = Field(..., description="The person's own values on the biggest risk-driving features")
 
 
 class ExplainRequest(BaseModel):

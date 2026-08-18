@@ -344,21 +344,28 @@ button {
 .form-field__label {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #F8FAFC !important;
+  color: var(--text);
 }
 
 .form-field input,
 .form-field select {
   font-size: 0.95rem;
-  color: #F8FAFC !important;
-  background: #1E293B !important;
-  border: 1px solid #334155;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
   padding: 10px 14px;
 }
 
+[data-theme='light'] .form-field select option {
+  background: #ffffff;
+  color: #123026;
+  padding: 8px;
+}
+
+[data-theme='dark'] .form-field select option,
 .form-field select option {
-  background: #1E293B;
-  color: #F8FAFC;
+  background: #1e293b;
+  color: #f8fafc;
   padding: 8px;
 }
 

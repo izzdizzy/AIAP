@@ -32,10 +32,12 @@ export default function App() {
   const [cadLoading, setCadLoading] = useState(false);
 
   // Readmission State
+  const [readmissionForm, setReadmissionForm] = useState(null);
   const [readmissionPrediction, setReadmissionPrediction] = useState(null);
   const [readmissionLoading, setReadmissionLoading] = useState(false);
 
   // Diabetes State
+  const [diabetesForm, setDiabetesForm] = useState(null);
   const [diabetesPrediction, setDiabetesPrediction] = useState(null);
   const [diabetesLoading, setDiabetesLoading] = useState(false);
 
@@ -67,7 +69,9 @@ export default function App() {
   async function handleSubmitReadmission(values) {
     setReadmissionLoading(true);
     try {
+      const formValues = structuredClone(values);
       const result = await predictReadmission(values);
+      setReadmissionForm(formValues);
       setReadmissionPrediction(result);
       navigate('/readmission/results');
     } catch (error) {
@@ -81,7 +85,9 @@ export default function App() {
   async function handleSubmitDiabetes(values) {
     setDiabetesLoading(true);
     try {
+      const formValues = structuredClone(values);
       const result = await predictDiabetesRisk(values);
+      setDiabetesForm(formValues);
       setDiabetesPrediction(result);
       navigate('/diabetes/results');
     } catch (error) {
@@ -90,6 +96,10 @@ export default function App() {
       setDiabetesLoading(false);
     }
   }
+
+  const cadCompleted = Boolean(assessmentState?.prediction);
+  const readmissionCompleted = Boolean(readmissionPrediction);
+  const diabetesCompleted = Boolean(diabetesPrediction);
 
   const isLanding = location.pathname === '/' || location.pathname === '/home';
 
@@ -104,7 +114,11 @@ export default function App() {
   }
 
   return (
-    <AppShell>
+    <AppShell
+      cadCompleted={cadCompleted}
+      readmissionCompleted={readmissionCompleted}
+      diabetesCompleted={diabetesCompleted}
+    >
       <Routes>
         {/* CAD Routes */}
         <Route
@@ -159,6 +173,7 @@ export default function App() {
             <PatientForm
               onSubmit={handleSubmitReadmission}
               loading={readmissionLoading}
+              initialValues={readmissionForm}
             />
           }
         />
@@ -180,6 +195,7 @@ export default function App() {
             <DiabetesPage
               onSubmitAssessment={handleSubmitDiabetes}
               loading={diabetesLoading}
+              initialValues={diabetesForm}
             />
           }
         />

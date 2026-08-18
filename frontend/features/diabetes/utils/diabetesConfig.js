@@ -5,6 +5,21 @@
 
 import { DIABETES_FIELD_OPTIONS } from './diabetesMappings';
 
+export const DIABETES_FEATURE_LABELS = {
+  GenHlth: 'General Health Rating',
+  BMI: 'Body Mass Index (BMI)',
+  Age: 'Age Group',
+  Sex: 'Biological Sex',
+  HighBP: 'High Blood Pressure',
+  HighChol: 'High Cholesterol',
+  PhysActivity: 'Physical Activity',
+  DiffWalk: 'Difficulty Walking/Stairs',
+  Smoker: 'Smoking Status',
+  HeartDiseaseorAttack: 'Heart Disease History',
+  Fruits: 'Fruit Consumption',
+  Veggies: 'Vegetable Consumption'
+};
+
 export const diabetesSteps = [
   { id: 'demographics', title: '1. Demographics & Metrics', description: 'General health, BMI, age group, and biological sex.' },
   { id: 'lifestyle', title: '2. Lifestyle & Medical History', description: 'Blood pressure, cholesterol, physical activity, and habits.' }

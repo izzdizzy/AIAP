@@ -53,8 +53,34 @@ class DiabetesModel:
         else:
             band = "High"
 
-        top_features = list(self.importances.keys())[:5]
-        top_factors = [f"{f} = {profile_dict[f]}" for f in top_features]
+        top_features = list(self.importances.keys())[:6]
+
+        high_risk_conditions = {
+            "GenHlth": lambda v: v > 2,
+            "BMI": lambda v: v > 25.0,
+            "Age": lambda v: v > 6,
+            "HighBP": lambda v: v == 1,
+            "HighChol": lambda v: v == 1,
+            "PhysActivity": lambda v: v == 0,
+            "DiffWalk": lambda v: v == 1,
+            "Smoker": lambda v: v == 1,
+            "HeartDiseaseorAttack": lambda v: v == 1,
+            "Fruits": lambda v: v == 0,
+            "Veggies": lambda v: v == 0
+        }
+
+        top_factors = []
+        for feat in top_features:
+            base_imp = float(self.importances.get(feat, 0.1))
+            val = profile_dict.get(feat, 0)
+            is_high = high_risk_conditions.get(feat, lambda v: False)(val)
+            signed_impact = base_imp if is_high else -base_imp
+            top_factors.append({
+                "feature": feat,
+                "importance": abs(base_imp),
+                "impact": round(signed_impact, 3),
+                "shap_value": round(signed_impact, 3)
+            })
 
         return {
             "risk_label": label,

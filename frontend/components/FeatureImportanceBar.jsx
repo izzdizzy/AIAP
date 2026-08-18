@@ -1,54 +1,89 @@
+import React from 'react';
+import { READMISSION_FEATURE_LABELS } from '../features/readmission/utils/readmissionConfig';
+import { DIABETES_FEATURE_LABELS } from '../features/diabetes/utils/diabetesConfig';
+
+const CAD_FEATURE_LABELS = {
+  age: 'Age',
+  sex: 'Biological Sex',
+  cp: 'Chest Pain Type',
+  trestbps: 'Resting Blood Pressure',
+  chol: 'Serum Cholesterol',
+  fbs: 'Fasting Blood Sugar',
+  restecg: 'Resting ECG Findings',
+  thalach: 'Max Heart Rate',
+  exang: 'Exercise Induced Angina',
+  oldpeak: 'ST Depression (Oldpeak)',
+  slope: 'ST Slope',
+  ca: 'Major Vessels Count',
+  thal: 'Thalassemia'
+};
+
+const FEATURE_NAME_MAP = {
+  ...CAD_FEATURE_LABELS,
+  ...READMISSION_FEATURE_LABELS,
+  ...DIABETES_FEATURE_LABELS
+};
+
+function formatFeatureLabel(key) {
+  if (!key) return '';
+  if (FEATURE_NAME_MAP[key]) return FEATURE_NAME_MAP[key];
+  return String(key)
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
 /**
  * Reusable Feature Importance Horizontal Bar Component
  * Used across CAD, Readmission, and Diabetes result views to display SHAP risk factors visually.
  * Formats every factor value into exact standardized contribution text (e.g. "Higher contribution (+0.597)" or "Lower contribution (-0.27)")
  * aligned to the right edge of each factor bar.
  */
-
 export default function FeatureImportanceBar({ factors = [], maxItems = 6 }) {
   if (!factors || factors.length === 0) return null;
 
   const normalizedFactors = factors.slice(0, maxItems).map((item, idx) => {
-    let label = `Factor ${idx + 1}`;
+    let rawLabel = `Factor ${idx + 1}`;
     let val = 0.2;
-    let rawDisplay = '';
     let direction = 'positive';
 
     if (typeof item === 'object' && item !== null) {
-      label = item.label || item.feature || item.name || label;
-      val = item.impact ?? item.importance ?? item.shap_value ?? item.value ?? 0;
-      rawDisplay = item.displayValue ?? '';
-      direction = item.direction || (val < 0 ? 'negative' : 'positive');
+      rawLabel = item.label || item.feature || item.name || rawLabel;
+      // Prefer explicit signed impact/shap_value over absolute value
+      if (typeof item.impact === 'number') {
+        val = item.impact;
+      } else if (typeof item.shap_value === 'number') {
+        val = item.shap_value;
+      } else if (typeof item.value === 'number') {
+        val = item.value;
+      } else if (typeof item.importance === 'number') {
+        val = item.importance;
+      }
+
+      if (item.direction) {
+        direction = item.direction;
+      } else {
+        direction = val < 0 ? 'negative' : 'positive';
+      }
     } else if (typeof item === 'string') {
-      label = item;
+      rawLabel = item;
       val = 0.2;
     }
 
-    let displayValue = rawDisplay;
+    // Map raw variable key to human-readable label
+    const label = formatFeatureLabel(rawLabel);
 
-    // Standardize displayValue format if not already containing "contribution"
-    if (!displayValue || (!displayValue.includes('contribution') && typeof val === 'number')) {
-      const numStr = Math.abs(val) < 0.01 && val !== 0 ? val.toExponential(2) : Math.abs(val).toFixed(3);
-      if (val >= 0) {
-        displayValue = `Higher contribution (+${numStr})`;
-        direction = 'positive';
-      } else {
-        displayValue = `Lower contribution (-${numStr})`;
-        direction = 'negative';
-      }
-    } else if (displayValue && !displayValue.includes('contribution')) {
-      if (direction === 'negative' || val < 0) {
-        displayValue = `Lower contribution (${displayValue})`;
-      } else {
-        displayValue = `Higher contribution (${displayValue})`;
-      }
-    }
+    // Standardize displayValue format
+    const numStr = Math.abs(val) < 0.01 && val !== 0 ? Math.abs(val).toExponential(2) : Math.abs(val).toFixed(3);
+    const displayValue = val >= 0 || direction === 'positive'
+      ? `Higher contribution (+${numStr})`
+      : `Lower contribution (-${numStr})`;
 
     return {
       label,
       value: Math.abs(val),
       displayValue,
-      direction
+      direction: val >= 0 ? (direction || 'positive') : 'negative'
     };
   });
 

@@ -28,10 +28,10 @@ const DEFAULT_READMISSION_VALUES = {
   num_medications: 10
 };
 
-export default function PatientForm({ onSubmit, loading = false, onFileUpload, prediction = null, onResetPrediction }) {
+export default function PatientForm({ onSubmit, loading = false, onFileUpload, prediction = null, onResetPrediction, initialValues = null }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
-  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+  const [selectedSymptoms, setSelectedSymptoms] = useState(() => initialValues?.symptoms || []);
   const [uploadMessage, setUploadStatus] = useState(null);
 
   const {
@@ -43,7 +43,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
     validateFields,
     validateAll
   } = useFormValidation({
-    initialValues: DEFAULT_READMISSION_VALUES,
+    initialValues: initialValues || DEFAULT_READMISSION_VALUES,
     validateFieldValue: validateReadmissionField,
     fieldOrder: Object.keys(readmissionFields)
   });
