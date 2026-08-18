@@ -9,15 +9,15 @@ export default function AIHub({
   diabetesPrediction,
   readmissionPrediction,
   readmissionForm,
-  subsidyTier = 'CHAS Green',
-  onUpdateSubsidyTier,
+  subsidyTier,
   onNavigateToCAD,
   onNavigateToDiabetes,
   onNavigateToReadmission
 }) {
   const [activeTab, setActiveTab] = useState('cad_coach'); // 'cad_coach', 'diabetes_explainer', 'care_navigator'
 
-  const activeSubsidy = subsidyTier || readmissionForm?.chas_tier || 'CHAS Green';
+  // Subsidy tier is auto-populated from readmission form's CHAS tier; not user-editable
+  const activeSubsidy = readmissionForm?.chas_tier || 'Not provided';
 
   const defaultMessages = {
     cad_coach: [
@@ -330,28 +330,21 @@ export default function AIHub({
 
         <div style={{ fontSize: '0.78rem', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>Subsidy Tier:</span>
-          <select
-            value={activeSubsidy}
-            onChange={handleSubsidyChange}
+          <span
             style={{
-              padding: '4px 8px',
+              padding: '4px 10px',
               borderRadius: '6px',
-              background: 'var(--surface, #1e293b)',
-              color: 'var(--text, #f8fafc)',
-              border: '1px solid var(--border, #334155)',
+              background: 'var(--surface-muted, #334155)',
+              color: 'var(--text-muted, #94a3b8)',
+              border: '1px solid var(--border, #475569)',
               fontSize: '0.8rem',
               fontWeight: '600',
-              outline: 'none',
-              cursor: 'pointer'
+              cursor: 'not-allowed'
             }}
+            title="Auto-filled from patient form CHAS tier"
           >
-            <option value="CHAS Green">CHAS Green</option>
-            <option value="CHAS Orange">CHAS Orange</option>
-            <option value="CHAS Blue">CHAS Blue</option>
-            <option value="Pioneer Generation">Pioneer Generation</option>
-            <option value="Merdeka Generation">Merdeka Generation</option>
-            <option value="None">None / Non-subsidised</option>
-          </select>
+            {activeSubsidy || 'Not provided'}
+          </span>
 
           <button
             onClick={handleClearTabHistory}
