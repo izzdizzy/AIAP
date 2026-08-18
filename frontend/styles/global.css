@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme='light'] {
   color-scheme: light;
   --bg: #edf3ef;
   --bg-accent: #dce9e2;
@@ -10,8 +11,50 @@
   --accent: #1e6b52;
   --accent-strong: #164f3d;
   --danger: #9b312c;
-  --shadow: 0 16px 40px rgba(12, 32, 25, 0.08);
+  --shadow: 0 12px 32px rgba(12, 32, 25, 0.08);
+
+  /* Risk Semantics */
+  --risk-low-bg: #e5f3ec;
+  --risk-low-text: #1d6e52;
+  --risk-low-border: #a8e0c8;
+  
+  --risk-mod-bg: #fbf1dc;
+  --risk-mod-text: #a16207;
+  --risk-mod-border: #fef08a;
+
+  --risk-high-bg: #f8e6df;
+  --risk-high-text: #b91c1c;
+  --risk-high-border: #fca5a5;
+
   font-family: Inter, Segoe UI, Helvetica, Arial, sans-serif;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --bg-accent: #1e293b;
+  --surface: #1e293b;
+  --surface-muted: #334155;
+  --border: #475569;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #14b8a6;
+  --accent-strong: #0d9488;
+  --danger: #f87171;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+
+  /* Risk Semantics Dark Mode */
+  --risk-low-bg: rgba(20, 184, 166, 0.18);
+  --risk-low-text: #2dd4bf;
+  --risk-low-border: rgba(45, 212, 191, 0.4);
+
+  --risk-mod-bg: rgba(234, 179, 8, 0.18);
+  --risk-mod-text: #fde047;
+  --risk-mod-border: rgba(253, 224, 71, 0.4);
+
+  --risk-high-bg: rgba(239, 68, 68, 0.2);
+  --risk-high-text: #fca5a5;
+  --risk-high-border: rgba(252, 165, 165, 0.4);
 }
 
 * {
@@ -26,15 +69,15 @@ body,
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(30, 107, 82, 0.1), transparent 30%),
-    linear-gradient(180deg, var(--bg) 0%, #f7faf8 100%);
+  background-color: var(--bg);
   color: var(--text);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -186,8 +229,121 @@ button {
 }
 
 .primary-button--ghost {
-  background: white;
+  background: var(--surface);
   color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.primary-button--ghost:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+/* Common Risk Badges & Status Indicators */
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.risk-pill--low {
+  background: var(--risk-low-bg);
+  color: var(--risk-low-text);
+  border-color: var(--risk-low-border);
+}
+
+.risk-pill--moderate,
+.risk-pill--med {
+  background: var(--risk-mod-bg);
+  color: var(--risk-mod-text);
+  border-color: var(--risk-mod-border);
+}
+
+.risk-pill--high {
+  background: var(--risk-high-bg);
+  color: var(--risk-high-text);
+  border-color: var(--risk-high-border);
+}
+
+/* Alert Callouts */
+.alert-banner {
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.alert-banner--danger {
+  background: var(--risk-high-bg);
+  color: var(--risk-high-text);
+  border: 1px solid var(--risk-high-border);
+}
+
+.alert-banner--info {
+  background: var(--surface-muted);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* Feature Importance Bar Component */
+.feature-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.feature-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feature-bar-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.feature-bar-title {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.feature-bar-value {
+  font-weight: 600;
+}
+
+.feature-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-muted);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.feature-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.feature-bar-fill--positive {
+  background: var(--risk-high-text);
+}
+
+.feature-bar-fill--negative {
+  background: var(--risk-low-text);
 }
 
 .assessment-form {

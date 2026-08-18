@@ -1,39 +1,34 @@
 /* Global theme CSS variables for CAD module theming.
- * These variables are applied based on the data-theme attribute.
- * 
- * Light mode (default): Original CAD design colors
- * Dark mode: Inverted dark palette for consistency with readmission page
+ * Aliased directly to global root variables.
  */
 
-/* Light theme - Original CAD colors */
 [data-theme='light'],
 :root {
-  --cad-bg: #edf3ef;
-  --cad-bg-accent: #dce9e2;
-  --cad-surface: #ffffff;
-  --cad-surface-muted: #f5f8f6;
-  --cad-border: #c9d6ce;
-  --cad-text: #123026;
-  --cad-text-muted: #4e6760;
-  --cad-accent: #1e6b52;
-  --cad-accent-strong: #164f3d;
-  --cad-danger: #9b312c;
-  --cad-shadow: 0 16px 40px rgba(12, 32, 25, 0.08);
+  --cad-bg: var(--bg);
+  --cad-bg-accent: var(--bg-accent);
+  --cad-surface: var(--surface);
+  --cad-surface-muted: var(--surface-muted);
+  --cad-border: var(--border);
+  --cad-text: var(--text);
+  --cad-text-muted: var(--text-muted);
+  --cad-accent: var(--accent);
+  --cad-accent-strong: var(--accent-strong);
+  --cad-danger: var(--danger);
+  --cad-shadow: var(--shadow);
 }
 
-/* Dark theme - Inverted palette */
 [data-theme='dark'] {
-  --cad-bg: #0f172a;
-  --cad-bg-accent: #1e293b;
-  --cad-surface: #1e293b;
-  --cad-surface-muted: #334155;
-  --cad-border: #475569;
-  --cad-text: #f1f5f9;
-  --cad-text-muted: #94a3b8;
-  --cad-accent: #34d399;
-  --cad-accent-strong: #10b981;
-  --cad-danger: #f87171;
-  --cad-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  --cad-bg: var(--bg);
+  --cad-bg-accent: var(--bg-accent);
+  --cad-surface: var(--surface);
+  --cad-surface-muted: var(--surface-muted);
+  --cad-border: var(--border);
+  --cad-text: var(--text);
+  --cad-text-muted: var(--text-muted);
+  --cad-accent: var(--accent);
+  --cad-accent-strong: var(--accent-strong);
+  --cad-danger: var(--danger);
+  --cad-shadow: var(--shadow);
 }
 
 /* Apply theme variables to body and root elements */

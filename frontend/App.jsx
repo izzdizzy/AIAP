@@ -119,7 +119,7 @@ export default function App() {
     });
   }
 
-  // Render standalone pages (no AppShell wrapper)
+  // Render landing page standalone
   if (route === 'landing') {
     return (
       <LandingPage
@@ -130,19 +130,7 @@ export default function App() {
     );
   }
 
-  if (route === 'readmission') {
-    return (
-      <ReadmissionApp onBackToLanding={handleBackToLanding} />
-    );
-  }
-
-  if (route === 'diabetes') {
-    return (
-      <DiabetesPage onBackToLanding={handleBackToLanding} />
-    );
-  }
-
-  // CAD routes wrapped in AppShell
+  // All assessment routes wrapped in unified AppShell
   return (
     <AppShell
       currentRoute={route}
@@ -150,6 +138,14 @@ export default function App() {
       hasPrediction={hasPrediction}
       onBackToLanding={handleBackToLanding}
     >
+      {route === 'readmission' && (
+        <ReadmissionApp onBackToLanding={handleBackToLanding} />
+      )}
+
+      {route === 'diabetes' && (
+        <DiabetesPage onBackToLanding={handleBackToLanding} />
+      )}
+
       {route === 'assessment' && (
         <AssessmentPage
           onSubmitAssessment={handleSubmitAssessment}

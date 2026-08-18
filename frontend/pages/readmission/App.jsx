@@ -105,31 +105,12 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      <header className="bg-gray-800 text-gray-100 shadow-md border-b border-gray-700">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">Healthcare Risk Assessment</h1>
-          <p className="text-sm text-gray-400 mt-1">ML-Powered Clinical Decision Support</p>
+    <div className="page-stack">
+      <div>
+        <div className="alert-banner alert-banner--info" style={{ marginBottom: '16px' }}>
+          <span><strong>Medical Disclaimer:</strong> This tool is for educational and decision support purposes only. It does not provide medical diagnosis or treatment. Always consult qualified healthcare professionals.</span>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-6">
-          <p className="text-sm text-yellow-200">
-            <strong>Medical Disclaimer:</strong> This tool is for educational and demonstration purposes only.
-            It does not provide medical advice, diagnosis, or treatment. Always consult qualified healthcare professionals.
-          </p>
-
-        </div>
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => { window.location.hash = '/'; }}
-            className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600 transition"
-          >
-            Back to Home
-          </button>
-        </div>
         <div className="flex border-b border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('assessment')}
@@ -152,7 +133,7 @@ function App() {
         </div>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded mb-6">
+          <div className="alert-banner alert-banner--danger" role="alert">
             {error}
           </div>
         )}

@@ -19,6 +19,12 @@ const RiskDashboard = ({ prediction }) => {
     return 'bg-green-500';
   };
 
+  const getRiskPillClass = (score) => {
+    if (score >= 70) return 'risk-pill--high';
+    if (score >= 40) return 'risk-pill--moderate';
+    return 'risk-pill--low';
+  };
+
   const getUrgencyColor = (level) => {
     switch (level?.toLowerCase()) {
       case 'immediate intervention': return 'text-red-400 font-bold';
@@ -39,10 +45,10 @@ const RiskDashboard = ({ prediction }) => {
         <h3 className="text-lg font-semibold text-gray-100 mb-4">Clinical Severity Score</h3>
         <div className="relative pt-1">
           <div className="flex mb-2 items-center justify-between">
-            <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-gray-300 bg-gray-700">
-              Risk Level
+            <span className={`risk-pill ${getRiskPillClass(clinical_severity_score)}`}>
+              Risk Category: {risk_category || 'Standard'}
             </span>
-            <span className="text-xs font-semibold inline-block text-gray-300">
+            <span className="text-sm font-bold text-gray-300">
               {clinical_severity_score}%
             </span>
           </div>
