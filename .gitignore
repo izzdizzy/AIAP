@@ -1,6 +1,7 @@
 ```
 # Model outputs and artifacts
-backend/outputs/
+/backend/outputs
+/frontend/node_modules
 outputs/
 *.joblib
 ```
