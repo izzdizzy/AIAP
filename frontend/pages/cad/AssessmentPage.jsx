@@ -1,5 +1,4 @@
 import PrimaryButton from '../../components/PrimaryButton';
-import Disclaimer from '../../components/Disclaimer';
 import FormField from '../../components/FormField';
 import SectionCard from '../../components/SectionCard';
 import ProgressSidebar from '../../components/ProgressSidebar';
@@ -157,15 +156,21 @@ export default function AssessmentPage({
   }
 
   async function handleSubmit(event) {
-
-    console.log("=== handleSubmit called ===");
-    console.trace();
-
     event.preventDefault();
     if (!validateAll()) {
+      // If validation fails, jump to first step with error so inline validation error is highlighted
+      const errorKeys = Object.keys(errors).filter(k => errors[k]);
+      if (errorKeys.length > 0) {
+        for (const step of assessmentSteps) {
+          const fields = stepFieldMap[step.id] || [];
+          if (fields.some(f => errorKeys.includes(f))) {
+            setStepIndex(assessmentSteps.indexOf(step));
+            break;
+          }
+        }
+      }
       return;
     }
-    // console.log(values);
     await onSubmitAssessment(values);
   }
 
@@ -184,91 +189,45 @@ export default function AssessmentPage({
 
     return true;
   });
+
+  const sectionTitle = currentStep?.title.replace(/^\d+\.\s*/, '') || 'Personal Info';
+
   return (
     <div className="page-stack">
       <div className="assessment-layout">
         <div className="assessment-main">
-          <SectionCard title="Coronary Artery Disease Risk Check">
+          {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC) */}
+          <h2 style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            color: '#F8FAFC',
+            marginBottom: '12px',
+            letterSpacing: '-0.01em'
+          }}>
+            {sectionTitle}
+          </h2>
+
+          <SectionCard>
             <form className="assessment-form" onSubmit={handleSubmit} noValidate>
-              {currentStep?.id === 'review' ? (
-                <div className="assessment-review">
-                  {validationErrors.length ? (
-                    <div className="assessment-review__alert" role="alert">
-                      <strong>Please complete required fields before running the assessment.</strong>
-                      <ul>
-                        {Object.entries(errors)
-                          .filter(([, message]) => message)
-                          .map(([fieldName, message]) => (
-                            <li key={fieldName}>{message}</li>
-                          ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  <div className="assessment-review__section">
-                    <h3>Answered</h3>
-                    <div className="assessment-review__list">
-                      {answeredFields.length ? (
-                        answeredFields.map((fieldName) => {
-                          const field = getFieldDefinition(fieldName);
-                          return (
-                            <div key={fieldName} className="assessment-review__item">
-                              <strong>{field.label}</strong>
-                              <span>{formatFieldValue(field, values, fieldName)}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p>No answers yet.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="assessment-review__section">
-                    <h3>Still blank</h3>
-                    <div className="assessment-review__list assessment-review__grid">
-                      {blankFields.length ? (
-                        blankFields.map((fieldName) => {
-                          const field = getFieldDefinition(fieldName);
-                          return (
-                            <div key={fieldName} className="assessment-review__item assessment-review__item--muted">
-                              <strong>{field.label}</strong>
-                              <span>{field.required ? 'Required' : 'Optional'}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p>All fields are filled in.</p>
-                      )}
-                    </div>
-                  </div>
+              <div className="assessment-group">
+                <div className="assessment-grid">
+                  {visibleFields.map((field) => (
+                    <FormField
+                      key={field.name}
+                      field={field}
+                      value={values[field.name]}
+                      values={values}
+                      error={errors[field.name]}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  ))}
                 </div>
-              ) : (
-                <div className="assessment-group">
-                  <div className="assessment-group__heading">
-                    <h3>{currentStep?.title}</h3>
-                  </div>
+              </div>
 
-                  <div className="assessment-grid">
-
-                    {visibleFields.map((field) => (
-                      <FormField
-                        key={field.name}
-                        field={field}
-                        value={values[field.name]}
-                        values={values}
-                        error={errors[field.name]}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="form-actions">
+              <div className="form-actions" style={{ marginTop: '24px' }}>
                 {canGoPrevious ? (
-                  <PrimaryButton type="button" variant="ghost" onClick={goPrevious}>
+                  <PrimaryButton type="button" variant="secondary" onClick={goPrevious}>
                     Previous Step
                   </PrimaryButton>
                 ) : null}
@@ -276,6 +235,7 @@ export default function AssessmentPage({
                   <PrimaryButton
                     key="next-button"
                     type="button"
+                    variant="primary"
                     onClick={goNext}
                   >
                     Next Step
@@ -284,6 +244,7 @@ export default function AssessmentPage({
                   <PrimaryButton
                     key="submit-button"
                     type="submit"
+                    variant="primary"
                     disabled={loading}
                   >
                     {loading ? 'Checking...' : 'Run Assessment'}
@@ -291,7 +252,7 @@ export default function AssessmentPage({
                 )}
                 <PrimaryButton
                   type="button"
-                  variant="ghost"
+                  variant="utility"
                   onClick={() => {
                     const sample = {
                       age: 58,
@@ -327,8 +288,6 @@ export default function AssessmentPage({
           onSelectStep={(idx) => goToStep(idx - 1)}
         />
       </div>
-
-      <Disclaimer compact />
     </div>
   );
 }

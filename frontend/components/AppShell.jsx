@@ -1,4 +1,5 @@
 import ThemeToggle from '../theme/ThemeToggle';
+import Disclaimer from './Disclaimer';
 
 export default function AppShell({
   children,
@@ -105,7 +106,10 @@ export default function AppShell({
           </div>
         </div>
       </header>
-      <main className="app-main">{children}</main>
+      <main className="app-main">
+        <Disclaimer />
+        {children}
+      </main>
     </div>
   );
 }

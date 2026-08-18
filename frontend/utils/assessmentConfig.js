@@ -263,11 +263,6 @@ export const assessmentSteps = [
     id: 'clinicDetails',
     title: '4. Clinic Details',
     description: 'Optional report-only details.'
-  },
-  {
-    id: 'review',
-    title: '5. Review',
-    description: 'Check what you answered before submitting.'
   }
 ];
 

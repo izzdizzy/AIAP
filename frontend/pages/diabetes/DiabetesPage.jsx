@@ -4,7 +4,6 @@ import FormField from '../../components/FormField';
 import PrimaryButton from '../../components/PrimaryButton';
 import ProgressSidebar from '../../components/ProgressSidebar';
 import FeatureImportanceBar from '../../components/FeatureImportanceBar';
-import Disclaimer from '../../components/Disclaimer';
 import {
   diabetesSteps,
   diabetesFieldGroups,
@@ -44,7 +43,7 @@ const SAMPLE_HIGH_RISK = {
   Veggies: '0'
 };
 
-export default function DiabetesPage({ onBackToLanding }) {
+export default function DiabetesPage({ onBackToLanding, onOpenChat }) {
   const [stepIndex, setStepIndex] = useState(1);
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState(null);
@@ -84,8 +83,16 @@ export default function DiabetesPage({ onBackToLanding }) {
     setStepIndex(prev => Math.max(prev - 1, 1));
   }
 
+  // Explicit form submission handler (auto-assessment disabled on step navigation)
   async function handleSubmitForm(e) {
     e.preventDefault();
+
+    // Prevent execution if user is navigating on earlier form steps
+    if (stepIndex < diabetesSteps.length - 1) {
+      goNext();
+      return;
+    }
+
     if (!validateAll()) return;
 
     setLoading(true);
@@ -138,13 +145,55 @@ export default function DiabetesPage({ onBackToLanding }) {
     };
   });
 
+  const sectionTitle = !prediction
+    ? currentStep.title.replace(/^\d+\.\s*/, '')
+    : 'Diabetes Assessment Findings';
+
+  const riskProbPct = prediction?.risk_probability !== undefined
+    ? (prediction.risk_probability * 100).toFixed(1)
+    : '0.0';
+
+  const riskLabel = prediction?.risk_band || prediction?.risk_label || (prediction?.risk_probability > 0.5 ? 'High Risk' : 'Low Risk');
+  const severityScore = prediction?.risk_probability !== undefined
+    ? Math.round(prediction.risk_probability * 100)
+    : 0;
+
+  const pillClass = riskLabel.toLowerCase().includes('high')
+    ? 'risk-pill--high'
+    : riskLabel.toLowerCase().includes('mod')
+    ? 'risk-pill--moderate'
+    : 'risk-pill--low';
+
+  const formattedFactors = (prediction?.top_factors || []).map(f => {
+    if (typeof f === 'string') {
+      return { label: f, value: 0.5, displayValue: f, direction: 'positive' };
+    }
+    return {
+      label: f.feature || f.name,
+      value: Math.abs(f.importance || f.impact || 0.2),
+      displayValue: `${f.importance > 0 ? '+' : ''}${f.importance || ''}`,
+      direction: (f.importance || 0) < 0 ? 'negative' : 'positive'
+    };
+  });
+
   return (
     <div className="page-stack">
       <div className="assessment-layout">
         <div className="assessment-main">
-          <SectionCard title="Diabetes Risk Classifier">
+          {/* Extracted Form Section Title OUTSIDE and ABOVE Main Container (22px bold #F8FAFC) */}
+          <h2 style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            color: '#F8FAFC',
+            marginBottom: '12px',
+            letterSpacing: '-0.01em'
+          }}>
+            {sectionTitle}
+          </h2>
+
+          <SectionCard>
             {error && (
-              <div className="alert-banner alert-banner--danger" role="alert">
+              <div className="alert-banner alert-banner--danger" role="alert" style={{ marginBottom: '16px' }}>
                 {error}
               </div>
             )}
@@ -253,7 +302,7 @@ export default function DiabetesPage({ onBackToLanding }) {
                   {stepIndex > 1 && (
                     <PrimaryButton
                       type="button"
-                      variant="ghost"
+                      variant="secondary"
                       onClick={goPrevious}
                     >
                       Previous Step
@@ -263,6 +312,7 @@ export default function DiabetesPage({ onBackToLanding }) {
                   {stepIndex < diabetesSteps.length - 1 ? (
                     <PrimaryButton
                       type="button"
+                      variant="primary"
                       onClick={goNext}
                     >
                       Next Step
@@ -270,15 +320,16 @@ export default function DiabetesPage({ onBackToLanding }) {
                   ) : (
                     <PrimaryButton
                       type="submit"
+                      variant="primary"
                       disabled={loading}
                     >
-                      {loading ? 'Evaluating Diabetes Risk…' : 'Run Diabetes Assessment'}
+                      {loading ? 'Evaluating Diabetes Risk…' : 'Run Assessment'}
                     </PrimaryButton>
                   )}
 
                   <PrimaryButton
                     type="button"
-                    variant="ghost"
+                    variant="utility"
                     onClick={handleLoadSampleData}
                   >
                     Load Sample Data
@@ -286,57 +337,83 @@ export default function DiabetesPage({ onBackToLanding }) {
                 </div>
               </form>
             ) : (
-              <div style={{ display: 'grid', gap: '20px' }}>
+              /* Standardized Results Layout: Left Main Canvas & Right Action Panel */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                {/* Top Summary Bar: Probability, Risk Badge, Severity Score */}
                 <div style={{
-                  padding: '20px',
-                  borderRadius: '16px',
-                  background: 'var(--surface-muted)',
-                  border: '1px solid var(--border)'
+                  display: 'flex',
+                  justify: 'space-between',
+                  alignItems: 'center',
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  background: '#1E293B',
+                  border: '1px solid #334155',
+                  flexWrap: 'wrap',
+                  gap: '12px'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Diabetes Risk Result</h3>
-                    <span className={`risk-pill risk-pill--${(prediction.risk_band || prediction.risk_label || 'low').toLowerCase()}`}>
-                      {prediction.risk_band || prediction.risk_label || 'Risk Assessment Complete'}
+                  <div>
+                    <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Risk Probability</span>
+                    <strong style={{ fontSize: '1.6rem', color: '#38BDF8', fontWeight: 700 }}>{riskProbPct}%</strong>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Risk Badge</span>
+                    <span className={`risk-pill ${pillClass}`}>
+                      {riskLabel}
                     </span>
                   </div>
 
-                  {prediction.risk_probability !== undefined && (
-                    <div style={{ margin: '16px 0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Calculated Probability</span>
-                        <strong style={{ fontSize: '1.1rem', color: 'var(--accent)' }}>
-                          {(prediction.risk_probability * 100).toFixed(1)}%
-                        </strong>
-                      </div>
-                      <div style={{ height: '10px', borderRadius: '999px', background: 'var(--surface)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                        <div style={{
-                          width: `${Math.min(100, Math.max(0, prediction.risk_probability * 100))}%`,
-                          height: '100%',
-                          background: prediction.risk_probability > 0.5 ? 'var(--risk-high-text)' : 'var(--risk-low-text)',
-                          borderRadius: '999px',
-                          transition: 'width 0.4s ease'
-                        }} />
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <span style={{ fontSize: '0.82rem', color: '#94A3B8', display: 'block' }}>Severity Score</span>
+                    <strong style={{ fontSize: '1.3rem', color: '#F8FAFC', fontWeight: 700 }}>{severityScore}/100</strong>
+                  </div>
+                </div>
 
-                  {prediction.top_factors && prediction.top_factors.length > 0 && (
-                    <div style={{ marginTop: '16px' }}>
-                      <h4 style={{ margin: '0 0 8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Top Contributing Risk Factors</h4>
-                      <FeatureImportanceBar
-                        factors={prediction.top_factors.map(f => typeof f === 'string' ? { feature: f, importance: 1 } : f)}
-                      />
-                    </div>
+                {/* Body: Contributing Risk Factors / Feature Importance */}
+                <div style={{ padding: '16px 20px', borderRadius: '12px', background: '#1E293B', border: '1px solid #334155' }}>
+                  <h3 style={{ margin: '0 0 12px', fontSize: '1.05rem', color: '#F8FAFC', fontWeight: 600 }}>
+                    Contributing Risk Factors (SHAP Feature Importance)
+                  </h3>
+                  {formattedFactors.length > 0 ? (
+                    <FeatureImportanceBar factors={formattedFactors} />
+                  ) : (
+                    <p style={{ color: '#94A3B8' }}>No individual feature impact values available.</p>
                   )}
                 </div>
 
-                <PrimaryButton
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setPrediction(null)}
-                >
-                  ← Edit Patient Inputs
-                </PrimaryButton>
+                {/* Bottom Action Area: Prominent Ask AI Assistant + Standard Actions */}
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #334155'
+                }}>
+                  <PrimaryButton
+                    type="button"
+                    variant="ai"
+                    onClick={() => onOpenChat ? onOpenChat() : (window.location.hash = 'chat')}
+                  >
+                    Ask AI Assistant
+                  </PrimaryButton>
+
+                  <PrimaryButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setPrediction(null)}
+                  >
+                    ← Edit Inputs
+                  </PrimaryButton>
+
+                  <PrimaryButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onBackToLanding ? onBackToLanding() : (window.location.hash = '')}
+                  >
+                    Return to Module Overview
+                  </PrimaryButton>
+                </div>
               </div>
             )}
           </SectionCard>
@@ -353,8 +430,6 @@ export default function DiabetesPage({ onBackToLanding }) {
           />
         </div>
       </div>
-
-      <Disclaimer compact />
     </div>
   );
 }
