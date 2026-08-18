@@ -6,8 +6,8 @@ This module defines request/response models for the Hospital Readmission API.
 Separated from CAD schemas to avoid conflicts.
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+from typing import Dict, Any, Optional, List, Union
+from pydantic import BaseModel, Field, field_validator
 
 
 # =============================================================================
@@ -23,10 +23,39 @@ class PatientData(BaseModel):
     feature names from the dataset.
     """
     # Core clinical features (commonly provided)
-    prior_admissions: Optional[int] = Field(None, description="Number of prior hospital admissions")
-    comorbidity_count: Optional[int] = Field(None, description="Number of comorbidities")
-    age: Optional[int] = Field(None, description="Patient age in years")
-    medication_count: Optional[int] = Field(None, description="Total number of medications")
+    prior_admissions: Optional[Union[int, str]] = Field(None, description="Number of prior hospital admissions")
+    comorbidity_count: Optional[Union[int, str]] = Field(None, description="Number of comorbidities")
+    age: Optional[Union[int, str]] = Field(None, description="Patient age in years or bracket e.g. 50-60")
+    medication_count: Optional[Union[int, str]] = Field(None, description="Total number of medications")
+    num_medications: Optional[Union[int, str]] = Field(None, description="Alias for medication_count")
+
+    @field_validator("age", "prior_admissions", "comorbidity_count", "medication_count", "num_medications", mode="before")
+    @classmethod
+    def parse_numeric_or_range(cls, v: Any) -> Optional[int]:
+        if v is None or v == "":
+            return None
+        if isinstance(v, (int, float)):
+            return int(v)
+        if isinstance(v, str):
+            v_str = v.strip()
+            if "-" in v_str:
+                parts = v_str.split("-")
+                try:
+                    # Take average or midpoint of range like "50-60" -> 55
+                    nums = [int(p.strip()) for p in parts if p.strip().isdigit()]
+                    if nums:
+                        return int(sum(nums) / len(nums))
+                except Exception:
+                    pass
+            try:
+                return int(float(v_str))
+            except Exception:
+                return None
+        return None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.medication_count is None and self.num_medications is not None:
+            self.medication_count = self.num_medications
     
     # Administrative features
     admission_type_id: Optional[int] = None

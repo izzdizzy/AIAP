@@ -245,33 +245,28 @@ export const assessmentFieldGroups = [
 
 export const assessmentSteps = [
   {
-    id: 'intro',
-    title: 'Start',
-    description: 'Quick overview before the questions begin.'
-  },
-  {
     id: 'personalInformation',
-    title: 'Personal Information',
+    title: '1. Personal Info',
     description: 'Basic patient context used by the trained model.'
   },
   {
     id: 'symptoms',
-    title: 'Symptoms',
+    title: '2. Symptoms',
     description: 'Reported chest pain and exercise response.'
   },
   {
     id: 'measurements',
-    title: 'Measurements',
+    title: '3. Measurements',
     description: 'Vital signs and core lab measurements.'
   },
   {
     id: 'clinicDetails',
-    title: 'Clinic Details',
+    title: '4. Clinic Details',
     description: 'Optional report-only details.'
   },
   {
     id: 'review',
-    title: 'Review',
+    title: '5. Review',
     description: 'Check what you answered before submitting.'
   }
 ];

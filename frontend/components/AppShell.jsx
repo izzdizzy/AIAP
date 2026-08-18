@@ -40,6 +40,25 @@ export default function AppShell({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '999px',
+              background: 'var(--surface-muted)',
+              border: '1px solid var(--border)',
+              fontSize: '0.8rem',
+              color: 'var(--text-muted)'
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'var(--risk-low-text)'
+              }} />
+              <span>Service Online</span>
+            </div>
             <ThemeToggle />
             <button
               type="button"
@@ -84,38 +103,6 @@ export default function AppShell({
               Diabetes Classifier
             </button>
           </div>
-
-          {/* Sub-nav for CAD route if in CAD screening */}
-          {['assessment', 'results', 'chat'].includes(currentRoute) && (
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                type="button"
-                className={currentRoute === 'assessment' ? 'nav-link active' : 'nav-link'}
-                onClick={() => onNavigate('assessment')}
-                style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-              >
-                Form
-              </button>
-              <button
-                type="button"
-                className={currentRoute === 'results' ? 'nav-link active' : 'nav-link'}
-                onClick={() => onNavigate('results')}
-                disabled={!hasPrediction}
-                style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-              >
-                Results
-              </button>
-              <button
-                type="button"
-                className={currentRoute === 'chat' ? 'nav-link active' : 'nav-link'}
-                onClick={() => onNavigate('chat')}
-                disabled={!hasPrediction}
-                style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-              >
-                Chat Assistant
-              </button>
-            </div>
-          )}
         </div>
       </header>
       <main className="app-main">{children}</main>

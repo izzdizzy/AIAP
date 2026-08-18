@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import FormField from '../FormField';
-import FormStepper from '../FormStepper';
 import ProgressSidebar from '../ProgressSidebar';
 import FileUploadZone from '../FileUploadZone';
 import {
@@ -123,10 +122,23 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
     e.preventDefault();
     if (!validateAll()) return;
 
+    const ageNum = values.age ? parseInt(String(values.age).split('-')[0], 10) + 5 : 55;
+
     const payload = {
       ...values,
-      symptoms: selectedSymptoms,
-      age_numeric: values.age ? parseInt(values.age.split('-')[0], 10) + 5 : 55
+      age: ageNum,
+      age_numeric: ageNum,
+      prior_admissions: Number(values.prior_admissions) || 0,
+      time_in_hospital: Number(values.time_in_hospital) || 3,
+      number_inpatient: Number(values.number_inpatient) || 0,
+      number_emergency: Number(values.number_emergency) || 0,
+      number_outpatient: Number(values.number_outpatient) || 0,
+      comorbidity_count: Number(values.comorbidity_count) || 2,
+      number_diagnoses: Number(values.number_diagnoses) || 5,
+      num_lab_procedures: Number(values.num_lab_procedures) || 40,
+      medication_count: Number(values.num_medications) || 10,
+      num_medications: Number(values.num_medications) || 10,
+      symptoms: selectedSymptoms
     };
 
     onSubmit(payload);
@@ -156,14 +168,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
         <div className="section-card">
           <div className="section-card__header">
             <h2>Patient Readmission Assessment</h2>
-            <p>Input patient parameters or upload EHR file to evaluate 30-day readmission risk.</p>
           </div>
-
-          <FormStepper
-            steps={readmissionSteps}
-            currentStepIndex={stepIndex}
-            onSelectStep={setStepIndex}
-          />
 
           {uploadMessage && (
             <div className={`alert-banner alert-banner--${uploadMessage.type === 'error' ? 'danger' : 'info'}`}>
@@ -205,7 +210,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
                 </div>
 
                 <div style={{ marginTop: '20px' }}>
-                  <label className="form-field__label" style={{ marginBottom: '8px', display: 'block' }}>
+                  <label className="form-field__label" style={{ marginBottom: '10px', display: 'block', fontWeight: 600 }}>
                     Active Symptoms Selection
                   </label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -215,11 +220,24 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
                         <button
                           key={symptom}
                           type="button"
-                          className={`nav-link ${selected ? 'active' : ''}`}
-                          style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: '999px',
+                            border: selected ? '1px solid var(--accent, #14B8A6)' : '1px solid var(--border)',
+                            background: selected ? 'var(--risk-low-bg, rgba(20, 184, 166, 0.15))' : 'var(--surface)',
+                            color: selected ? 'var(--accent, #14B8A6)' : 'var(--text-muted)',
+                            fontSize: '0.82rem',
+                            fontWeight: selected ? '600' : '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
                           onClick={() => handleSymptomToggle(symptom)}
                         >
-                          {symptom} {selected ? '✓' : '+'}
+                          <span>{symptom}</span>
+                          <span style={{ fontWeight: 700 }}>{selected ? '✓' : '+'}</span>
                         </button>
                       );
                     })}
@@ -326,6 +344,29 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
                   {loading ? 'Evaluating Readmission Risk…' : 'Run Readmission Assessment'}
                 </button>
               )}
+
+              <button
+                type="button"
+                className="primary-button primary-button--ghost"
+                onClick={() => {
+                  setValues({
+                    age: '60-70',
+                    chas_tier: 'Pioneer',
+                    prior_admissions: 2,
+                    time_in_hospital: 5,
+                    number_inpatient: 2,
+                    number_emergency: 1,
+                    number_outpatient: 3,
+                    comorbidity_count: 4,
+                    number_diagnoses: 7,
+                    num_lab_procedures: 52,
+                    num_medications: 14
+                  });
+                  setSelectedSymptoms(['Fatigue', 'Shortness of Breath', 'Edema']);
+                }}
+              >
+                Load Sample Data
+              </button>
             </div>
           </form>
         </div>
@@ -337,6 +378,9 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
             answeredCount={answeredCount}
             totalCount={totalFields}
             groups={groupProgress}
+            steps={readmissionSteps}
+            currentStepIndex={stepIndex}
+            onSelectStep={setStepIndex}
           />
         ) : (
           <div>
