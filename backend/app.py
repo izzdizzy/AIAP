@@ -1,23 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Import teammate CAD routers
-from .routes.predict import router as predict_router
-from .services.chatbot import router as chatbot_router
-
-# Import diabetes module routers (conditionally based on feature flag)
 from .config import settings
-
-# Import the readmission router from the new location
-from .routers.readmission import router as readmission_router
-
-# Import the diabetes risk classifier router
-from .routers.diabetes import router as diabetes_router
+from .features.cad import router as cad_router
+from .features.readmission import router as readmission_router
+from .features.diabetes import router as diabetes_router
 
 app = FastAPI(
     title='Healthcare Risk Assessment API',
     version='0.2.0',
-    description='FastAPI application with CAD Risk Assessment and Diabetes Readmission Prediction modules.'
+    description='FastAPI application with CAD Risk Assessment, Hospital Readmission, and Diabetes Risk Classifier modules.'
 )
 
 app.add_middleware(
@@ -33,15 +25,11 @@ app.add_middleware(
 # MODULE ROUTER REGISTRATION
 # =============================================================================
 
-# Include teammate CAD routes (preserved functionality)
 if settings.ENABLE_CAD:
-    app.include_router(predict_router, prefix='/api', tags=['CAD Prediction'])
-    app.include_router(chatbot_router, prefix='/api', tags=['CAD Chat'])
+    app.include_router(cad_router, prefix='/api', tags=['CAD Risk Assessment & Chat'])
 
-# Include readmission routes via the new router at /readmission prefix
 if settings.ENABLE_DIABETES:
     app.include_router(readmission_router, prefix='/readmission', tags=['Hospital Readmission'])
-    # Include diabetes risk classifier routes at /diabetes prefix
     app.include_router(diabetes_router, prefix='/diabetes', tags=['Diabetes Risk Classifier'])
 
 

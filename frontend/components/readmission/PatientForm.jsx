@@ -11,6 +11,7 @@ import {
 } from '../../utils/readmissionConfig';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { uploadReadmissionPatientFile } from '../../services/readmission/api';
+import RiskDashboard from './RiskDashboard'
 
 const DEFAULT_READMISSION_VALUES = {
   age: '50-60',
