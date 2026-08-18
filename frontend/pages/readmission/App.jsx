@@ -146,52 +146,24 @@ function App() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            {activeTab === 'assessment' && (
-              <div className="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
-                <h2 className="text-xl font-semibold text-gray-100 mb-4">Patient Input</h2>
-                <PatientForm onSubmit={handleFormSubmit} loading={loading || uploading} />
-              </div>
-            )}
+        {activeTab === 'assessment' && (
+          <PatientForm
+            onSubmit={handleFormSubmit}
+            loading={loading || uploading}
+            prediction={patientData?.prediction}
+            onResetPrediction={() => setPatientData(prev => ({ ...prev, prediction: null }))}
+          />
+        )}
 
-            {activeTab === 'navigation' && patientData?.prediction && (
-              <div className="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
-                <h2 className="text-xl font-semibold text-gray-100 mb-4">Patient Summary</h2>
-                <div className="space-y-2 text-sm text-gray-300">
-                  <p><span className="font-medium">Severity Score:</span> {patientData.prediction?.clinical_severity_score ?? 'N/A'}/100</p>
-                  <p><span className="font-medium">Urgency:</span> {patientData.prediction?.urgency_level ?? 'N/A'}</p>
-                  <p><span className="font-medium">Risk Category:</span> {patientData.prediction?.risk_category ?? 'N/A'}</p>
-                  {patientData?.form && (
-                    <>
-                      <p><span className="font-medium">Age:</span> {patientData.form.age || patientData.form.age_numeric || 'N/A'}</p>
-                      <p><span className="font-medium">CHAS Tier:</span> {patientData.form.chas_tier || 'N/A'}</p>
-                      <p><span className="font-medium">Symptoms:</span> {Array.isArray(patientData.form.symptoms) ? patientData.form.symptoms.join(', ') : (Array.isArray(patientData.form.symptoms_list) ? patientData.form.symptoms_list.join(', ') : 'None')}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-2">
-            {activeTab === 'assessment' && patientData?.prediction && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-100 mb-4">Risk Analysis Results</h2>
-                <RiskDashboard prediction={patientData.prediction} />
-              </div>
-            )}
-
-            {activeTab === 'assessment' && !patientData?.prediction && (
-              <div className="bg-gray-800 p-12 rounded-lg shadow-lg border border-gray-700 text-center">
-                <p className="text-gray-400">Enter patient data to see risk assessment results.</p>
-              </div>
-            )}
-
-            {activeTab === 'navigation' && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-100 mb-4">AI Care Navigation</h2>
-                <div className="h-96 lg:h-[500px]">
+        {activeTab === 'navigation' && (
+          <div className="assessment-layout">
+            <div className="assessment-main">
+              <div className="section-card">
+                <h2>AI Care Navigation</h2>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
+                  Post-discharge care guidance and interactive clinical follow-up assistant.
+                </p>
+                <div style={{ height: '500px' }}>
                   <ChatInterface
                     patientData={patientData}
                     onSendMessage={handleSendMessage}
@@ -199,9 +171,27 @@ function App() {
                   />
                 </div>
               </div>
+            </div>
+
+            {patientData?.prediction && (
+              <div className="section-card" style={{ padding: '20px' }}>
+                <h3>Patient Case Summary</h3>
+                <div style={{ display: 'grid', gap: '8px', fontSize: '0.88rem', marginTop: '12px', color: 'var(--text)' }}>
+                  <p><strong>Severity Score:</strong> {patientData.prediction?.clinical_severity_score ?? 'N/A'}/100</p>
+                  <p><strong>Urgency Level:</strong> {patientData.prediction?.urgency_level ?? 'N/A'}</p>
+                  <p><strong>Risk Category:</strong> {patientData.prediction?.risk_category ?? 'N/A'}</p>
+                  {patientData?.form && (
+                    <>
+                      <p><strong>Age Group:</strong> {patientData.form.age || patientData.form.age_numeric || 'N/A'}</p>
+                      <p><strong>CHAS Tier:</strong> {patientData.form.chas_tier || 'N/A'}</p>
+                      <p><strong>Active Symptoms:</strong> {Array.isArray(patientData.form.symptoms) && patientData.form.symptoms.length > 0 ? patientData.form.symptoms.join(', ') : 'None logged'}</p>
+                    </>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

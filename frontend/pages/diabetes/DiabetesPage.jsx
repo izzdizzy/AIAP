@@ -1,10 +1,36 @@
 import { useState, useEffect } from 'react';
 import { checkHealth, predictRisk, explainRisk } from '../../services/diabetes/api';
-import { DIABETES_FIELD_OPTIONS, DIABETES_FACTOR_LABELS } from '../../utils/diabetesMappings';
+import FormField from '../../components/FormField';
+import FormStepper from '../../components/FormStepper';
+import ProgressSidebar from '../../components/ProgressSidebar';
+import FeatureImportanceBar from '../../components/FeatureImportanceBar';
+import {
+  diabetesSteps,
+  diabetesFieldGroups,
+  diabetesFields,
+  validateDiabetesField
+} from '../../utils/diabetesConfig';
+import { DIABETES_FACTOR_LABELS } from '../../utils/diabetesMappings';
+import { useFormValidation } from '../../hooks/useFormValidation';
 
 const DEFAULTS = {
   CholCheck: 1, Stroke: 0, HvyAlcoholConsump: 0, AnyHealthcare: 1,
   NoDocbcCost: 0, MentHlth: 2, PhysHlth: 3, Education: 4, Income: 5
+};
+
+const DEFAULT_DIABETES_PROFILE = {
+  GenHlth: 3,
+  BMI: 28,
+  Age: 9,
+  Sex: 1,
+  HighBP: 1,
+  HighChol: 1,
+  PhysActivity: 1,
+  DiffWalk: 0,
+  Smoker: 0,
+  HeartDiseaseorAttack: 0,
+  Fruits: 1,
+  Veggies: 1
 };
 
 export default function DiabetesPage({ onBackToLanding }) {
@@ -12,9 +38,23 @@ export default function DiabetesPage({ onBackToLanding }) {
   const [loading, setLoading] = useState(false);
   const [explaining, setExplaining] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [profile, setProfile] = useState({});
   const [prediction, setPrediction] = useState(null);
   const [explanation, setExplanation] = useState('');
+  const [stepIndex, setStepIndex] = useState(1);
+
+  const {
+    values,
+    setValues,
+    errors,
+    handleChange,
+    handleBlur,
+    validateFields,
+    validateAll
+  } = useFormValidation({
+    initialValues: DEFAULT_DIABETES_PROFILE,
+    validateFieldValue: validateDiabetesField,
+    fieldOrder: Object.keys(diabetesFields)
+  });
 
   useEffect(() => {
     checkHealth().then(result => {
@@ -22,16 +62,38 @@ export default function DiabetesPage({ onBackToLanding }) {
     });
   }, []);
 
-  function handleChange(field, value) {
-    setProfile(prev => ({ ...prev, [field]: Number(value) }));
-    if (errorMessage) setErrorMessage(null);
+  const currentStep = diabetesSteps[stepIndex] || diabetesSteps[1];
+
+  function getStepFieldNames(stepId) {
+    if (stepId === 'demographics') return ['GenHlth', 'BMI', 'Age', 'Sex'];
+    if (stepId === 'lifestyle') return ['HighBP', 'HighChol', 'PhysActivity', 'DiffWalk', 'Smoker', 'HeartDiseaseorAttack', 'Fruits', 'Veggies'];
+    return [];
   }
 
-  async function handleAssess() {
+  function goNext() {
+    const stepFields = getStepFieldNames(currentStep.id);
+    if (stepFields.length > 0 && !validateFields(stepFields)) {
+      return;
+    }
+    setStepIndex(prev => Math.min(prev + 1, diabetesSteps.length - 1));
+  }
+
+  function goPrevious() {
+    setStepIndex(prev => Math.max(prev - 1, 1));
+  }
+
+  async function handleAssess(e) {
+    if (e) e.preventDefault();
+    if (!validateAll()) return;
+
     setLoading(true);
     setErrorMessage(null);
     try {
-      const fullProfile = { ...DEFAULTS, ...profile };
+      const numericValues = {};
+      Object.keys(values).forEach(k => {
+        numericValues[k] = Number(values[k]);
+      });
+      const fullProfile = { ...DEFAULTS, ...numericValues };
       const result = await predictRisk(fullProfile);
       setPrediction(result);
     } catch (error) {
@@ -46,7 +108,11 @@ export default function DiabetesPage({ onBackToLanding }) {
     setExplaining(true);
     setErrorMessage(null);
     try {
-      const fullProfile = { ...DEFAULTS, ...profile };
+      const numericValues = {};
+      Object.keys(values).forEach(k => {
+        numericValues[k] = Number(values[k]);
+      });
+      const fullProfile = { ...DEFAULTS, ...numericValues };
       const result = await explainRisk(fullProfile);
       setExplanation(result.explanation);
     } catch (error) {
@@ -62,7 +128,7 @@ export default function DiabetesPage({ onBackToLanding }) {
       PhysActivity: 0, DiffWalk: 1, Smoker: 1, HeartDiseaseorAttack: 0,
       Fruits: 0, Veggies: 1
     };
-    setProfile(sample);
+    setValues(sample);
     setErrorMessage(null);
   }
 
@@ -82,9 +148,37 @@ export default function DiabetesPage({ onBackToLanding }) {
     );
   };
 
+  const totalFields = Object.keys(diabetesFields).length;
+  const answeredCount = Object.keys(diabetesFields).filter(
+    k => values[k] !== undefined && values[k] !== null && values[k] !== ''
+  ).length;
+
+  const groupProgress = diabetesFieldGroups.map(group => {
+    const groupAnswered = group.fields.filter(
+      k => values[k] !== undefined && values[k] !== null && values[k] !== ''
+    ).length;
+    const groupTotal = group.fields.length;
+    return {
+      ...group,
+      answeredCount: groupAnswered,
+      totalCount: groupTotal,
+      statusClass: groupAnswered === groupTotal ? 'progress-group--green' : 'progress-group--orange'
+    };
+  });
+
+  const formattedFactors = prediction?.top_factors ? prediction.top_factors.map(f => {
+    const [k, v] = f.split(' = ');
+    return {
+      label: DIABETES_FACTOR_LABELS[k] || k,
+      value: 0.7,
+      displayValue: v,
+      direction: 'positive'
+    };
+  }) : [];
+
   return (
     <div className="page-stack">
-      {/* Module Sub-Header / Intro */}
+      {/* Sub-Header / Intro */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <p className="eyebrow">Endocrine Health Module</p>
@@ -92,7 +186,7 @@ export default function DiabetesPage({ onBackToLanding }) {
             Diabetes Chronic Risk Classifier
           </h2>
           <p style={{ margin: 0, color: 'var(--text-muted)', maxWidth: '640px' }}>
-            Evaluate individual health profile factors to gauge diabetes likelihood, understand key contributing factors, and receive AI-backed health guidance.
+            Evaluate patient health parameters across demographic and clinical factors to gauge diabetes risk and receive AI guidance.
           </p>
         </div>
 
@@ -123,218 +217,149 @@ export default function DiabetesPage({ onBackToLanding }) {
         </div>
       )}
 
-      {/* Main Form & Results Grid */}
+      {/* Grid Layout */}
       <div className="assessment-layout" style={{ gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)', gap: '20px' }}>
-        {/* Form Inputs Card */}
+        {/* Form Card */}
         <div className="section-card">
           <div className="section-card__header">
             <h2>Patient Health Profile</h2>
-            <p>Input health parameters aligned with standard clinical records.</p>
+            <p>Complete multi-step parameters or load sample data for evaluation.</p>
           </div>
 
-          <div className="section-card__body" style={{ display: 'grid', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label className="form-field__label" htmlFor="GenHlth">General Health</label>
-                <select
-                  id="GenHlth"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.GenHlth || 3}
-                  onChange={(e) => handleChange('GenHlth', e.target.value)}
+          <FormStepper
+            steps={diabetesSteps}
+            currentStepIndex={stepIndex}
+            onSelectStep={setStepIndex}
+          />
+
+          <form onSubmit={handleAssess} noValidate className="assessment-form">
+            {currentStep.id === 'demographics' && (
+              <div className="assessment-group">
+                <div className="assessment-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <FormField
+                    field={diabetesFields.GenHlth}
+                    value={values.GenHlth}
+                    error={errors.GenHlth}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.BMI}
+                    value={values.BMI}
+                    error={errors.BMI}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.Age}
+                    value={values.Age}
+                    error={errors.Age}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.Sex}
+                    value={values.Sex}
+                    error={errors.Sex}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </div>
+              </div>
+            )}
+
+            {currentStep.id === 'lifestyle' && (
+              <div className="assessment-group">
+                <div className="assessment-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <FormField
+                    field={diabetesFields.HighBP}
+                    value={values.HighBP}
+                    error={errors.HighBP}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.HighChol}
+                    value={values.HighChol}
+                    error={errors.HighChol}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.PhysActivity}
+                    value={values.PhysActivity}
+                    error={errors.PhysActivity}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.DiffWalk}
+                    value={values.DiffWalk}
+                    error={errors.DiffWalk}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.Smoker}
+                    value={values.Smoker}
+                    error={errors.Smoker}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.HeartDiseaseorAttack}
+                    value={values.HeartDiseaseorAttack}
+                    error={errors.HeartDiseaseorAttack}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.Fruits}
+                    value={values.Fruits}
+                    error={errors.Fruits}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                  <FormField
+                    field={diabetesFields.Veggies}
+                    value={values.Veggies}
+                    error={errors.Veggies}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="form-actions" style={{ marginTop: '24px' }}>
+              {stepIndex > 1 && (
+                <button
+                  type="button"
+                  className="primary-button primary-button--ghost"
+                  onClick={goPrevious}
                 >
-                  {DIABETES_FIELD_OPTIONS.GenHlth.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
+                  Previous Step
+                </button>
+              )}
 
-              <div>
-                <label className="form-field__label" htmlFor="BMI">Body Mass Index (BMI)</label>
-                <input
-                  id="BMI"
-                  type="number"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.BMI || 28}
-                  min="10"
-                  max="100"
-                  step="0.1"
-                  onChange={(e) => handleChange('BMI', e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label className="form-field__label" htmlFor="Age">Age Group</label>
-                <select
-                  id="Age"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.Age || 9}
-                  onChange={(e) => handleChange('Age', e.target.value)}
+              {stepIndex < diabetesSteps.length - 1 ? (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={goNext}
                 >
-                  {DIABETES_FIELD_OPTIONS.Age.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-field__label" htmlFor="Sex">Biological Sex</label>
-                <select
-                  id="Sex"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.Sex !== undefined ? profile.Sex : 1}
-                  onChange={(e) => handleChange('Sex', e.target.value)}
+                  Next Step
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={loading}
                 >
-                  {DIABETES_FIELD_OPTIONS.Sex.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                  {loading ? 'Calculating Risk…' : 'Assess Diabetes Risk'}
+                </button>
+              )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label className="form-field__label" htmlFor="HighBP">High Blood Pressure</label>
-                <select
-                  id="HighBP"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.HighBP !== undefined ? profile.HighBP : 1}
-                  onChange={(e) => handleChange('HighBP', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNo.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-field__label" htmlFor="HighChol">High Cholesterol</label>
-                <select
-                  id="HighChol"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.HighChol !== undefined ? profile.HighChol : 1}
-                  onChange={(e) => handleChange('HighChol', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNo.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label className="form-field__label" htmlFor="PhysActivity">Physically Active</label>
-                <select
-                  id="PhysActivity"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.PhysActivity !== undefined ? profile.PhysActivity : 1}
-                  onChange={(e) => handleChange('PhysActivity', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNoInverted.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-field__label" htmlFor="DiffWalk">Difficulty Walking</label>
-                <select
-                  id="DiffWalk"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.DiffWalk !== undefined ? profile.DiffWalk : 1}
-                  onChange={(e) => handleChange('DiffWalk', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNo.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label className="form-field__label" htmlFor="Smoker">Smoker (100+ lifetime)</label>
-                <select
-                  id="Smoker"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.Smoker !== undefined ? profile.Smoker : 1}
-                  onChange={(e) => handleChange('Smoker', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNo.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-field__label" htmlFor="HeartDiseaseorAttack">Heart Disease / Attack</label>
-                <select
-                  id="HeartDiseaseorAttack"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.HeartDiseaseorAttack !== undefined ? profile.HeartDiseaseorAttack : 0}
-                  onChange={(e) => handleChange('HeartDiseaseorAttack', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNo.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label className="form-field__label" htmlFor="Fruits">Daily Fruit Consumption</label>
-                <select
-                  id="Fruits"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.Fruits !== undefined ? profile.Fruits : 0}
-                  onChange={(e) => handleChange('Fruits', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNoInverted.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-field__label" htmlFor="Veggies">Daily Veggie Consumption</label>
-                <select
-                  id="Veggies"
-                  className="nav-link"
-                  style={{ width: '100%', borderRadius: '10px', padding: '10px' }}
-                  value={profile.Veggies !== undefined ? profile.Veggies : 1}
-                  onChange={(e) => handleChange('Veggies', e.target.value)}
-                >
-                  {DIABETES_FIELD_OPTIONS.YesNoInverted.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-actions" style={{ marginTop: '12px' }}>
-              <button
-                type="button"
-                className="primary-button"
-                style={{ flex: 1 }}
-                onClick={handleAssess}
-                disabled={loading}
-              >
-                {loading ? 'Calculating Risk…' : 'Assess Risk'}
-              </button>
               <button
                 type="button"
                 className="primary-button primary-button--ghost"
@@ -343,102 +368,87 @@ export default function DiabetesPage({ onBackToLanding }) {
                 Load Sample Data
               </button>
             </div>
-          </div>
+          </form>
         </div>
 
-        {/* Results Card */}
-        <div className="result-card" style={{ padding: '24px' }}>
+        {/* Right Column: Progress Sidebar BEFORE assessment, Results Card AFTER assessment */}
+        <div style={{ position: 'sticky', top: '16px' }}>
           {!prediction ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 20px' }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 12px auto', opacity: 0.6 }}>
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text)' }}>No Assessment Executed</h3>
-              <p style={{ fontSize: '0.9rem', margin: 0 }}>
-                Adjust patient health profile parameters and click "Assess Risk" to generate diabetes prediction results.
-              </p>
-            </div>
+            <ProgressSidebar
+              answeredCount={answeredCount}
+              totalCount={totalFields}
+              groups={groupProgress}
+            />
           ) : (
-            <div style={{ display: 'grid', gap: '20px' }}>
-              <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '18px' }}>
-                <div style={{ fontSize: '2.8rem', fontWeight: 700, color: 'var(--text)' }}>
-                  {Math.round(prediction.risk_probability * 100)}%
+            <div className="result-card" style={{ padding: '24px' }}>
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '18px' }}>
+                  <div style={{ fontSize: '2.8rem', fontWeight: 700, color: 'var(--text)' }}>
+                    {Math.round(prediction.risk_probability * 100)}%
+                  </div>
+                  <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                    Predicted Diabetes Likelihood
+                  </div>
+                  {renderBandPill()}
                 </div>
-                <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  Predicted Diabetes Likelihood
-                </div>
-                {renderBandPill()}
-              </div>
 
-              {/* Top Factors Section */}
-              <div>
-                <h4 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: 'var(--text)' }}>
-                  Top Risk Drivers
-                </h4>
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {prediction.top_factors.map((factor, idx) => {
-                    const [key, val] = factor.split(' = ');
-                    const label = DIABETES_FACTOR_LABELS[key] || key;
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'flex',
-                          justify: 'space-between',
-                          padding: '8px 12px',
-                          background: 'var(--surface-muted)',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border)',
-                          fontSize: '0.88rem'
-                        }}
-                      >
-                        <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-                        <strong style={{ color: 'var(--text)' }}>{val}</strong>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* AI Explanation Section */}
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <h4 style={{ fontSize: '0.95rem', margin: 0, color: 'var(--text)' }}>
-                    Personalized AI Explanation
+                {/* Top Factors */}
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: 'var(--text)' }}>
+                    Top Risk Drivers
                   </h4>
-                  <span className="risk-pill risk-pill--low" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
-                    GenAI
-                  </span>
+                  <FeatureImportanceBar factors={formattedFactors} />
                 </div>
 
-                {explaining ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    <span className="typing-dot" style={{ background: 'var(--accent)' }} />
-                    Generating Clinical AI Explanation…
+                {/* AI Explanation */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h4 style={{ fontSize: '0.95rem', margin: 0, color: 'var(--text)' }}>
+                      Personalized AI Explanation
+                    </h4>
+                    <span className="risk-pill risk-pill--low" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                      GenAI
+                    </span>
                   </div>
-                ) : explanation ? (
-                  <div style={{
-                    fontSize: '0.88rem',
-                    color: 'var(--text)',
-                    background: 'var(--surface-muted)',
-                    padding: '14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border)',
-                    lineHeight: '1.5',
-                    whiteSpace: 'pre-wrap'
-                  }}>
-                    {explanation}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="primary-button primary-button--ghost"
-                    style={{ width: '100%' }}
-                    onClick={handleExplain}
-                  >
-                    Generate AI Explanation
-                  </button>
-                )}
+
+                  {explaining ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      <span className="typing-dot" style={{ background: 'var(--accent)' }} />
+                      Generating Clinical AI Explanation…
+                    </div>
+                  ) : explanation ? (
+                    <div style={{
+                      fontSize: '0.88rem',
+                      color: 'var(--text)',
+                      background: 'var(--surface-muted)',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border)',
+                      lineHeight: '1.5',
+                      whiteSpace: 'pre-wrap'
+                    }}>
+                      {explanation}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="primary-button primary-button--ghost"
+                      style={{ width: '100%' }}
+                      onClick={handleExplain}
+                    >
+                      Generate AI Explanation
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-button primary-button--ghost"
+                  onClick={() => setPrediction(null)}
+                  style={{ marginTop: '12px' }}
+                >
+                  ← Edit Form Parameters
+                </button>
               </div>
             </div>
           )}
@@ -452,7 +462,7 @@ export default function DiabetesPage({ onBackToLanding }) {
         padding: '12px 16px',
         borderRadius: '12px',
         border: '1px solid var(--border)',
-        marginTop: '12px'
+        marginTop: '16px'
       }}>
         <strong>Clinical Disclaimer:</strong> This risk assessment is a statistical screening decision-support tool. It does not replace formal clinical diagnosis. Please consult a licensed medical provider for diagnostic evaluation.
       </div>

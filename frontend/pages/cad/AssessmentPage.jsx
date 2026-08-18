@@ -1,23 +1,41 @@
-import PrimaryButton from '../components/PrimaryButton';
-import Disclaimer from '../components/Disclaimer';
-import FormField from '../components/FormField';
-import SectionCard from '../components/SectionCard';
+import PrimaryButton from '../../components/PrimaryButton';
+import Disclaimer from '../../components/Disclaimer';
+import FormField from '../../components/FormField';
+import SectionCard from '../../components/SectionCard';
+import FormStepper from '../../components/FormStepper';
+import ProgressSidebar from '../../components/ProgressSidebar';
 import {
   assessmentFieldGroups,
   assessmentSteps,
   fieldOrder,
   getFieldDefinition,
   stepFieldMap
-} from '../utils/assessmentConfig';
+} from '../../utils/assessmentConfig';
 import {
   getChestPainTriageAnswers,
   isFieldAnswered
-} from '../utils/payload';
-import { useAssessmentForm } from '../hooks/useAssessmentForm';
+} from '../../utils/payload';
+import { useAssessmentForm } from '../../hooks/useAssessmentForm';
 import { useMemo, useState } from 'react';
 
 function formatFieldValue(field, values, fieldName) {
   if (fieldName === 'cp') {
+
+    if (values.cpAssessment === 'none') {
+      return 'No chest pain';
+    }
+
+    if (values.cpAssessment === 'manual') {
+      const manual = getFieldDefinition('cpManual');
+
+      const option = manual.options.find(
+        (entry) => String(entry.value) === String(values.cpManual)
+      );
+
+      return option ? option.label : 'Not provided';
+    }
+
+    // Existing guided questionnaire logic continues below...
     const answers = getChestPainTriageAnswers(values);
     if (!Object.keys(answers).length) {
       return 'Not provided';
@@ -155,44 +173,28 @@ export default function AssessmentPage({
   const answeredFields = fieldOrder.filter((fieldName) => isFieldAnswered(fieldName, values));
   const blankFields = fieldOrder.filter((fieldName) => !isFieldAnswered(fieldName, values));
   const visibleFields = currentFields.filter((field) => {
-    switch (field.name) {
-      case 'cpManual':
-        return values.cpAssessment === 'manual';
-
-      case 'cp':
-        return values.cpAssessment === 'guided';
-
-      default:
-        return true;
+    // Hide manual selector unless Advanced mode is chosen
+    if (field.name === 'cpManual') {
+      return values.cpAssessment === 'manual';
     }
+
+    // Hide guided triage unless "Currently experiencing chest pain" is chosen
+    if (field.name === 'cp') {
+      return values.cpAssessment === 'guided';
+    }
+
+    return true;
   });
   return (
     <div className="page-stack">
       <div className="assessment-layout">
         <div className="assessment-main">
-          <SectionCard title="Heart health check" description="A few short steps. Only fill in what you know.">
-            <div className="stepper" aria-label="Assessment steps">
-              {assessmentSteps.filter((step) => step.id !== 'intro').map((step, index) => {
-                const actualIndex = index + 1;
-                const isActive = actualIndex === stepIndex;
-                const isDone = actualIndex < stepIndex;
-
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    className={isActive ? 'stepper-item stepper-item--active' : isDone ? 'stepper-item stepper-item--done' : 'stepper-item'}
-                    onClick={() => goToStep(actualIndex)}
-                    disabled={!isDone && !isActive}
-                  >
-                    <span className="stepper-item__index">{actualIndex}</span>
-                    <span className="stepper-item__text">
-                      <strong>{step.title}</strong>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <SectionCard title="Coronary Artery Disease Risk Check" description="Complete clinical fields to evaluate CAD likelihood.">
+            <FormStepper
+              steps={assessmentSteps}
+              currentStepIndex={stepIndex}
+              onSelectStep={goToStep}
+            />
 
             <form className="assessment-form" onSubmit={handleSubmit} noValidate>
               {currentStep?.id === 'intro' ? (
@@ -312,7 +314,11 @@ export default function AssessmentPage({
           </SectionCard>
         </div>
 
-        {renderStepSummary()}
+        <ProgressSidebar
+          answeredCount={getAnsweredCount()}
+          totalCount={fieldOrder.length}
+          groups={getGroupProgress()}
+        />
       </div>
 
       <Disclaimer compact />

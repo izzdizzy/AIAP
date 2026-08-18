@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import AppShell from './components/AppShell';
-import AssessmentPage from './pages/AssessmentPage';
+import AssessmentPage from './pages/cad/AssessmentPage.jsx';
 import LandingPage from './pages/LandingPage';
 import ResultsPage from './pages/ResultsPage';
 import ChatPage from './pages/ChatbotPage';
