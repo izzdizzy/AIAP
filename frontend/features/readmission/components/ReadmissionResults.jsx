@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import UnifiedResultsCard from '../../../components/UnifiedResultsCard';
 
 export default function ReadmissionResults({
@@ -8,6 +9,7 @@ export default function ReadmissionResults({
   onBackToLanding
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleEdit = onResetPrediction || (() => navigate('/readmission/assessment'));
   const handleOverview = onBackToLanding || (() => navigate('/'));
@@ -17,22 +19,15 @@ export default function ReadmissionResults({
     : '0.0%';
 
   const riskCat = prediction?.risk_category || 'Standard';
-  const pillClass = riskCat.toLowerCase().includes('high')
-    ? 'risk-pill--high'
-    : riskCat.toLowerCase().includes('mod')
-    ? 'risk-pill--moderate'
-    : 'risk-pill--low';
 
-  const severityScore = prediction?.clinical_severity_score ?? 0;
-
-  const formattedShap = (prediction?.shap_values || []).map(s => {
-    const val = s.shap_value !== undefined ? s.shap_value : s.importance;
+  const formattedShap = (prediction?.shap_values || prediction?.top_factors || []).map(s => {
+    const val = s.shap_value !== undefined ? s.shap_value : (s.impact !== undefined ? s.impact : s.importance);
     return {
+      feature: s.feature,
       label: s.feature,
-      value: Math.abs(val || 0),
       impact: val,
       shap_value: val,
-      direction: val < 0 ? 'negative' : 'positive'
+      value: Math.abs(val || 0)
     };
   });
 
@@ -42,14 +37,14 @@ export default function ReadmissionResults({
       probLabel="Readmission Probability"
       probValue={riskProbPct}
       riskBadgeLabel={`${riskCat} Risk`}
-      pillClass={pillClass}
-      severityScore={severityScore}
+      riskLevel={riskCat}
       factors={formattedShap}
       onOpenChat={() => navigate('/ai-insights')}
       onEditAssessment={handleEdit}
       onBackToOverview={handleOverview}
       isMissingPrediction={!prediction}
       emptyMessage="No readmission risk prediction found. Please complete the assessment form first."
+      user={user}
     />
   );
 }

@@ -37,10 +37,10 @@
 }
 
 [data-theme='dark'] .diabetes-scope {
-  --dia-bg: #101312;
-  --dia-surface: #161a19;
-  --dia-surface-elevated: #1c211f;
-  --dia-border: #262b29;
+  --dia-bg: #0b0f19;
+  --dia-surface: #151c2e;
+  --dia-surface-elevated: #1e293b;
+  --dia-border: #2e3a50;
   --dia-text: #f2f4f3;
   --dia-text-muted: #bbb3af;
   --dia-accent: #14b8a6;
