@@ -19,10 +19,10 @@ export default function ClinicMapLinkWidget({ data }) {
       marginBottom: '12px',
       padding: '16px',
       borderRadius: '12px',
-      background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4), rgba(15, 23, 42, 0.8))',
-      border: '1px solid #3b82f6',
-      color: 'var(--text, #f8fafc)',
-      boxShadow: '0 4px 14px rgba(59, 130, 246, 0.25)'
+      background: 'var(--surface-muted)',
+      border: '1px solid var(--border)',
+      color: 'var(--text)',
+      boxShadow: 'var(--shadow)'
     }}>
       <div style={{
         display: 'flex',
@@ -35,8 +35,8 @@ export default function ClinicMapLinkWidget({ data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '1.3rem' }}>📍</span>
           <div>
-            <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>Singapore Care Routing</div>
-            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Matched to Subsidy Tier: <strong>{subsidy_tier}</strong></div>
+            <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text)' }}>Singapore Care Routing</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Matched to Subsidy Tier: <strong style={{ color: 'var(--text)' }}>{subsidy_tier}</strong></div>
           </div>
         </div>
         <span style={{
