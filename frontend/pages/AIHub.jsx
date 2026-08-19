@@ -663,7 +663,7 @@ export default function AIHub({
         fontSize: '0.85rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: '700', color: 'var(--text-muted, #94a3b8)' }}>Clinical Data Status:</span>
+          <span style={{ fontWeight: '700', color: 'var(--text-muted, #94a3b8)' }}>Assessment Status:</span>
           
           <span style={{
             padding: '2px 8px',
@@ -674,7 +674,7 @@ export default function AIHub({
             fontSize: '0.78rem',
             fontWeight: '600'
           }}>
-            {isCadLoaded ? '✓ CAD Data Loaded' : '✗ CAD Pending'}
+            {isCadLoaded ? 'CAD Assessed' : 'CAD Unassessed'}
           </span>
 
           <span style={{
@@ -686,7 +686,7 @@ export default function AIHub({
             fontSize: '0.78rem',
             fontWeight: '600'
           }}>
-            {isDiabetesLoaded ? '✓ Diabetes Data Loaded' : '✗ Diabetes Pending'}
+            {isDiabetesLoaded ? 'Diabetes Assessed' : 'Diabetes Unassessed'}
           </span>
 
           <span style={{
@@ -698,7 +698,7 @@ export default function AIHub({
             fontSize: '0.78rem',
             fontWeight: '600'
           }}>
-            {isReadmissionLoaded ? '✓ Readmission Data Loaded' : '✗ Readmission Pending'}
+            {isReadmissionLoaded ? 'Readmission Assessed' : 'Readmission Unassessed'}
           </span>
         </div>
 
