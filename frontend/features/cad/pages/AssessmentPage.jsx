@@ -11,6 +11,8 @@ import {
 } from '../utils/assessmentConfig';
 import {
   getChestPainTriageAnswers,
+  isAnsweredValue,
+  isChestPainTriageComplete,
   isFieldAnswered
 } from '../utils/payload';
 import { useAssessmentForm } from '../hooks/useAssessmentForm';
@@ -108,12 +110,49 @@ export default function AssessmentPage({
 
   function getGroupProgress() {
     return assessmentFieldGroups.map((group) => {
-      const answeredCount = group.fields.filter((fieldName) => answeredSet.has(fieldName)).length;
+      if (group.id === 'symptoms') {
+        let totalCount = 2;
+        let answeredCount = 0;
+
+        if (isAnsweredValue(values.cpAssessment)) {
+          answeredCount += 1;
+        }
+
+        if (values.cpAssessment === 'guided') {
+          totalCount = 3;
+          if (isChestPainTriageComplete(values)) {
+            answeredCount += 1;
+          }
+        } else if (values.cpAssessment === 'manual') {
+          totalCount = 3;
+          if (isAnsweredValue(values.cpManual)) {
+            answeredCount += 1;
+          }
+        }
+
+        if (isAnsweredValue(values.exang)) {
+          answeredCount += 1;
+        }
+
+        let statusClass = 'progress-group--orange';
+        if (answeredCount === totalCount && totalCount > 0) {
+          statusClass = 'progress-group--green';
+        }
+
+        return {
+          ...group,
+          answeredCount,
+          totalCount,
+          statusClass
+        };
+      }
+
+      const answeredCount = group.fields.filter((fieldName) => isAnsweredValue(values[fieldName])).length;
       const totalCount = group.fields.length;
       const isOptional = group.id === 'ecg-clinical-findings';
 
       let statusClass = 'progress-group--orange';
-      if (answeredCount === totalCount) {
+      if (answeredCount === totalCount && totalCount > 0) {
         statusClass = 'progress-group--green';
       } else if (isOptional && answeredCount > 0) {
         statusClass = 'progress-group--lime';
@@ -128,15 +167,17 @@ export default function AssessmentPage({
     });
   }
 
-  function renderStepSummary() {
-    const groupProgress = getGroupProgress();
+  const groupProgress = getGroupProgress();
+  const totalAnswered = groupProgress.reduce((sum, g) => sum + g.answeredCount, 0);
+  const totalFields = groupProgress.reduce((sum, g) => sum + g.totalCount, 0);
 
+  function renderStepSummary() {
     return (
       <aside className="assessment-progress" aria-label="Assessment progress">
         <SectionCard title="Progress" description="Sections you have completed.">
           <div className="progress-metric">
-            <strong>{getAnsweredCount()}</strong>
-            <span>of {fieldOrder.length} answered</span>
+            <strong>{totalAnswered}</strong>
+            <span>of {totalFields} answered</span>
           </div>
           <div className="progress-list">
             {groupProgress.map((group) => (
@@ -281,9 +322,9 @@ export default function AssessmentPage({
         </div>
 
         <ProgressSidebar
-          answeredCount={getAnsweredCount()}
-          totalCount={fieldOrder.length}
-          groups={getGroupProgress()}
+          answeredCount={totalAnswered}
+          totalCount={totalFields}
+          groups={groupProgress}
           steps={assessmentSteps}
           currentStepIndex={stepIndex + 1}
           onSelectStep={(idx) => goToStep(idx - 1)}
