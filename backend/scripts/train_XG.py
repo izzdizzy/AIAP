@@ -253,25 +253,28 @@ def preprocess_diabetes_data(df: pd.DataFrame) -> pd.DataFrame:
     
     # -------------------------------------------------------------------------
     # Simulate External Module Risk Scores (for training purposes)
-    # In production, these are passed as 0-100 percentages from the other modules.
-    # We simulate them here with slight correlation to the target so the model 
-    # learns their predictive value.
     # -------------------------------------------------------------------------
     np.random.seed(42)
-    base_diabetes = np.random.uniform(20, 70, len(df_clean))
-    base_cad = np.random.uniform(20, 70, len(df_clean))
     
-    # Boost scores for readmitted patients
+    non_readmitted_mask = df_clean['readmitted_binary'] == 0
     readmitted_mask = df_clean['readmitted_binary'] == 1
-    base_diabetes[readmitted_mask] += np.random.uniform(15, 35, readmitted_mask.sum())
-    base_cad[readmitted_mask] += np.random.uniform(15, 35, readmitted_mask.sum())
     
+    base_diabetes = np.zeros(len(df_clean))
+    base_cad = np.zeros(len(df_clean))
+    
+    # Non-readmitted: Normal distribution centered at 50 with wide spread
+    base_diabetes[non_readmitted_mask] = np.random.normal(50, 20, non_readmitted_mask.sum())
+    base_cad[non_readmitted_mask] = np.random.normal(50, 20, non_readmitted_mask.sum())
+    
+    # Readmitted: Normal distribution centered at 65 with wide spread (significant overlap)
+    base_diabetes[readmitted_mask] = np.random.normal(65, 20, readmitted_mask.sum())
+    base_cad[readmitted_mask] = np.random.normal(65, 20, readmitted_mask.sum())
+
     df_clean['diabetes_risk_score'] = np.clip(base_diabetes, 0, 100)
     df_clean['cad_risk_score'] = np.clip(base_cad, 0, 100)
     
-    # Simulate real-world usage: scores are often absent.
-    # Mask ~60% of rows to NaN so XGBoost learns to ignore them when missing.
-    missing_mask = np.random.rand(len(df_clean)) < 0.6
+    # Simulate real-world usage: scores are sometimes absent (30% missing).
+    missing_mask = np.random.rand(len(df_clean)) < 0.3
     df_clean.loc[missing_mask, 'diabetes_risk_score'] = np.nan
     df_clean.loc[missing_mask, 'cad_risk_score'] = np.nan
     

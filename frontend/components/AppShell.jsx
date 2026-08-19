@@ -244,35 +244,6 @@ export default function AppShell({
             <span>CAD</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleReadmissionClick}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: isReadmissionActive ? 600 : 500,
-              background: isReadmissionActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-              color: isReadmissionActive ? 'var(--text, #ffffff)' : 'var(--text-muted, #94a3b8)',
-              border: isReadmissionActive ? '1px solid var(--accent, #38bdf8)' : '1px solid transparent',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: readmissionCompleted ? '#16a34a' : '#f59e0b'
-              }}
-              title={readmissionCompleted ? 'Complete' : 'Pending'}
-            />
-            <span>Readmission</span>
-          </button>
 
           <button
             type="button"
@@ -304,6 +275,36 @@ export default function AppShell({
             <span>Diabetes</span>
           </button>
           
+          <button
+            type="button"
+            onClick={handleReadmissionClick}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: isReadmissionActive ? 600 : 500,
+              background: isReadmissionActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: isReadmissionActive ? 'var(--text, #ffffff)' : 'var(--text-muted, #94a3b8)',
+              border: isReadmissionActive ? '1px solid var(--accent, #38bdf8)' : '1px solid transparent',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: readmissionCompleted ? '#16a34a' : '#f59e0b'
+              }}
+              title={readmissionCompleted ? 'Complete' : 'Pending'}
+            />
+            <span>Readmission</span>
+          </button>
+          
           <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 4px' }} />
 
           <button
@@ -333,8 +334,8 @@ export default function AppShell({
       <main className="app-main">
         <Disclaimer />
         {(currentPath.startsWith('/cad') ||
-          currentPath.startsWith('/readmission') ||
-          currentPath.startsWith('/diabetes')) && (
+          currentPath.startsWith('/diabetes') ||
+          currentPath.startsWith('/readmission')) && (
             <button
               type="button"
               onClick={() => navigate('/')}
