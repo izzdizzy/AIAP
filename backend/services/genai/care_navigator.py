@@ -6,7 +6,7 @@ Triage Care Guidance and Dynamic Google Maps Link Generator for Healthcare Navig
 from urllib.parse import quote_plus
 from typing import Dict, Any, Optional, List
 from .client import genai_client
-from .context_builder import UnifiedPatientContext, build_unified_context
+from .context_builder import UnifiedPatientContext, build_unified_context, format_conversation_history
 
 
 def build_google_maps_url(subsidy_tier: str, facility_type: str = "Polyclinic") -> str:
@@ -28,12 +28,14 @@ class CareNavigatorService:
     def generate_navigation_advice(
         self,
         context: UnifiedPatientContext,
-        user_query: Optional[str] = None
+        user_query: Optional[str] = None,
+        history: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generates care triage advice with dynamic CLINIC_MAP_LINK or TRIAGE_CHECKLIST widget.
         """
         query_str = user_query or "Where should I seek medical care given my current symptoms and subsidy tier?"
+        history_str = format_conversation_history(history)
 
         subsidy = context.demographics.subsidy_tier or "CHAS Green"
         urgency = context.ml_scores.readmission_risk_level or "Routine Monitoring"
@@ -48,9 +50,11 @@ Your role is to evaluate the patient's symptoms, clinical severity scores, and s
 to guide them to the right healthcare facility (CHAS GP, Polyclinic, A&E).
 
 GLOBAL SYSTEM PERSONA & RESPONSE TONE RULES:
-1. CONCISENESS: For simple or specific queries, provide direct, actionable answers strictly UNDER 150 WORDS using clean Markdown bullet points.
+1. CONCISENESS & BULLET POINTS: For simple or specific queries, provide direct, actionable answers strictly UNDER 150 WORDS using clean Markdown bullet points (`- ` or `* `).
 2. DIRECT SECOND-PERSON TONE: Always address the patient directly using "you" / "your". NEVER use third-person clinical jargon such as "the patient presents with..." or "the patient's score is...".
-3. MEDICAL DISCLAIMER: Avoid diagnostic statements. Focus strictly on decision support, patient education, and provider triage.
+3. NO REPETITIVE SYMPTOM EXPLANATION: Do NOT repeat or re-explain the patient's initial symptoms, clinical severity score, or triage background in follow-up messages unless the user specifically asks about them or they are directly required for the current query.
+4. FOLLOW-UP HANDLING: Refer to the conversation history to track context and answer follow-up questions naturally without repeating previous advice.
+5. MEDICAL DISCLAIMER: Avoid diagnostic statements. Focus strictly on decision support, patient education, and provider triage.
 
 SINGAPORE HEALTHCARE KNOWLEDGE BASE & LINKS:
 1. CHAS (Community Health Assist Scheme): Subsidies for chronic conditions at participating GP clinics. Check eligibility at [CHAS](https://www.chas.sg).
@@ -70,7 +74,8 @@ CRITICAL RULES:
 1. Provide clear, empathetic triage guidance based on the patient's clinical severity score ({context.ml_scores.readmission_severity_score or 'N/A'}/100) and symptoms ({', '.join(symptoms) if symptoms else 'None'}).
 2. The patient's subsidy tier is: {subsidy}. Reference this when suggesting care pathways.
 3. If urgency is "Immediate Intervention", advise emergency care or calling 995.
-4. Return ONLY a valid JSON object matching the required schema below:
+4. Use clean Markdown bullet points (`- ` or `* `) when listing steps or recommendations.
+5. Return ONLY a valid JSON object matching the required schema below:
 
 REQUIRED JSON SCHEMA:
 {{
@@ -104,6 +109,9 @@ WIDGET SPECIFICATIONS:
         prompt = f"""
 PATIENT CONTEXT:
 {context.to_prompt_summary()}
+
+CONVERSATION HISTORY SUMMARY:
+{history_str}
 
 PATIENT QUERY:
 {query_str}

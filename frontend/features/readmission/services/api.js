@@ -50,6 +50,7 @@ export async function sendReadmissionChatMessage(chatContext, userQuery) {
       body: JSON.stringify({
         ...chatContext,
         user_query: userQuery,
+        history: chatContext?.history || [],
       }),
     });
 

@@ -91,6 +91,7 @@ class ChatRequest(BaseModel):
     symptoms: Optional[List[str]] = Field(default_factory=list, description="Patient symptoms")
     chas_tier: Optional[str] = Field(None, description="CHAS tier")
     user_query: Optional[str] = Field("", description="User's query")
+    history: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Previous conversation history")
 
     class Config:
         json_schema_extra = {

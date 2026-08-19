@@ -40,7 +40,7 @@ export default function AIHub({
     diabetes_explainer: [
       {
         role: 'assistant',
-        content: "Welcome! I'm your **Diabetes & Lifestyle Coach (SHAP Explainer)**. I translate machine learning feature contributions into plain-language insights so you can target your risk factors effectively.",
+        content: "Welcome! I'm your **Diabetes Specialist & Results Explainer**. I translate machine learning feature contributions into plain-language insights so you can target your risk factors effectively.",
         widget: diabetesPrediction?.top_factors ? {
           type: 'SHAP_FACTOR_CARD',
           data: {
@@ -89,8 +89,8 @@ export default function AIHub({
   const tabConfig = {
     cad_coach: {
       id: 'cad_coach',
-      label: '🫀 CAD Specialist',
-      title: 'CAD Specialist & Lifestyle Coach',
+      label: '🫀 Lifestyle Coach',
+      title: 'Lifestyle Coach',
       color: '#3b82f6',
       quickChips: [
         'Suggest a low-sodium meal plan',
@@ -99,11 +99,11 @@ export default function AIHub({
     },
     diabetes_explainer: {
       id: 'diabetes_explainer',
-      label: '🥗 Diabetes & Lifestyle Coach',
-      title: 'Diabetes & Lifestyle Coach (SHAP Explainer)',
+      label: '🥗 Results Explainer',
+      title: 'Results Explainer',
       color: '#10b981',
       quickChips: [
-        'Explain my heart SHAP factors',
+        'Explain my heart Results factors',
         'Why is my score 75.8%?'
       ]
     },
@@ -206,7 +206,8 @@ export default function AIHub({
       const res = await sendGenAIQuery({
         userQuery: query,
         assistantType: activeTab,
-        rawInput
+        rawInput,
+        history: activeMessages
       });
 
       const assistantMsg = {
@@ -339,9 +340,9 @@ export default function AIHub({
               border: '1px solid var(--border, #475569)',
               fontSize: '0.8rem',
               fontWeight: '600',
-              cursor: 'not-allowed'
+              cursor: 'help'
             }}
-            title="Auto-filled from patient form CHAS tier"
+            title="CHAS tier is set from your Readmission assessment"
           >
             {activeSubsidy || 'Not provided'}
           </span>
@@ -415,7 +416,16 @@ export default function AIHub({
                   fontSize: '0.9rem',
                   lineHeight: 1.5
                 }}>
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      ul: ({ node, ...props }) => <ul style={{ margin: '8px 0', paddingLeft: '20px', listStyleType: 'disc' }} {...props} />,
+                      ol: ({ node, ...props }) => <ol style={{ margin: '8px 0', paddingLeft: '20px', listStyleType: 'decimal' }} {...props} />,
+                      li: ({ node, ...props }) => <li style={{ marginBottom: '4px' }} {...props} />,
+                      p: ({ node, ...props }) => <p style={{ margin: '6px 0', lineHeight: '1.5' }} {...props} />
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
                   
                   {/* Rich-Media Component Renderer */}
                   {isAssistant && msg.widget && (

@@ -12,6 +12,7 @@ class GenAIRequestPayload(BaseModel):
     assistant_type: Optional[str] = "cad_coach"  # "cad_coach", "diabetes_explainer", "care_navigator"
     context: Optional[UnifiedPatientContext] = None
     raw_input: Optional[Dict[str, Any]] = None
+    history: Optional[List[Dict[str, Any]]] = None
 
 
 class GenAIResponsePayload(BaseModel):

@@ -56,7 +56,11 @@ def chat(payload: ChatMessageRequest):
             "prediction": session.get("prediction")
         })
         service = get_cad_coach_service()
-        res = service.generate_advice(context=context, user_query=payload.message)
+        res = service.generate_advice(
+            context=context,
+            user_query=payload.message,
+            history=session.get("messages", [])[:-1]
+        )
         reply = res.get("message", "Unable to generate CAD advice.")
     except Exception as e:
         reply = f"I am unable to generate a response right now. Error: {str(e)}"

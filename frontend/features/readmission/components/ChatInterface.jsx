@@ -36,57 +36,83 @@ function renderMarkdown(markdown) {
       .replace(/'/g, '&#x27;');
 
     // Step 2: Convert colour emphasis {red: text}, {amber: text}, {green: text}
-    // Only these three colours are allowed - any other colour name renders as plain text
-    // This must run AFTER escaping but BEFORE other markdown conversions
     html = html.replace(/\{red:\s*([^}]+)\}/g, '<span class="chat-red">$1</span>');
     html = html.replace(/\{amber:\s*([^}]+)\}/g, '<span class="chat-amber">$1</span>');
     html = html.replace(/\{green:\s*([^}]+)\}/g, '<span class="chat-green">$1</span>');
 
     // Step 3: Convert markdown links [text](url) to HTML anchors
-    // Only allow http:// and https:// URLs for security
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
       const trimmedUrl = url.trim();
-      // Only allow http:// and https:// URLs
       if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
-        return `<a href="${trimmedUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+        return `<a href="${trimmedUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline">${text}</a>`;
       } else {
-        // Block javascript:, data:, and other potentially dangerous schemes
-        // Return just the link text (no parentheses)
         return text;
       }
     });
 
-    // Step 4: Convert **bold** to <strong>
+    // Step 4: Convert **bold** and *italic*
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-    // Step 5: Convert *italic* to <em>
     html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-    // Step 6: Convert ### headings to <h4>
-    html = html.replace(/^### (.+)$/gm, '<h4 class="text-lg font-semibold mt-4 mb-2">$1</h4>');
+    // Step 5: Convert ### headings to <h4>
+    html = html.replace(/^### (.+)$/gm, '<h4 class="text-base font-semibold mt-3 mb-1.5">$1</h4>');
 
-    // Step 7: Convert bullet lists "- " to <li>
-    html = html.replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>');
-
-    // Step 8: Convert numbered lists "1. " to <li>
-    html = html.replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>');
-
-    // Step 9: Convert blank lines to paragraph breaks
-    // Split by double newlines and wrap non-empty paragraphs
-    const paragraphs = html.split(/\n\n+/);
-    html = paragraphs.map(para => {
-      const trimmed = para.trim();
+    // Step 6: Convert blocks to proper HTML lists and paragraphs
+    const blocks = html.split(/\n\n+/);
+    const processedBlocks = blocks.map(block => {
+      const trimmed = block.trim();
       if (!trimmed) return '';
-      // Don't wrap if already wrapped in block elements
-      if (trimmed.startsWith('<h4') || trimmed.startsWith('<li') || trimmed.startsWith('<ul') || trimmed.startsWith('<ol')) {
-        return trimmed;
-      }
-      return `<p class="mb-2">${trimmed.replace(/\n/g, '<br/>')}</p>`;
-    }).join('');
 
-    return html;
+      const lines = trimmed.split('\n');
+
+      // Check if block consists of bullet list items (- or * or +)
+      const isBulletList = lines.every(line => /^\s*[-*+]\s+(.+)/.test(line));
+      if (isBulletList) {
+        const itemsHtml = lines
+          .map(line => line.replace(/^\s*[-*+]\s+(.+)/, '<li class="mb-1">$1</li>'))
+          .join('');
+        return `<ul class="list-disc pl-5 my-2 space-y-1">${itemsHtml}</ul>`;
+      }
+
+      // Check if block consists of numbered list items (1. 2. etc)
+      const isNumberedList = lines.every(line => /^\s*\d+\.\s+(.+)/.test(line));
+      if (isNumberedList) {
+        const itemsHtml = lines
+          .map(line => line.replace(/^\s*\d+\.\s+(.+)/, '<li class="mb-1">$1</li>'))
+          .join('');
+        return `<ol class="list-decimal pl-5 my-2 space-y-1">${itemsHtml}</ol>`;
+      }
+
+      // Handle mixed lines (text with embedded bullets)
+      if (lines.some(line => /^\s*[-*+]\s+/.test(line))) {
+        let inList = false;
+        let out = [];
+        lines.forEach(line => {
+          if (/^\s*[-*+]\s+(.+)/.test(line)) {
+            if (!inList) {
+              inList = true;
+              out.push('<ul class="list-disc pl-5 my-2 space-y-1">');
+            }
+            out.push(line.replace(/^\s*[-*+]\s+(.+)/, '<li class="mb-1">$1</li>'));
+          } else {
+            if (inList) {
+              inList = false;
+              out.push('</ul>');
+            }
+            out.push(line);
+          }
+        });
+        if (inList) out.push('</ul>');
+        return out.join('<br/>');
+      }
+
+      if (trimmed.startsWith('<h4')) return trimmed;
+
+      return `<p class="mb-2 leading-relaxed">${trimmed.replace(/\n/g, '<br/>')}</p>`;
+    });
+
+    return processedBlocks.join('');
   } catch (error) {
-    // Fallback: return escaped plain text if anything fails
     console.error('Markdown rendering failed:', error);
     try {
       return String(markdown)
@@ -169,7 +195,7 @@ const ChatInterface = ({ patientData, onSendMessage, loading, isLocked = false }
     setMessages(prev => [...prev, { role: 'typing', id: typingMessageId }]);
 
     try {
-      const response = await onSendMessage({}, input);
+      const response = await onSendMessage({ history: messages }, input);
       
       // Remove typing indicator and add actual AI response
       setMessages(prev => prev.filter(msg => msg.id !== typingMessageId));

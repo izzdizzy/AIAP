@@ -79,7 +79,11 @@ async def chat_readmission(request: ChatRequest):
             }
         })
         service = get_care_navigator_service()
-        genai_res = service.generate_navigation_advice(context=context, user_query=request.user_query)
+        genai_res = service.generate_navigation_advice(
+            context=context,
+            user_query=request.user_query,
+            history=request.history
+        )
 
         return ChatResponse(
             response=genai_res.get("message", ""),

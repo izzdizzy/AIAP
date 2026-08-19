@@ -87,6 +87,35 @@ def format_shap_impact(impact: float) -> str:
     return f"+{impact:.3f}" if impact >= 0 else f"{impact:.3f}"
 
 
+def format_conversation_history(history: Optional[List[Dict[str, Any]]]) -> str:
+    """
+    Formats previous chat messages into a concise summary log for the LLM prompt.
+    Includes past user questions and assistant responses while truncating lengthy messages.
+    """
+    if not history:
+        return "No prior conversation history (First message in session)."
+
+    formatted_lines = []
+    for msg in history:
+        role_raw = msg.get("role") or "user"
+        role = "User" if str(role_raw).lower() in ("user", "human") else "Assistant"
+        content = (msg.get("content") or msg.get("message") or "").strip()
+
+        if not content or content.startswith("Error:"):
+            continue
+
+        # Truncate assistant responses if they are long to keep context window clean
+        if role == "Assistant" and len(content) > 250:
+            content = content[:250] + "..."
+
+        formatted_lines.append(f"{role}: {content}")
+
+    if not formatted_lines:
+        return "No prior conversation history."
+
+    return "\n".join(formatted_lines[-10:])
+
+
 def build_unified_context(data: Dict[str, Any]) -> UnifiedPatientContext:
     """
     Constructs a UnifiedPatientContext from arbitrary dictionary inputs across

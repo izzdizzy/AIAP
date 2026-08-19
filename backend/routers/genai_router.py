@@ -34,13 +34,13 @@ async def genai_chat(payload: GenAIRequestPayload):
 
         if assistant == "diabetes_explainer":
             service = get_diabetes_explainer_service()
-            res = service.generate_explanation(context=context, user_query=payload.user_query)
+            res = service.generate_explanation(context=context, user_query=payload.user_query, history=payload.history)
         elif assistant == "care_navigator":
             service = get_care_navigator_service()
-            res = service.generate_navigation_advice(context=context, user_query=payload.user_query)
+            res = service.generate_navigation_advice(context=context, user_query=payload.user_query, history=payload.history)
         else:
             service = get_cad_coach_service()
-            res = service.generate_advice(context=context, user_query=payload.user_query)
+            res = service.generate_advice(context=context, user_query=payload.user_query, history=payload.history)
 
         return GenAIResponsePayload(
             message=res.get("message", ""),
@@ -55,7 +55,7 @@ async def cad_coach_endpoint(payload: GenAIRequestPayload):
     try:
         context = _extract_context(payload)
         service = get_cad_coach_service()
-        res = service.generate_advice(context=context, user_query=payload.user_query)
+        res = service.generate_advice(context=context, user_query=payload.user_query, history=payload.history)
         return GenAIResponsePayload(message=res.get("message", ""), widget=res.get("widget"))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"CAD Coach failed: {str(e)}")
@@ -66,7 +66,7 @@ async def diabetes_explainer_endpoint(payload: GenAIRequestPayload):
     try:
         context = _extract_context(payload)
         service = get_diabetes_explainer_service()
-        res = service.generate_explanation(context=context, user_query=payload.user_query)
+        res = service.generate_explanation(context=context, user_query=payload.user_query, history=payload.history)
         return GenAIResponsePayload(message=res.get("message", ""), widget=res.get("widget"))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Diabetes Explainer failed: {str(e)}")
@@ -77,7 +77,7 @@ async def care_navigator_endpoint(payload: GenAIRequestPayload):
     try:
         context = _extract_context(payload)
         service = get_care_navigator_service()
-        res = service.generate_navigation_advice(context=context, user_query=payload.user_query)
+        res = service.generate_navigation_advice(context=context, user_query=payload.user_query, history=payload.history)
         return GenAIResponsePayload(message=res.get("message", ""), widget=res.get("widget"))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Care Navigator failed: {str(e)}")

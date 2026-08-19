@@ -6,7 +6,7 @@ Maps raw SHAP output arrays into plain-language explanations with explicit numer
 
 from typing import Dict, Any, Optional, List
 from .client import genai_client
-from .context_builder import UnifiedPatientContext, build_unified_context, SHAPFactor
+from .context_builder import UnifiedPatientContext, build_unified_context, SHAPFactor, format_conversation_history
 
 
 class DiabetesExplainerService:
@@ -18,12 +18,14 @@ class DiabetesExplainerService:
     def generate_explanation(
         self,
         context: UnifiedPatientContext,
-        user_query: Optional[str] = None
+        user_query: Optional[str] = None,
+        history: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generates narrative explanation and SHAP_FACTOR_CARD widget payload.
         """
         query_str = user_query or "Explain my diabetes risk assessment result and top risk factors."
+        history_str = format_conversation_history(history)
 
         # Extract factors list for fallback and prompt
         factors_payload = []
@@ -69,19 +71,21 @@ You are the Diabetes & Lifestyle Coach (SHAP Explainer). Your task is to explain
 to patients in clear, encouraging, non-alarming language.
 
 GLOBAL SYSTEM PERSONA & RESPONSE TONE RULES:
-1. CONCISENESS: For simple or specific queries, provide direct, actionable answers strictly UNDER 150 WORDS using clean Markdown bullet points.
+1. CONCISENESS & BULLET POINTS: For simple or specific queries, provide direct, actionable answers strictly UNDER 150 WORDS using clean Markdown bullet points (`- ` or `* `).
 2. DIRECT SECOND-PERSON TONE: Always address the patient directly using "you" / "your". NEVER use third-person clinical jargon such as "the patient presents with..." or "the patient's risk score is...".
-3. MEDICAL DISCLAIMER: Avoid diagnostic statements. Focus strictly on decision support, patient education, and provider triage.
+3. NO REPETITIVE SYMPTOM EXPLANATION: Do NOT repeat or re-explain the patient's initial symptoms, risk scores, or SHAP factors in follow-up messages unless the user specifically asks about them or they are directly relevant to the query.
+4. FOLLOW-UP HANDLING: Refer to the conversation history to address follow-up questions accurately without re-introducing yourself.
+5. MEDICAL DISCLAIMER: Avoid diagnostic statements. Focus strictly on decision support, patient education, and provider triage.
 
 CRITICAL REQUIREMENTS:
-1. Explain how your specific feature values contributed to your overall risk band ({context.ml_scores.diabetes_risk_level or 'Assessed'}).
-2. Explicitly reference key feature impacts (e.g., +0.597, +0.207) in your plain-language explanation.
-3. Include practical next steps (such as consulting a GP or Polyclinic, and enrolling in Healthier SG).
+1. Explain how specific feature values contributed to overall risk band ({context.ml_scores.diabetes_risk_level or 'Assessed'}) when explaining the initial result.
+2. Explicitly reference key feature impacts (e.g., +0.597, +0.207) when discussing risk drivers.
+3. Use clean Markdown bullet points for key takeaways and next steps.
 4. Return ONLY a valid JSON object matching the required schema below:
 
 REQUIRED JSON SCHEMA:
 {{
-  "message": "<Plain language narrative explanation under 150 words referencing explicit numerical weights and using 'you/your' tone>",
+  "message": "<Plain language narrative explanation under 150 words referencing explicit numerical weights and using 'you/your' tone with bullet points>",
   "widget": {{
     "type": "SHAP_FACTOR_CARD",
     "data": {{
@@ -106,6 +110,9 @@ PATIENT CONTEXT:
 
 EXPLICIT SHAP FACTORS:
 {factors_payload}
+
+CONVERSATION HISTORY SUMMARY:
+{history_str}
 
 PATIENT QUERY:
 {query_str}
