@@ -29,17 +29,17 @@ export default function TriageChecklistWidget({ data, onUpdateWidgetData }) {
       marginBottom: '12px',
       padding: '16px',
       borderRadius: '12px',
-      background: 'var(--surface-muted, #0f172a)',
-      border: '1px solid var(--accent, #3b82f6)',
-      color: 'var(--text, #f8fafc)',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+      background: 'var(--surface-muted)',
+      border: '1px solid var(--border)',
+      color: 'var(--text)',
+      boxShadow: 'var(--shadow)'
     }}>
       <div style={{
         display: 'flex',
         justify: 'space-between',
         alignItems: 'center',
         marginBottom: '12px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        borderBottom: '1px solid var(--border)',
         paddingBottom: '8px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -71,7 +71,8 @@ export default function TriageChecklistWidget({ data, onUpdateWidgetData }) {
               gap: '10px',
               padding: '8px 10px',
               borderRadius: '6px',
-              background: item.completed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+              background: item.completed ? 'rgba(16, 185, 129, 0.12)' : 'var(--surface)',
+              border: '1px solid var(--border)',
               cursor: 'pointer',
               userSelect: 'none',
               transition: 'background 0.2s ease'
@@ -86,8 +87,8 @@ export default function TriageChecklistWidget({ data, onUpdateWidgetData }) {
             <span style={{
               fontSize: '0.85rem',
               textDecoration: item.completed ? 'line-through' : 'none',
-              opacity: item.completed ? 0.6 : 1,
-              color: item.completed ? '#a7f3d0' : 'inherit'
+              opacity: item.completed ? 0.65 : 1,
+              color: item.completed ? 'var(--text-muted)' : 'var(--text)'
             }}>
               {item.task}
             </span>

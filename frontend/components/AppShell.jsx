@@ -303,6 +303,8 @@ export default function AppShell({
             />
             <span>Diabetes</span>
           </button>
+          
+          <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 4px' }} />
 
           <button
             type="button"
@@ -326,8 +328,6 @@ export default function AppShell({
             <span>✨</span>
             <span>AI Insights Workspace</span>
           </button>
-
-          <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 4px' }} />
         </div>
       </header>
       <main className="app-main">

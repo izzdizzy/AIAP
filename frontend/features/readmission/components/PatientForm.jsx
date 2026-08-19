@@ -188,7 +188,7 @@ export default function PatientForm({ onSubmit, loading = false, onFileUpload, p
         <h2 style={{
           fontSize: '22px',
           fontWeight: 700,
-          color: '#F8FAFC',
+          color: 'var(--text)',
           marginTop: '16px',
           marginBottom: '16px',
           letterSpacing: '-0.01em'

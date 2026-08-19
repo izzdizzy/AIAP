@@ -24,10 +24,10 @@ export default function CopyableQuestionsWidget({ data }) {
       marginBottom: '12px',
       padding: '16px',
       borderRadius: '12px',
-      background: 'rgba(13, 148, 136, 0.1)',
-      border: '1px solid #0d9488',
-      color: 'var(--text, #f8fafc)',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)'
+      background: 'var(--surface-muted)',
+      border: '1px solid var(--border)',
+      color: 'var(--text)',
+      boxShadow: 'var(--shadow)'
     }}>
       <div style={{
         display: 'flex',
@@ -39,7 +39,7 @@ export default function CopyableQuestionsWidget({ data }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '1.2rem' }}>🩺</span>
-          <strong style={{ fontSize: '0.95rem', color: '#2dd4bf' }}>{title}</strong>
+          <strong style={{ fontSize: '0.95rem', color: 'var(--accent)' }}>{title}</strong>
         </div>
         <button
           onClick={handleCopy}
@@ -72,7 +72,7 @@ export default function CopyableQuestionsWidget({ data }) {
         lineHeight: 1.4
       }}>
         {questions.map((q, idx) => (
-          <li key={idx} style={{ color: '#e2e8f0' }}>{q}</li>
+          <li key={idx} style={{ color: 'var(--text)' }}>{q}</li>
         ))}
       </ul>
     </div>
