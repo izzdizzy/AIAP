@@ -35,56 +35,152 @@ export default function AIHub({
     trestbps: 'Resting Blood Pressure',
     thalach: 'Max Heart Rate',
     oldpeak: 'ST Depression (Oldpeak)',
-    cp: 'Chest Pain Type',
+    cp: 'Chest Pain Category',
     ca: 'Major Vessels Count',
     exang: 'Exercise-Induced Angina',
     age: 'Age',
     sex: 'Biological Sex',
     fbs: 'Fasting Blood Sugar',
-    restecg: 'Resting ECG',
-    slope: 'ST Slope',
-    thal: 'Thalassemia'
+    restecg: 'Resting ECG Findings',
+    slope: 'ST Segment Slope',
+    thal: 'Thalassemia Category'
+  };
+
+  const DIABETES_FACTOR_LABELS = {
+    GenHlth: 'General Health Rating',
+    HighBP: 'High Blood Pressure',
+    BMI: 'Body Mass Index (BMI)',
+    HighChol: 'High Cholesterol',
+    Age: 'Age Group',
+    DiffWalk: 'Difficulty Walking / Stairs',
+    PhysActivity: 'Physical Activity',
+    Smoker: 'Smoking History',
+    HeartDiseaseorAttack: 'Heart Condition / Attack',
+    Fruits: 'Daily Fruit Intake',
+    Veggies: 'Daily Veggie Intake'
+  };
+
+  const READMISSION_FEATURE_LABELS = {
+    number_inpatient: 'Inpatient Admissions (Past 1 Year)',
+    number_emergency: 'Emergency Visits (Past 1 Year)',
+    number_outpatient: 'Outpatient Visits (Past 1 Year)',
+    prior_admissions: 'Prior Hospital Admissions',
+    time_in_hospital: 'Hospital Stay Duration',
+    num_medications: 'Prescribed Medications Count',
+    medication_count: 'Prescribed Medications Count',
+    comorbidity_count: 'Comorbidity Count',
+    number_diagnoses: 'Number of Diagnoses',
+    num_lab_procedures: 'Lab Procedures Conducted',
+    discharge_disposition_id: 'Discharge Disposition',
+    chas_tier: 'CHAS Subsidy Tier'
   };
 
   const CP_LABELS = { 1: 'Typical Angina (1)', 2: 'Atypical Angina (2)', 3: 'Non-anginal Pain (3)', 4: 'Asymptomatic (4)' };
   const RESTECG_LABELS = { 0: 'Normal (0)', 1: 'ST-T Abnormality (1)', 2: 'LV Hypertrophy (2)' };
   const SLOPE_LABELS = { 1: 'Upsloping (1)', 2: 'Flat (2)', 3: 'Downsloping (3)' };
   const THAL_LABELS = { 3: 'Normal (3)', 6: 'Fixed Defect (6)', 7: 'Reversible Defect (7)' };
-  const GENHLTH_LABELS = { 1: 'Excellent (1)', 2: 'Very Good (2)', 3: 'Good (3)', 4: 'Fair (4)', 5: 'Poor (5)' };
+  const GENHLTH_LABELS = { 1: 'Excellent (1/5)', 2: 'Very Good (2/5)', 3: 'Good (3/5)', 4: 'Fair (4/5)', 5: 'Poor (5/5)' };
+  const AGE_LABELS = {
+    1: '18–24 y/o (Group 1)', 2: '25–29 y/o (Group 2)', 3: '30–34 y/o (Group 3)',
+    4: '35–39 y/o (Group 4)', 5: '40–44 y/o (Group 5)', 6: '45–49 y/o (Group 6)',
+    7: '50–54 y/o (Group 7)', 8: '55–59 y/o (Group 8)', 9: '60–64 y/o (Group 9)',
+    10: '65–69 y/o (Group 10)', 11: '70–74 y/o (Group 11)', 12: '75–79 y/o (Group 12)', 13: '80+ y/o (Group 13)'
+  };
 
   function getCadFactorValue(rawKey, item) {
     if (item.value != null && String(item.value).toLowerCase() !== 'observed') {
       return String(item.value);
     }
-    const val = cadForm[rawKey];
-    if (val == null) return null;
-    if (rawKey === 'cp') return CP_LABELS[val] || `Type ${val}`;
-    if (rawKey === 'chol') return `${val} mg/dL`;
-    if (rawKey === 'trestbps') return `${val} mmHg`;
-    if (rawKey === 'thalach') return `${val} bpm`;
-    if (rawKey === 'fbs') return Number(val) === 1 ? 'Elevated (>120 mg/dL)' : 'Normal (<=120 mg/dL)';
-    if (rawKey === 'exang') return Number(val) === 1 ? 'Yes' : 'No';
-    if (rawKey === 'restecg') return RESTECG_LABELS[val] || String(val);
-    if (rawKey === 'slope') return SLOPE_LABELS[val] || String(val);
-    if (rawKey === 'thal') return THAL_LABELS[val] || String(val);
-    if (rawKey === 'sex') return Number(val) === 1 ? 'Male' : 'Female';
-    if (rawKey === 'ca') return `${val} vessels`;
-    return String(val);
+    const keyLower = String(rawKey).toLowerCase();
+
+    // Extract embedded value in parenthetical e.g. "Chest Pain (Asymptomatic)" or "Resting ECG (Normal)"
+    const parenMatch = String(rawKey).match(/\(([^)]+)\)/);
+    if (parenMatch && !['cad', 'diabetes', 'readmission'].includes(parenMatch[1].toLowerCase())) {
+      return parenMatch[1];
+    }
+
+    if (keyLower.includes('chest pain') || keyLower === 'cp') {
+      const v = cadForm.cp;
+      return v != null ? (CP_LABELS[v] || `Type ${v}`) : null;
+    }
+    if (keyLower.includes('vessel') || keyLower === 'ca') {
+      const v = cadForm.ca;
+      return v != null ? `${v} vessel(s)` : null;
+    }
+    if (keyLower.includes('angina') || keyLower === 'exang') {
+      const v = cadForm.exang;
+      return v != null ? (Number(v) === 1 ? 'Yes' : 'No') : null;
+    }
+    if (keyLower.includes('cholesterol') || keyLower === 'chol') {
+      const v = cadForm.chol;
+      return v != null ? `${v} mg/dL` : null;
+    }
+    if (keyLower.includes('blood pressure') || keyLower === 'trestbps') {
+      const v = cadForm.trestbps;
+      return v != null ? `${v} mmHg` : null;
+    }
+    if (keyLower.includes('heart rate') || keyLower === 'thalach') {
+      const v = cadForm.thalach;
+      return v != null ? `${v} bpm` : null;
+    }
+    if (keyLower.includes('depression') || keyLower === 'oldpeak') {
+      const v = cadForm.oldpeak;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('fasting') || keyLower === 'fbs') {
+      const v = cadForm.fbs;
+      return v != null ? (Number(v) === 1 ? 'Elevated (>120 mg/dL)' : 'Normal (<=120 mg/dL)') : null;
+    }
+    if (keyLower.includes('ecg') || keyLower === 'restecg') {
+      const v = cadForm.restecg;
+      return v != null ? (RESTECG_LABELS[v] || String(v)) : null;
+    }
+    if (keyLower.includes('slope')) {
+      const v = cadForm.slope;
+      return v != null ? (SLOPE_LABELS[v] || String(v)) : null;
+    }
+    if (keyLower.includes('thal')) {
+      const v = cadForm.thal;
+      return v != null ? (THAL_LABELS[v] || String(v)) : null;
+    }
+    if (keyLower.includes('age')) {
+      const v = cadForm.age;
+      return v != null ? `${v} years old` : null;
+    }
+    if (keyLower.includes('sex')) {
+      const v = cadForm.sex;
+      return v != null ? (Number(v) === 1 ? 'Male' : 'Female') : null;
+    }
+    return null;
   }
 
   function getDiabetesFactorValue(rawKey, item) {
     if (item.value != null && String(item.value).toLowerCase() !== 'observed') {
       return String(item.value);
     }
-    const val = diabetesForm?.[rawKey];
-    if (val == null) return null;
-    if (rawKey === 'GenHlth') return GENHLTH_LABELS[val] || String(val);
-    if (rawKey === 'BMI') return `${val}`;
-    if (rawKey === 'Age') return `Age Group ${val}`;
-    if (['HighBP', 'HighChol', 'PhysActivity', 'DiffWalk', 'Smoker', 'HeartDiseaseorAttack', 'Fruits', 'Veggies'].includes(rawKey)) {
-      return Number(val) === 1 || val === '1' ? 'Yes' : 'No';
+    const keyLower = String(rawKey).toLowerCase();
+
+    if (keyLower.includes('genhlth') || keyLower.includes('general health')) {
+      const v = diabetesForm?.GenHlth;
+      return v != null ? (GENHLTH_LABELS[v] || String(v)) : null;
     }
-    return String(val);
+    if (keyLower.includes('bmi')) {
+      const v = diabetesForm?.BMI;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('age')) {
+      const v = diabetesForm?.Age;
+      return v != null ? (AGE_LABELS[v] || `Group ${v}`) : null;
+    }
+
+    const formVal = diabetesForm?.[rawKey];
+    if (formVal != null) {
+      if (['HighBP', 'HighChol', 'PhysActivity', 'DiffWalk', 'Smoker', 'HeartDiseaseorAttack', 'Fruits', 'Veggies'].includes(rawKey)) {
+        return Number(formVal) === 1 || formVal === '1' ? 'Yes' : 'No';
+      }
+      return String(formVal);
+    }
+    return null;
   }
 
   function getReadmissionFactorValue(rawKey, item) {
@@ -92,45 +188,87 @@ export default function AIHub({
     if (rawVal != null && String(rawVal).toLowerCase() !== 'observed') {
       return String(rawVal);
     }
-    const formVal = readmissionForm?.[rawKey];
-    if (formVal == null) return null;
-    if (Array.isArray(formVal)) return formVal.join(', ');
-    return String(formVal);
+    const keyLower = String(rawKey).toLowerCase();
+
+    if (keyLower.includes('inpatient') || keyLower.includes('prior_admissions')) {
+      const v = readmissionForm?.number_inpatient ?? readmissionForm?.prior_admissions;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('emergency')) {
+      const v = readmissionForm?.number_emergency;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('outpatient')) {
+      const v = readmissionForm?.number_outpatient;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('medication')) {
+      const v = readmissionForm?.num_medications ?? readmissionForm?.medication_count;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('stay') || keyLower.includes('hospital')) {
+      const v = readmissionForm?.time_in_hospital;
+      return v != null ? `${v} day(s)` : null;
+    }
+    if (keyLower.includes('comorb')) {
+      const v = readmissionForm?.comorbidity_count;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('lab')) {
+      const v = readmissionForm?.num_lab_procedures;
+      return v != null ? `${v}` : null;
+    }
+    if (keyLower.includes('diagnos')) {
+      const v = readmissionForm?.number_diagnoses ?? readmissionForm?.diabetes_diag_count;
+      return v != null ? `${v}` : null;
+    }
+
+    const formVal = readmissionForm?.[rawKey] ?? readmissionForm?.raw_fields?.[rawKey];
+    if (formVal != null) {
+      if (Array.isArray(formVal)) return formVal.join(', ');
+      return String(formVal);
+    }
+    return null;
   }
 
   function normalizeCadFactors(factors = []) {
     return factors.map((item, idx) => {
       const rawKey = item.feature || item.name || item.key || `Factor ${idx + 1}`;
-      const name = CAD_LABELS[rawKey] ? `${CAD_LABELS[rawKey]} (CAD)` : (rawKey.includes('(CAD)') ? rawKey : `${rawKey} (CAD)`);
-      let impact = item.impact ?? item.shap_value ?? item.importance ?? 0;
-      if (typeof impact === 'number') {
-        impact = impact >= 0 ? `+${impact.toFixed(3)}` : impact.toFixed(3);
-      }
+      const humanLabel = CAD_LABELS[rawKey] || rawKey;
+      const name = humanLabel.includes('(CAD)') ? humanLabel : `${humanLabel} (CAD)`;
+      const numImpact = typeof item.impact === 'number' ? item.impact : (typeof item.shap_value === 'number' ? item.shap_value : (parseFloat(String(item.impact).replace('+', '')) || 0));
+      const impactStr = numImpact >= 0 ? `+${numImpact.toFixed(3)}` : numImpact.toFixed(3);
       const valStr = getCadFactorValue(rawKey, item);
       return {
+        module: 'cad',
+        rawKey,
         name,
         value: valStr,
-        impact: String(impact),
-        type: item.direction === 'negative' || (typeof item.impact === 'number' && item.impact < 0) ? 'protective_factor' : 'risk_driver'
+        impact: impactStr,
+        rawImpact: numImpact,
+        type: item.direction === 'negative' || numImpact < 0 ? 'protective_factor' : 'risk_driver'
       };
     });
   }
 
   function normalizeReadmissionFactors(factors = []) {
     return factors.map((item, idx) => {
-      const label = item.feature_name || item.name || item.feature || `Factor ${idx + 1}`;
-      const rawKey = item.feature || item.feature_name || label;
-      const name = label.includes('(Readmission)') ? label : `${label} (Readmission)`;
-      const rawImpact = item.shap_value ?? item.impact ?? item.importance ?? 0;
-      const impactStr = typeof rawImpact === 'number'
-        ? (rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3))
+      const rawKey = item.feature || item.feature_name || item.name || `Factor ${idx + 1}`;
+      const humanLabel = READMISSION_FEATURE_LABELS[rawKey] || rawKey;
+      const name = humanLabel.includes('(Readmission)') ? humanLabel : `${humanLabel} (Readmission)`;
+      const numImpact = typeof item.shap_value === 'number' ? item.shap_value : (typeof item.impact === 'number' ? item.impact : (parseFloat(String(item.impact).replace('+', '')) || 0));
+      const impactStr = typeof numImpact === 'number'
+        ? (numImpact >= 0 ? `+${numImpact.toFixed(3)}` : numImpact.toFixed(3))
         : String(rawImpact);
       const valStr = getReadmissionFactorValue(rawKey, item);
       return {
+        module: 'readmission',
+        rawKey,
         name,
         value: valStr,
         impact: impactStr,
-        type: (typeof rawImpact === 'number' && rawImpact < 0) ? 'protective_factor' : 'risk_driver'
+        rawImpact: numImpact,
+        type: numImpact < 0 ? 'protective_factor' : 'risk_driver'
       };
     });
   }
@@ -138,21 +276,24 @@ export default function AIHub({
   function normalizeDiabetesFactors(factors = []) {
     return factors.map((item, idx) => {
       if (typeof item === 'string') {
+        const humanLabel = DIABETES_FACTOR_LABELS[item] || item;
         const valStr = getDiabetesFactorValue(item, {});
-        return { name: `${item} (Diabetes)`, value: valStr, impact: '+0.200', type: 'risk_driver' };
+        return { module: 'diabetes', rawKey: item, name: `${humanLabel} (Diabetes)`, value: valStr, impact: '+0.200', rawImpact: 0.200, type: 'risk_driver' };
       }
       const rawKey = item.name || item.feature || `Factor ${idx + 1}`;
-      const name = rawKey.includes('(Diabetes)') ? rawKey : `${rawKey} (Diabetes)`;
-      const rawImpact = item.impact ?? item.shap_value ?? item.importance ?? 0;
-      const impactStr = typeof rawImpact === 'number'
-        ? (rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3))
-        : String(rawImpact);
+      const humanLabel = DIABETES_FACTOR_LABELS[rawKey] || rawKey;
+      const name = humanLabel.includes('(Diabetes)') ? humanLabel : `${humanLabel} (Diabetes)`;
+      const numImpact = typeof item.impact === 'number' ? item.impact : (typeof item.shap_value === 'number' ? item.shap_value : (parseFloat(String(item.impact).replace('+', '')) || 0));
+      const impactStr = numImpact >= 0 ? `+${numImpact.toFixed(3)}` : numImpact.toFixed(3);
       const valStr = getDiabetesFactorValue(rawKey, item);
       return {
+        module: 'diabetes',
+        rawKey,
         name,
         value: valStr,
         impact: impactStr,
-        type: item.type || ((typeof rawImpact === 'number' && rawImpact < 0) ? 'protective_factor' : 'risk_driver')
+        rawImpact: numImpact,
+        type: item.type || (numImpact < 0 ? 'protective_factor' : 'risk_driver')
       };
     });
   }
@@ -214,6 +355,22 @@ export default function AIHub({
 
   const { overallRiskLabel, overallProbLabel } = computeOverallRiskSummary();
 
+  // Extract CAD risk level and percent string robustly
+  const cadRiskLevel =
+    cadPred.riskLevel ||
+    cadPred.risk_level ||
+    (typeof cadPred.prediction === 'number'
+      ? (cadPred.prediction === 1 ? 'At Risk' : 'Low Risk')
+      : (isCadLoaded ? 'Assessed Risk' : null));
+
+  const cadProbStr =
+    cadPred.riskPercent ||
+    (typeof cadPred.risk_percent === 'number' ? `${cadPred.risk_percent.toFixed(1)}%` : null) ||
+    (typeof cadPred.riskProbability === 'number' ? `${(cadPred.riskProbability * 100).toFixed(1)}%` : null) ||
+    (typeof cadPred.risk_probability === 'number' ? `${(cadPred.risk_probability * 100).toFixed(1)}%` : null) ||
+    (typeof cadPred.raw_probability === 'number' ? `${(cadPred.raw_probability * 100).toFixed(1)}%` : null) ||
+    '';
+
   const defaultMessages = {
     cad_coach: [
       {
@@ -222,7 +379,7 @@ export default function AIHub({
         widget: {
           type: 'COPYABLE_DOCTOR_QUESTIONS',
           data: {
-            title: 'Cardiovascular Health Questions for Your Doctor',
+            title: 'Heart Health Questions for Your Doctor',
             questions: [
               'What dietary changes will help lower my cholesterol?',
               'How frequently should I monitor my blood pressure at home?',
@@ -242,8 +399,8 @@ export default function AIHub({
             overall_risk: overallRiskLabel || 'Assessed Risk',
             probability: overallProbLabel || '',
             module_risks: {
-              cad: isCadLoaded ? { risk: cadPred.riskLevel || 'Assessed Risk', prob: cadPred.riskPercent || (cadPred.riskProbability ? `${(cadPred.riskProbability * 100).toFixed(1)}%` : '') } : null,
-              diabetes: isDiabetesLoaded ? { risk: diabetesPrediction?.risk_label || diabetesPrediction?.risk_band || 'Assessed Risk', prob: diabetesPrediction?.risk_probability ? `${(diabetesPrediction.risk_probability * 100).toFixed(1)}%` : '' } : null,
+              cad: isCadLoaded ? { risk: cadRiskLevel, prob: cadProbStr } : null,
+              diabetes: isDiabetesLoaded ? { risk: diabetesPrediction?.risk_band || diabetesPrediction?.risk_label || 'Assessed Risk', prob: diabetesPrediction?.risk_probability ? `${(diabetesPrediction.risk_probability * 100).toFixed(1)}%` : '' } : null,
               readmission: isReadmissionLoaded ? { risk: readmissionPrediction?.urgency_level || 'Assessed Urgency', prob: readmissionPrediction?.clinical_severity_score ? `Score: ${readmissionPrediction.clinical_severity_score}/100` : '' } : null
             },
             factors: combinedShapFactors
