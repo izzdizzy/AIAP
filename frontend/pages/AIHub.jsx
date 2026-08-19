@@ -7,6 +7,7 @@ import { loadStoredAIMessages, saveStoredAIMessages } from '../services/storage'
 export default function AIHub({
   assessmentState,
   diabetesPrediction,
+  diabetesForm,
   readmissionPrediction,
   readmissionForm,
   subsidyTier,
@@ -18,6 +19,108 @@ export default function AIHub({
 
   // Subsidy tier is auto-populated from readmission form's CHAS tier; not user-editable
   const activeSubsidy = readmissionForm?.chas_tier || 'Not provided';
+
+  // Extract model states
+  const cadPred = assessmentState?.prediction?.backendPrediction || assessmentState?.prediction || {};
+  const cadForm = assessmentState?.assessmentForm || assessmentState?.assessment || {};
+
+  // Calculate loaded data status badges
+  const isCadLoaded = Boolean(assessmentState?.prediction);
+  const isDiabetesLoaded = Boolean(diabetesPrediction);
+  const isReadmissionLoaded = Boolean(readmissionPrediction);
+
+  // CAD Feature Label Map
+  const CAD_LABELS = {
+    chol: 'Serum Cholesterol',
+    trestbps: 'Resting Blood Pressure',
+    thalach: 'Max Heart Rate',
+    oldpeak: 'ST Depression (Oldpeak)',
+    cp: 'Chest Pain Type',
+    ca: 'Major Vessels Count',
+    exang: 'Exercise-Induced Angina',
+    age: 'Age',
+    sex: 'Biological Sex',
+    fbs: 'Fasting Blood Sugar',
+    restecg: 'Resting ECG',
+    slope: 'ST Slope',
+    thal: 'Thalassemia'
+  };
+
+  function normalizeCadFactors(factors = []) {
+    return factors.map((item, idx) => {
+      const rawKey = item.feature || item.name || item.key || `Factor ${idx + 1}`;
+      const name = CAD_LABELS[rawKey] ? `${CAD_LABELS[rawKey]} (CAD)` : (rawKey.includes('(CAD)') ? rawKey : `${rawKey} (CAD)`);
+      let impact = item.impact ?? item.shap_value ?? item.importance ?? 0;
+      if (typeof impact === 'number') {
+        impact = impact >= 0 ? `+${impact.toFixed(3)}` : impact.toFixed(3);
+      }
+      return {
+        name,
+        value: item.value != null ? String(item.value) : 'Observed',
+        impact: String(impact),
+        type: item.direction === 'negative' || (typeof item.impact === 'number' && item.impact < 0) ? 'protective_factor' : 'risk_driver'
+      };
+    });
+  }
+
+  function normalizeReadmissionFactors(factors = []) {
+    return factors.map((item, idx) => {
+      const label = item.feature_name || item.name || item.feature || `Factor ${idx + 1}`;
+      const name = label.includes('(Readmission)') ? label : `${label} (Readmission)`;
+      const rawImpact = item.shap_value ?? item.impact ?? item.importance ?? 0;
+      const impactStr = typeof rawImpact === 'number'
+        ? (rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3))
+        : String(rawImpact);
+      const val = item.feature_value ?? item.value;
+      return {
+        name,
+        value: val != null ? String(val) : 'Observed',
+        impact: impactStr,
+        type: (typeof rawImpact === 'number' && rawImpact < 0) ? 'protective_factor' : 'risk_driver'
+      };
+    });
+  }
+
+  function normalizeDiabetesFactors(factors = []) {
+    return factors.map((item, idx) => {
+      if (typeof item === 'string') {
+        return { name: `${item} (Diabetes)`, value: 'Observed', impact: '+0.200', type: 'risk_driver' };
+      }
+      const rawKey = item.name || item.feature || `Factor ${idx + 1}`;
+      const name = rawKey.includes('(Diabetes)') ? rawKey : `${rawKey} (Diabetes)`;
+      const rawImpact = item.impact ?? item.shap_value ?? item.importance ?? 0;
+      const impactStr = typeof rawImpact === 'number'
+        ? (rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3))
+        : String(rawImpact);
+      return {
+        name,
+        value: item.value != null ? String(item.value) : 'Observed',
+        impact: impactStr,
+        type: item.type || ((typeof rawImpact === 'number' && rawImpact < 0) ? 'protective_factor' : 'risk_driver')
+      };
+    });
+  }
+
+  const cadFactorsList = cadPred.topFactors || cadPred.top_factors || [];
+  const readmissionFactorsList = readmissionPrediction?.shap_values || readmissionPrediction?.top_positive_features || [];
+  const diabetesFactorsList = diabetesPrediction?.top_factors || [];
+
+  const combinedShapFactors = [
+    ...normalizeDiabetesFactors(diabetesFactorsList),
+    ...normalizeCadFactors(cadFactorsList),
+    ...normalizeReadmissionFactors(readmissionFactorsList)
+  ];
+
+  const overallRiskLabel =
+    diabetesPrediction?.risk_label || diabetesPrediction?.risk_band ||
+    cadPred.riskLevel || cadPred.risk_level ||
+    readmissionPrediction?.urgency_level ||
+    (isCadLoaded || isDiabetesLoaded || isReadmissionLoaded ? 'Assessed Clinical Risk' : null);
+
+  const overallProbLabel =
+    diabetesPrediction?.risk_probability ? String(diabetesPrediction.risk_probability) :
+    cadPred.riskPercent ||
+    (readmissionPrediction?.clinical_severity_score ? `Severity: ${readmissionPrediction.clinical_severity_score}/100` : '');
 
   const defaultMessages = {
     cad_coach: [
@@ -40,13 +143,13 @@ export default function AIHub({
     diabetes_explainer: [
       {
         role: 'assistant',
-        content: "Welcome! I'm your **Diabetes Specialist & Results Explainer**. I translate machine learning feature contributions into plain-language insights so you can target your risk factors effectively.",
-        widget: diabetesPrediction?.top_factors ? {
+        content: "Welcome! I'm your **Clinical Results & SHAP Explainer**. I translate machine learning risk assessment scores and feature contributions (across CAD, Diabetes, and Hospital Readmission) into plain-language insights so you can target your risk factors effectively.",
+        widget: combinedShapFactors.length > 0 ? {
           type: 'SHAP_FACTOR_CARD',
           data: {
-            overall_risk: diabetesPrediction.risk_label || 'Assessed Risk',
-            probability: String(diabetesPrediction.risk_probability || ''),
-            factors: diabetesPrediction.top_factors
+            overall_risk: overallRiskLabel || 'Assessed Risk',
+            probability: overallProbLabel || '',
+            factors: combinedShapFactors
           }
         } : null
       }
@@ -103,8 +206,8 @@ export default function AIHub({
       title: 'Results Explainer',
       color: '#10b981',
       quickChips: [
-        'Explain my heart Results factors',
-        'Why is my score 75.8%?'
+        'Explain my risk factors',
+        'Summarize my overall results'
       ]
     },
     care_navigator: {
@@ -120,11 +223,6 @@ export default function AIHub({
   };
 
   const currentTab = tabConfig[activeTab];
-
-  // Calculate loaded data status badges
-  const isCadLoaded = Boolean(assessmentState?.prediction);
-  const isDiabetesLoaded = Boolean(diabetesPrediction);
-  const isReadmissionLoaded = Boolean(readmissionPrediction);
 
   function handleSubsidyChange(e) {
     const newTier = e.target.value;
@@ -163,51 +261,62 @@ export default function AIHub({
 
   // Construct patient context
   function getUnifiedPayload() {
+    const cadRiskLevel = cadPred.riskLevel || cadPred.risk_level || (isCadLoaded ? 'Assessed Risk' : null);
+    const cadProb = cadPred.riskPercent || (cadPred.riskProbability ? `${(cadPred.riskProbability * 100).toFixed(1)}%` : null) || (cadPred.probability ? `${(cadPred.probability * 100).toFixed(1)}%` : null);
+
     return {
       demographics: {
-        age: assessmentState?.assessmentForm?.age || readmissionForm?.age,
-        gender: assessmentState?.assessmentForm?.gender || readmissionForm?.gender,
+        age: cadForm.age || (diabetesForm?.Age ? String(diabetesForm.Age) : null) || readmissionForm?.age,
+        gender: cadForm.gender || (cadForm.sex !== undefined ? String(cadForm.sex) : null) || (diabetesForm?.Sex !== undefined ? String(diabetesForm.Sex) : null) || readmissionForm?.gender,
         subsidy_tier: activeSubsidy
       },
       form_metrics: {
-        blood_pressure: assessmentState?.assessmentForm?.bp || (assessmentState?.assessmentForm?.trestbps ? `${assessmentState.assessmentForm.trestbps}` : null),
-        cholesterol: assessmentState?.assessmentForm?.cholesterol || assessmentState?.assessmentForm?.chol,
-        bmi: assessmentState?.assessmentForm?.bmi,
-        glucose: assessmentState?.assessmentForm?.glucose,
-        active_symptoms: readmissionForm?.symptoms || []
+        blood_pressure: cadForm.bp || (cadForm.trestbps ? `${cadForm.trestbps} mmHg` : null),
+        cholesterol: cadForm.cholesterol || (cadForm.chol ? `${cadForm.chol} mg/dL` : null),
+        bmi: diabetesForm?.BMI || cadForm.bmi,
+        glucose: diabetesForm?.glucose || cadForm.glucose || (cadForm.fbs === 1 || cadForm.fbs === '1' ? '> 120 mg/dL' : null),
+        active_symptoms: readmissionForm?.symptoms || [],
+
+        // Full Raw Modules
+        cad_form: cadForm,
+        diabetes_form: diabetesForm || {},
+        readmission_form: readmissionForm || {}
       },
       ml_scores: {
-        cad_risk_level: assessmentState?.prediction?.risk_level,
-        cad_probability: assessmentState?.prediction?.probability,
+        cad_risk_level: cadRiskLevel,
+        cad_probability: cadProb,
         diabetes_risk_level: diabetesPrediction?.risk_label || diabetesPrediction?.risk_band,
         diabetes_probability: diabetesPrediction?.risk_probability,
-        readmission_risk_level: readmissionPrediction?.urgency_level,
+        readmission_risk_level: readmissionPrediction?.urgency_level || readmissionPrediction?.risk_category,
         readmission_severity_score: readmissionPrediction?.clinical_severity_score
       },
-      shap_factors: diabetesPrediction?.top_factors || []
+      shap_factors: combinedShapFactors
     };
   }
 
-  async function handleSend(promptText) {
+  async function handleSend(promptText, targetTabOverride = null) {
+    const targetTabKey = targetTabOverride || activeTab;
     const query = promptText || inputQuery;
     if (!query.trim() || loading) return;
 
     const userMsg = { role: 'user', content: query };
+    const tabHistory = messages[targetTabKey] || [];
+
     setMessages(prev => ({
       ...prev,
-      [activeTab]: [...prev[activeTab], userMsg]
+      [targetTabKey]: [...(prev[targetTabKey] || []), userMsg]
     }));
 
-    if (!promptText) setInputQuery('');
+    if (!promptText && !targetTabOverride) setInputQuery('');
     setLoading(true);
 
     try {
       const rawInput = getUnifiedPayload();
       const res = await sendGenAIQuery({
         userQuery: query,
-        assistantType: activeTab,
+        assistantType: targetTabKey,
         rawInput,
-        history: activeMessages
+        history: tabHistory
       });
 
       const assistantMsg = {
@@ -218,7 +327,7 @@ export default function AIHub({
 
       setMessages(prev => ({
         ...prev,
-        [activeTab]: [...prev[activeTab], assistantMsg]
+        [targetTabKey]: [...(prev[targetTabKey] || []), assistantMsg]
       }));
     } catch (err) {
       console.error("AI Query Error:", err);
@@ -229,10 +338,20 @@ export default function AIHub({
       };
       setMessages(prev => ({
         ...prev,
-        [activeTab]: [...prev[activeTab], errorMsg]
+        [targetTabKey]: [...(prev[targetTabKey] || []), errorMsg]
       }));
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleCrossTabNavigate(targetTab, promptText) {
+    if (!tabConfig[targetTab]) return;
+    setActiveTab(targetTab);
+    if (promptText) {
+      setTimeout(() => {
+        handleSend(promptText, targetTab);
+      }, 50);
     }
   }
 
@@ -432,6 +551,7 @@ export default function AIHub({
                     <WidgetRenderer
                       widget={msg.widget}
                       onUpdateWidgetData={(newWidgetData) => handleUpdateWidgetData(idx, newWidgetData)}
+                      onNavigateTab={(targetTab, promptText) => handleCrossTabNavigate(targetTab, promptText)}
                     />
                   )}
                 </div>

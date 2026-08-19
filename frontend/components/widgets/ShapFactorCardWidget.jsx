@@ -51,8 +51,50 @@ export default function ShapFactorCardWidget({ data }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {factors.map((factor, idx) => {
-          const isRisk = factor.type === 'risk_driver' || factor.impact?.startsWith('+');
+          if (typeof factor === 'string') {
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  justify: 'space-between',
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)'
+                }}
+              >
+                <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>{factor}</div>
+              </div>
+            );
+          }
+
+          const name = factor.name || factor.feature || factor.feature_name || `Factor ${idx + 1}`;
+          const rawImpact = factor.impact ?? factor.shap_value ?? factor.importance ?? 0;
+          
+          let impactStr = '';
+          let isRisk = false;
+
+          if (typeof rawImpact === 'number') {
+            isRisk = rawImpact >= 0;
+            impactStr = rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3);
+          } else if (typeof rawImpact === 'string') {
+            isRisk = factor.type === 'risk_driver' || rawImpact.startsWith('+') || (!rawImpact.startsWith('-') && !rawImpact.toLowerCase().includes('protect'));
+            impactStr = rawImpact;
+          } else {
+            isRisk = factor.type === 'risk_driver';
+            impactStr = String(rawImpact);
+          }
+
+          if (factor.type === 'protective_factor') {
+            isRisk = false;
+          } else if (factor.type === 'risk_driver') {
+            isRisk = true;
+          }
+
           const impactColor = isRisk ? '#f87171' : '#34d399';
+          const displayValue = factor.value != null ? String(factor.value) : null;
 
           return (
             <div
@@ -68,10 +110,10 @@ export default function ShapFactorCardWidget({ data }) {
               }}
             >
               <div>
-                <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>{factor.name}</div>
-                {factor.value && (
+                <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>{name}</div>
+                {displayValue && (
                   <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-                    Value: {factor.value}
+                    Value: {displayValue}
                   </div>
                 )}
               </div>
@@ -84,7 +126,7 @@ export default function ShapFactorCardWidget({ data }) {
                 padding: '3px 8px',
                 borderRadius: '6px'
               }}>
-                {factor.impact}
+                {impactStr}
               </div>
             </div>
           );

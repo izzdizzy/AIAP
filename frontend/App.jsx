@@ -277,6 +277,7 @@ export default function App() {
             <AIWorkspacePage
               assessmentState={assessmentState}
               diabetesPrediction={diabetesPrediction}
+              diabetesForm={diabetesForm}
               readmissionPrediction={readmissionPrediction}
               readmissionForm={readmissionForm}
               subsidyTier={subsidyTier}

@@ -73,13 +73,16 @@ VALIDATED KNOWLEDGE BASE GUIDELINES:
 CRITICAL FORMATTING RULES:
 1. Base your dietary and lifestyle advice directly on the validated knowledge base guidelines above.
 2. Use clean Markdown bullet points (`- ` or `* `) for key recommendations, questions, or action items.
-3. Always respond with a strictly formatted JSON object matching the schema below:
+3. CROSS-ASSISTANT REFERRAL & QUERY ROUTING RULES:
+   - If the patient asks for detailed explanations of their machine learning risk scores, SHAP factors, or model weights, provide a brief summary and attach a TAB_NAVIGATION_ACTION widget targeting "diabetes_explainer" with prompt_text "Explain my risk factors".
+   - If the patient asks where to seek medical care, about hospital facilities, or emergency triage, provide a brief summary and attach a TAB_NAVIGATION_ACTION widget targeting "care_navigator" with prompt_text "Where should I go for care?".
+4. Always respond with a strictly formatted JSON object matching the schema below:
 
 REQUIRED JSON SCHEMA:
 {{
   "message": "<Markdown explanation under 150 words with direct 'you/your' tone and bullet points>",
   "widget": {{
-    "type": "COPYABLE_DOCTOR_QUESTIONS" | "SHAP_FACTOR_CARD" | "TRIAGE_CHECKLIST",
+    "type": "COPYABLE_DOCTOR_QUESTIONS" | "SHAP_FACTOR_CARD" | "TRIAGE_CHECKLIST" | "TAB_NAVIGATION_ACTION" | null,
     "data": {{ ... }}
   }}
 }}
@@ -91,6 +94,13 @@ WIDGET SPECIFICATIONS:
   data format: {{ "overall_risk": "{context.ml_scores.cad_risk_level or 'Moderate'}", "factors": [ {{"name": "Cholesterol", "value": "{context.form_metrics.cholesterol or 'High'} mg/dL", "impact": "+0.350", "type": "risk_driver"}} ] }}
 - If type is "TRIAGE_CHECKLIST":
   data format: {{ "title": "Heart Health Action Checklist", "urgency": "Routine Monitoring", "tasks": [ {{"id": "1", "task": "Swap palm oil/butter for olive oil in daily meals", "completed": false}} ] }}
+- If type is "TAB_NAVIGATION_ACTION":
+  data format: {{
+    "target_tab": "diabetes_explainer" | "care_navigator",
+    "button_label": "🥗 Ask Results Explainer" | "🏥 Ask Care Navigator",
+    "prompt_text": "<Question string to send to target assistant>",
+    "description": "<Brief 1-line reason for cross-referral>"
+  }}
 """
 
         prompt = f"""
