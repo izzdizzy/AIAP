@@ -67,6 +67,27 @@ class DiabetesExplainerService:
                     {"name": "BMI / Age Factor", "value": f"Age {context.demographics.age or 50}", "impact": "+0.210", "type": "risk_driver"}
                 ]
 
+        # Compute multi-model overall risk badge
+        active_scores = []
+        if context.ml_scores.cad_risk_level:
+            active_scores.append(f"CAD: {context.ml_scores.cad_risk_level}")
+        if context.ml_scores.diabetes_risk_level:
+            active_scores.append(f"Diabetes: {context.ml_scores.diabetes_risk_level}")
+        if context.ml_scores.readmission_risk_level:
+            active_scores.append(f"Readmission: {context.ml_scores.readmission_risk_level}")
+
+        overall_risk_str = " | ".join(active_scores) if active_scores else "Assessed Clinical Risk"
+
+        active_probs = []
+        if context.ml_scores.cad_probability:
+            active_probs.append(f"CAD: {context.ml_scores.cad_probability}")
+        if context.ml_scores.diabetes_probability:
+            active_probs.append(f"Dia: {context.ml_scores.diabetes_probability}")
+        if context.ml_scores.readmission_severity_score:
+            active_probs.append(f"Readm: {context.ml_scores.readmission_severity_score}/100")
+
+        overall_prob_str = " | ".join(active_probs)
+
         system_prompt = f"""
 You are the Clinical Results & SHAP Explainer. Your task is to explain patient risk model outcomes and feature contributions across all completed assessments (CAD Risk, Diabetes Classifier, Hospital Readmission) in clear, encouraging, non-alarming language.
 
@@ -108,8 +129,8 @@ REQUIRED JSON SCHEMA:
 WIDGET SPECIFICATIONS:
 - If type is "SHAP_FACTOR_CARD":
   data format: {{
-    "overall_risk": "{context.ml_scores.diabetes_risk_level or context.ml_scores.cad_risk_level or 'Assessed Risk'}",
-    "probability": "{context.ml_scores.diabetes_probability or context.ml_scores.cad_probability or 'N/A'}",
+    "overall_risk": "{overall_risk_str}",
+    "probability": "{overall_prob_str}",
     "factors": [ ... ]
   }}
 - If type is "TAB_NAVIGATION_ACTION":

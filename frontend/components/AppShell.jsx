@@ -10,7 +10,7 @@ export default function AppShell({
   readmissionCompleted = false,
   diabetesCompleted = false,
   user = null,
-  onLogout = () => {}
+  onLogout = () => { }
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ export default function AppShell({
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   // App name stays constant across every route.
-  const moduleInfo = { title: 'Clinical Health Assessment Hub', eyebrow: 'Patient Health Assessment' };
+  const moduleInfo = { title: 'General Healthcare Assessment Hub', eyebrow: 'Following Your Heart' };
 
   const isCadActive = currentPath.startsWith('/cad');
   const isReadmissionActive = currentPath.startsWith('/readmission');
@@ -73,30 +73,15 @@ export default function AppShell({
             style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
           >
             <div style={{ position: 'relative' }}>
-              <div style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '8px',
-                background: 'var(--accent)',
-                display: 'grid',
-                placeItems: 'center',
-                color: 'white',
-                fontWeight: '700',
-                fontSize: '16px'
-              }}>
-                +
-              </div>
-              <span
-                title="Service Online"
+              <img
+                src="../theme/icon.png"
+                alt="App Icon"
                 style={{
-                  position: 'absolute',
-                  bottom: '-2px',
-                  right: '-2px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#16a34a',
-                  border: '2px solid var(--surface, #0f172a)'
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  objectFit: 'cover',
+                  display: 'block'
                 }}
               />
             </div>
@@ -350,37 +335,37 @@ export default function AppShell({
         {(currentPath.startsWith('/cad') ||
           currentPath.startsWith('/readmission') ||
           currentPath.startsWith('/diabetes')) && (
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              alignSelf: 'flex-start',
-              padding: '6px 14px',
-              marginBottom: '12px',
-              borderRadius: '8px',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              border: '1px solid var(--border)',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'color 160ms ease, border-color 160ms ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--text)';
-              e.currentTarget.style.borderColor = 'var(--accent)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--text-muted)';
-              e.currentTarget.style.borderColor = 'var(--border)';
-            }}
-          >
-            ← Back to Dashboard
-          </button>
-        )}
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                alignSelf: 'flex-start',
+                padding: '6px 14px',
+                marginBottom: '12px',
+                borderRadius: '8px',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border)',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'color 160ms ease, border-color 160ms ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text)';
+                e.currentTarget.style.borderColor = 'var(--accent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-muted)';
+                e.currentTarget.style.borderColor = 'var(--border)';
+              }}
+            >
+              ← Back to Dashboard
+            </button>
+          )}
         {children}
       </main>
       {changePasswordOpen && (

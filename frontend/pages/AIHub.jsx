@@ -29,7 +29,7 @@ export default function AIHub({
   const isDiabetesLoaded = Boolean(diabetesPrediction);
   const isReadmissionLoaded = Boolean(readmissionPrediction);
 
-  // CAD Feature Label Map
+  // Feature Label & Value Translation Maps
   const CAD_LABELS = {
     chol: 'Serum Cholesterol',
     trestbps: 'Resting Blood Pressure',
@@ -46,6 +46,58 @@ export default function AIHub({
     thal: 'Thalassemia'
   };
 
+  const CP_LABELS = { 1: 'Typical Angina (1)', 2: 'Atypical Angina (2)', 3: 'Non-anginal Pain (3)', 4: 'Asymptomatic (4)' };
+  const RESTECG_LABELS = { 0: 'Normal (0)', 1: 'ST-T Abnormality (1)', 2: 'LV Hypertrophy (2)' };
+  const SLOPE_LABELS = { 1: 'Upsloping (1)', 2: 'Flat (2)', 3: 'Downsloping (3)' };
+  const THAL_LABELS = { 3: 'Normal (3)', 6: 'Fixed Defect (6)', 7: 'Reversible Defect (7)' };
+  const GENHLTH_LABELS = { 1: 'Excellent (1)', 2: 'Very Good (2)', 3: 'Good (3)', 4: 'Fair (4)', 5: 'Poor (5)' };
+
+  function getCadFactorValue(rawKey, item) {
+    if (item.value != null && String(item.value).toLowerCase() !== 'observed') {
+      return String(item.value);
+    }
+    const val = cadForm[rawKey];
+    if (val == null) return null;
+    if (rawKey === 'cp') return CP_LABELS[val] || `Type ${val}`;
+    if (rawKey === 'chol') return `${val} mg/dL`;
+    if (rawKey === 'trestbps') return `${val} mmHg`;
+    if (rawKey === 'thalach') return `${val} bpm`;
+    if (rawKey === 'fbs') return Number(val) === 1 ? 'Elevated (>120 mg/dL)' : 'Normal (<=120 mg/dL)';
+    if (rawKey === 'exang') return Number(val) === 1 ? 'Yes' : 'No';
+    if (rawKey === 'restecg') return RESTECG_LABELS[val] || String(val);
+    if (rawKey === 'slope') return SLOPE_LABELS[val] || String(val);
+    if (rawKey === 'thal') return THAL_LABELS[val] || String(val);
+    if (rawKey === 'sex') return Number(val) === 1 ? 'Male' : 'Female';
+    if (rawKey === 'ca') return `${val} vessels`;
+    return String(val);
+  }
+
+  function getDiabetesFactorValue(rawKey, item) {
+    if (item.value != null && String(item.value).toLowerCase() !== 'observed') {
+      return String(item.value);
+    }
+    const val = diabetesForm?.[rawKey];
+    if (val == null) return null;
+    if (rawKey === 'GenHlth') return GENHLTH_LABELS[val] || String(val);
+    if (rawKey === 'BMI') return `${val}`;
+    if (rawKey === 'Age') return `Age Group ${val}`;
+    if (['HighBP', 'HighChol', 'PhysActivity', 'DiffWalk', 'Smoker', 'HeartDiseaseorAttack', 'Fruits', 'Veggies'].includes(rawKey)) {
+      return Number(val) === 1 || val === '1' ? 'Yes' : 'No';
+    }
+    return String(val);
+  }
+
+  function getReadmissionFactorValue(rawKey, item) {
+    const rawVal = item.feature_value ?? item.value;
+    if (rawVal != null && String(rawVal).toLowerCase() !== 'observed') {
+      return String(rawVal);
+    }
+    const formVal = readmissionForm?.[rawKey];
+    if (formVal == null) return null;
+    if (Array.isArray(formVal)) return formVal.join(', ');
+    return String(formVal);
+  }
+
   function normalizeCadFactors(factors = []) {
     return factors.map((item, idx) => {
       const rawKey = item.feature || item.name || item.key || `Factor ${idx + 1}`;
@@ -54,9 +106,10 @@ export default function AIHub({
       if (typeof impact === 'number') {
         impact = impact >= 0 ? `+${impact.toFixed(3)}` : impact.toFixed(3);
       }
+      const valStr = getCadFactorValue(rawKey, item);
       return {
         name,
-        value: item.value != null ? String(item.value) : 'Observed',
+        value: valStr,
         impact: String(impact),
         type: item.direction === 'negative' || (typeof item.impact === 'number' && item.impact < 0) ? 'protective_factor' : 'risk_driver'
       };
@@ -66,15 +119,16 @@ export default function AIHub({
   function normalizeReadmissionFactors(factors = []) {
     return factors.map((item, idx) => {
       const label = item.feature_name || item.name || item.feature || `Factor ${idx + 1}`;
+      const rawKey = item.feature || item.feature_name || label;
       const name = label.includes('(Readmission)') ? label : `${label} (Readmission)`;
       const rawImpact = item.shap_value ?? item.impact ?? item.importance ?? 0;
       const impactStr = typeof rawImpact === 'number'
         ? (rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3))
         : String(rawImpact);
-      const val = item.feature_value ?? item.value;
+      const valStr = getReadmissionFactorValue(rawKey, item);
       return {
         name,
-        value: val != null ? String(val) : 'Observed',
+        value: valStr,
         impact: impactStr,
         type: (typeof rawImpact === 'number' && rawImpact < 0) ? 'protective_factor' : 'risk_driver'
       };
@@ -84,7 +138,8 @@ export default function AIHub({
   function normalizeDiabetesFactors(factors = []) {
     return factors.map((item, idx) => {
       if (typeof item === 'string') {
-        return { name: `${item} (Diabetes)`, value: 'Observed', impact: '+0.200', type: 'risk_driver' };
+        const valStr = getDiabetesFactorValue(item, {});
+        return { name: `${item} (Diabetes)`, value: valStr, impact: '+0.200', type: 'risk_driver' };
       }
       const rawKey = item.name || item.feature || `Factor ${idx + 1}`;
       const name = rawKey.includes('(Diabetes)') ? rawKey : `${rawKey} (Diabetes)`;
@@ -92,9 +147,10 @@ export default function AIHub({
       const impactStr = typeof rawImpact === 'number'
         ? (rawImpact >= 0 ? `+${rawImpact.toFixed(3)}` : rawImpact.toFixed(3))
         : String(rawImpact);
+      const valStr = getDiabetesFactorValue(rawKey, item);
       return {
         name,
-        value: item.value != null ? String(item.value) : 'Observed',
+        value: valStr,
         impact: impactStr,
         type: item.type || ((typeof rawImpact === 'number' && rawImpact < 0) ? 'protective_factor' : 'risk_driver')
       };
@@ -111,16 +167,52 @@ export default function AIHub({
     ...normalizeReadmissionFactors(readmissionFactorsList)
   ];
 
-  const overallRiskLabel =
-    diabetesPrediction?.risk_label || diabetesPrediction?.risk_band ||
-    cadPred.riskLevel || cadPred.risk_level ||
-    readmissionPrediction?.urgency_level ||
-    (isCadLoaded || isDiabetesLoaded || isReadmissionLoaded ? 'Assessed Clinical Risk' : null);
+  // Synthesize multi-model overall risk label and probability badges
+  function computeOverallRiskSummary() {
+    const activeResults = [];
+    const probs = [];
 
-  const overallProbLabel =
-    diabetesPrediction?.risk_probability ? String(diabetesPrediction.risk_probability) :
-    cadPred.riskPercent ||
-    (readmissionPrediction?.clinical_severity_score ? `Severity: ${readmissionPrediction.clinical_severity_score}/100` : '');
+    if (isCadLoaded) {
+      const lvl = cadPred.riskLevel || cadPred.risk_level || 'Assessed Risk';
+      const pct = cadPred.riskPercent || (cadPred.riskProbability ? `${(cadPred.riskProbability * 100).toFixed(1)}%` : null);
+      activeResults.push({ module: 'CAD', level: lvl, pct });
+      if (pct) probs.push(`CAD: ${pct}`);
+    }
+
+    if (isDiabetesLoaded) {
+      const lvl = diabetesPrediction?.risk_label || diabetesPrediction?.risk_band || 'Assessed Risk';
+      const prob = diabetesPrediction?.risk_probability ? `${(diabetesPrediction.risk_probability * 100).toFixed(1)}%` : null;
+      activeResults.push({ module: 'Diabetes', level: lvl, pct: prob });
+      if (prob) probs.push(`Dia: ${prob}`);
+    }
+
+    if (isReadmissionLoaded) {
+      const lvl = readmissionPrediction?.urgency_level || readmissionPrediction?.risk_category || 'Assessed Urgency';
+      const score = readmissionPrediction?.clinical_severity_score ? `${readmissionPrediction.clinical_severity_score}/100` : null;
+      activeResults.push({ module: 'Readm', level: lvl, pct: score });
+      if (score) probs.push(`Readm: ${score}`);
+    }
+
+    if (activeResults.length === 0) {
+      return { overallRiskLabel: 'Assessed Risk', overallProbLabel: '' };
+    }
+
+    if (activeResults.length === 1) {
+      return {
+        overallRiskLabel: `${activeResults[0].module}: ${activeResults[0].level}`,
+        overallProbLabel: activeResults[0].pct || ''
+      };
+    }
+
+    const hasHigh = activeResults.some(r => /high|immediate/i.test(r.level));
+    const hasMod = activeResults.some(r => /mod|increased|surveillance/i.test(r.level));
+    const overallRiskLabel = hasHigh ? 'High Risk' : (hasMod ? 'Moderate Risk' : 'Low Risk');
+    const overallProbLabel = probs.join(' | ');
+
+    return { overallRiskLabel, overallProbLabel };
+  }
+
+  const { overallRiskLabel, overallProbLabel } = computeOverallRiskSummary();
 
   const defaultMessages = {
     cad_coach: [
@@ -149,6 +241,11 @@ export default function AIHub({
           data: {
             overall_risk: overallRiskLabel || 'Assessed Risk',
             probability: overallProbLabel || '',
+            module_risks: {
+              cad: isCadLoaded ? { risk: cadPred.riskLevel || 'Assessed Risk', prob: cadPred.riskPercent || (cadPred.riskProbability ? `${(cadPred.riskProbability * 100).toFixed(1)}%` : '') } : null,
+              diabetes: isDiabetesLoaded ? { risk: diabetesPrediction?.risk_label || diabetesPrediction?.risk_band || 'Assessed Risk', prob: diabetesPrediction?.risk_probability ? `${(diabetesPrediction.risk_probability * 100).toFixed(1)}%` : '' } : null,
+              readmission: isReadmissionLoaded ? { risk: readmissionPrediction?.urgency_level || 'Assessed Urgency', prob: readmissionPrediction?.clinical_severity_score ? `Score: ${readmissionPrediction.clinical_severity_score}/100` : '' } : null
+            },
             factors: combinedShapFactors
           }
         } : null
