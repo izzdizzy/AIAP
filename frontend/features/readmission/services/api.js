@@ -14,12 +14,39 @@ const API_BASE = 'http://localhost:8000/readmission/api';
  */
 export async function predictReadmission(patientData) {
   try {
+    // Read CAD and Diabetes risk scores from localStorage for cross-module state sharing
+    const cadRiskScoreRaw = (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('cad_risk_score')
+      : null;
+    const diabetesRiskScoreRaw = (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('diabetes_risk_score')
+      : null;
+
+    // Build payload with optional cross-module scores
+    const payload = { ...patientData };
+    
+    if (cadRiskScoreRaw !== null) {
+      const cadScore = parseFloat(cadRiskScoreRaw);
+      if (!isNaN(cadScore)) {
+        payload.cad_risk_score = cadScore;
+      }
+    }
+    
+    if (diabetesRiskScoreRaw !== null) {
+      const diabetesScore = parseFloat(diabetesRiskScoreRaw);
+      if (!isNaN(diabetesScore)) {
+        payload.diabetes_risk_score = diabetesScore;
+      }
+    }
+
+    console.log('[Readmission Payload]', payload);
+
     const response = await fetch(`${API_BASE}/predict`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(patientData),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

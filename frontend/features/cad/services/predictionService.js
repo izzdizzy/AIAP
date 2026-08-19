@@ -41,6 +41,12 @@ export async function submitAssessment(values) {
     const data = await response.json();
     const prediction = normalizeApiResponse(data);
 
+    // Persist CAD risk score to localStorage for cross-module state sharing
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cadRiskScore = Math.round(data.risk_percent || (data.risk_probability * 100) || 0);
+      window.localStorage.setItem('cad_risk_score', String(cadRiskScore));
+    }
+
     return {
         assessment: payload,
         prediction

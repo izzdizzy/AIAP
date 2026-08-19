@@ -191,6 +191,12 @@ class MLService:
             raise ValueError("Input must be a dictionary or pandas DataFrame")
 
         aligned_df = self._align_features(input_df)
+        
+        # Print CAD and Diabetes risk scores before feature alignment
+        cad_risk_score = aligned_df.get('cad_risk_score', [None])[0] if 'cad_risk_score' in aligned_df.columns else None
+        diabetes_risk_score = aligned_df.get('diabetes_risk_score', [None])[0] if 'diabetes_risk_score' in aligned_df.columns else None
+        print(f"[MLService] cad_risk_score: {cad_risk_score}, diabetes_risk_score: {diabetes_risk_score}")
+        
         clean_df = self._handle_missing_values(aligned_df)
 
         prediction = self.model.predict(clean_df)[0]

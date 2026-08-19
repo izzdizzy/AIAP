@@ -43,7 +43,15 @@ export async function predictRisk(profile) {
       throw new Error(errorData.detail || 'Prediction failed');
     }
     
-    return await response.json();
+    const result = await response.json();
+    
+    // Persist Diabetes risk score to localStorage for cross-module state sharing
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const diabetesRiskScore = Math.round((result.risk_probability || 0) * 100);
+      window.localStorage.setItem('diabetes_risk_score', String(diabetesRiskScore));
+    }
+    
+    return result;
   } catch (error) {
     console.error('Diabetes prediction error:', error);
     throw error;

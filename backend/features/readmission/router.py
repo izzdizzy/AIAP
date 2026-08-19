@@ -35,6 +35,10 @@ async def predict_readmission(patient_data: PatientData):
     try:
         ml_service = get_ml_service()
         patient_dict = patient_data.model_dump(exclude_unset=True)
+        
+        # Debug print to verify scores are arriving at the server
+        print(f"[DEBUG] Received Readmission Payload: {patient_dict}")
+        
         result = ml_service.predict(patient_dict, return_shap=True)
 
         shap_values = []
