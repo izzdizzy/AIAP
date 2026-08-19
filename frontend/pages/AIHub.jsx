@@ -610,7 +610,7 @@ export default function AIHub({
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px', fontFamily: 'inherit' }}>
+    <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '0px', fontFamily: 'inherit' }}>
       {/* 1. Top Tab Bar */}
       <div style={{
         display: 'flex',
