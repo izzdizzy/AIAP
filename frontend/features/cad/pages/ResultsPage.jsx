@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import UnifiedResultsCard from '../../../components/UnifiedResultsCard';
 import { formatPercent } from '../utils/risk';
 
@@ -17,42 +18,31 @@ export default function ResultsPage({
   onOpenChat
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const displayResult = assessmentState?.prediction ?? emptyResult;
 
   const handleChat = onOpenChat || (() => navigate('/ai-insights'));
   const handleEdit = onEditAssessment || (() => navigate('/cad/assessment'));
   const handleOverview = onRestart || (() => navigate('/'));
 
-  const riskLevelText = (displayResult.riskLevel || 'Low').toLowerCase();
-  const pillClass = riskLevelText.includes('high')
-    ? 'risk-pill--high'
-    : riskLevelText.includes('mod')
-    ? 'risk-pill--moderate'
-    : 'risk-pill--low';
-
   const riskProbPct = assessmentState
     ? displayResult.riskPercent
     : formatPercent(displayResult.riskProbability);
 
-  const severityScore = displayResult.riskProbability !== undefined
-    ? Math.round(displayResult.riskProbability * 100)
-    : 0;
-
   const formattedFactors = (displayResult.topFactors || []).map((f) => ({
+    feature: f.feature,
     label: f.feature,
-    value: Math.abs(f.impact || 0.2),
     impact: f.impact,
-    direction: f.impact < 0 ? 'negative' : 'positive'
+    value: Math.abs(f.impact || 0.2)
   }));
 
   return (
     <UnifiedResultsCard
       title="CAD Screening Results"
-      probLabel="Metric Probability"
+      probLabel="CAD Metric Probability"
       probValue={riskProbPct}
-      riskBadgeLabel={`${displayResult.riskLevel} Risk`}
-      pillClass={pillClass}
-      severityScore={severityScore}
+      riskBadgeLabel={`${displayResult.riskLevel || 'Low'} Risk`}
+      riskLevel={displayResult.riskLevel || 'Low'}
       factors={formattedFactors}
       onOpenChat={handleChat}
       onEditAssessment={handleEdit}
@@ -60,6 +50,7 @@ export default function ResultsPage({
       disableChat={!assessmentState?.prediction}
       isMissingPrediction={!assessmentState?.prediction}
       emptyMessage="No CAD screening prediction found. Please complete the assessment form first."
+      user={user}
     />
   );
 }

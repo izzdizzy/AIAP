@@ -31,11 +31,11 @@
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0f172a;
-  --bg-accent: #1e293b;
-  --surface: #1e293b;
-  --surface-muted: #334155;
-  --border: #475569;
+  --bg: #0b0f19;
+  --bg-accent: #151c2e;
+  --surface: #151c2e;
+  --surface-muted: #1e293b;
+  --border: #2e3a50;
   --text: #f8fafc;
   --text-muted: #94a3b8;
   --accent: #14b8a6;
